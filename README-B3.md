@@ -10,6 +10,7 @@
 | # | Sous-brique | Contenu |
 |---|---|---|
 | B3.1 | **État structuré** (livré) | `lib/etat.js` — le formulaire du dossier |
+| B3.2 | **Cerveau** (livré) | `lib/cerveau.js` (pur) + `lib/mistral.js` (adaptateur) — réponse candidate + mise à jour du formulaire |
 | B3.2 | Cerveau | prompt court (règles v1) + 1 appel Mistral `mistral-large-latest` + adaptateur Mistral isolé ; rend réponse candidate + mise à jour du formulaire |
 | B3.3 | Gardes | `lib/gardes.js` — code déterministe avant envoi (question fermée, prix/délai sans source, signature, plaque/téléphone redemandés, récap multi-scooters) |
 | B3.4 | Rejeu des incidents | scénarios des incidents réels documentés (AGB, GG-798-NL…) contre cerveau + gardes |
@@ -54,3 +55,44 @@ etat.formaterPlaque('GG798NL');         // → 'GG-798-NL' (récapitulatifs)
 Rejouent les VRAIES conversations validées en prod (GG-798-NL, contact
 547249072), l'incident push campagne (AGB), les règles 1, 3, 5, 6, 7 et
 l'intégration exacte du JSON de /api/contexte.
+
+## B3.2 — le cerveau (`lib/cerveau.js`, pur) + l'adaptateur Mistral (`lib/mistral.js`)
+
+- **`lib/cerveau.js` — Node PUR, aucun réseau.**
+  - `SYSTEME` : le cahier des charges v1 condensé UNE fois (ton, 6 étapes,
+    9 règles dures, cas particuliers, format de sortie JSON) — **court par
+    construction : < 4 000 caractères** (l'ancien : 187 563, cause racine
+    documentée).
+  - `silenceNecessaire(entree)` : prise de main / pas de message entrant →
+    silence DÉTERMINISTE, le modèle n'est même pas appelé.
+  - `construireMessages(entree)` : prompt système + contexte du dossier —
+    formulaire B3.1 (plaques connues, téléphone « DÉJÀ FOURNI », signaux ⚠),
+    fiche, ligne clients (risque → réponse neutre), conversation COMPLÈTE
+    B2.1 (rôles CLIENT / AGENT IA / COLLÈGUE (à la main), photo/vocal rendus,
+    chaque message borné 2 000 car.), leçons ciblées injectées seulement si
+    présentes.
+  - `parserReponse(texteModele)` : JSON strict souhaité (`response_format
+    json_object` côté API), tolérance de secours (fences, texte autour) ;
+    illisible → drapeau `reponse_illisible`, jamais de crash.
+  - `fusionnerMajEtat(etat, formulaire)` : le LLM remplit un FORMULAIRE —
+    whitelist stricte (plaque/plaques, panne, jours_fermeture, etape 1-6,
+    telephone_contact), normalisations B3.1, et **jamais d'écrasement** d'une
+    info déjà donnée par le client.
+- **`lib/mistral.js` — le SEUL module qui parle à api.mistral.ai.**
+  - `appelMistral(messages, options)` : `mistral-large-latest` (décision
+    Corentin), Bearer `MISTRAL_API_KEY` (env var Vercel, jamais dans le code),
+    `response_format json_object`, erreur ≥ 400 avec 200 premiers caractères.
+  - Retry borné : 2 re-essais MAX, uniquement sur coupures transitoires
+    (502/503/504/529 + erreurs réseau) — jamais sur 401/429 (leçon §8).
+- Le processeur (B4) enchaînera : `silenceNecessaire` → `construireMessages`
+  → `appelMistral` → `parserReponse` → **gardes (B3.3)** → `fusionnerMajEtat`.
+  La réponse candidate ne part JAMAIS directement au client.
+
+### Tests — `node --test tests/test-cerveau.js` (23 tests)
+Prompt court borné + les 9 règles présentes ; rendus formulaire/photo/vocal/
+collègue/leçons ; silences ; parse (propre, fences, texte autour, illisible,
+silence voulu) ; fusion (dédup, jamais d'écrasement, étape bornée, champs
+inconnus ignorés) ; adaptateur simulé (Bearer, json_object, 401 immédiat, 503
+puis 200, 3×503 → épuisement, erreur réseau) ; intégration complète sur le fil
+réel GG-798-NL.
+
