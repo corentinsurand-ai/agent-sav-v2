@@ -9,6 +9,9 @@ Tous les secrets vivent dans les variables d'environnement Vercel, jamais dans c
 
 - B1.1 : api/webhook — reçoit les webhooks respond.io, enregistre dans Supabase
 - B2.1 : api/contexte — lit le contexte complet d'un contact (fiche, historique, commentaires), lecture seule
+- B2.2 : api/sync-clients — miroir Google Sheet → agent_sav.clients (cron quotidien)
+- B3 : le cerveau (lib/etat, lib/cerveau, lib/mistral, lib/gardes) — voir README-B3.md
+- B4.1 : api/process — le processeur, MODE OBSERVATION (voir README-B4.md)
 
 ## Fichiers
 
@@ -19,4 +22,4 @@ Tous les secrets vivent dans les variables d'environnement Vercel, jamais dans c
 
 ## Tests
 
-Commandes : node --test tests/test-webhook.js puis node --test tests/test-contexte.js
+Commandes : node --test tests/test-webhook.js puis node --test tests/test-contexte.js, etc. — TOUJOURS fichier par fichier (jamais node --test tests/ en bloc).
