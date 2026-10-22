@@ -324,3 +324,18 @@ test("escalade affichée avec sa raison (l'orphelin est visible dans l'écran)",
   assert.ok(r.corps.indexOf("Escalade demandée") !== -1);
   assert.ok(r.corps.indexOf("réponse orpheline sans question en attente") !== -1);
 });
+
+test("date affichée en HEURE DE PARIS (l'horodatage Supabase est UTC, Paris est à +2 en été / +1 en hiver)", async () => {
+  reinitialise();
+  dbJournal = [
+    observation("547249072", "été", "2026-10-22T15:40:01.000Z"),
+    observation("547249072", "hiver", "2026-12-01T23:40:01.000Z")
+  ];
+  const r = await apiObservations(requete("secret=secret-de-test-b5"), faireRes());
+  assert.strictEqual(r.statusCode, 200);
+  // 22/10 15:40:01 UTC = 17:40:01 à Paris (heure d'été) ; 01/12 23:40:01 UTC = 00:40:01 du 02/12 à Paris (heure d'hiver)
+  assert.ok(r.corps.indexOf("17:40:01") !== -1, "heure d'été convertie");
+  assert.ok(r.corps.indexOf("00:40:01") !== -1, "heure d'hiver convertie (changement d'heure géré)");
+  assert.ok(r.corps.indexOf("(Paris)") !== -1, "le fuseau est affiché");
+  assert.ok(r.corps.indexOf("15:40:01") === -1, "l'heure UTC brute ne doit plus être affichée");
+});

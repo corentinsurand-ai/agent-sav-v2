@@ -81,6 +81,23 @@ function echapper(s) {
     .replace(/"/g, "&quot;");
 }
 
+// Horodatage du journal = UTC (Supabase) — or Corentin est à Paris : l'écran
+// affiche l'heure LOCALE de Paris. Intl + Europe/Paris gère seul le passage
+// heure d'été/hiver (UTC+2 / UTC+1). Repli : UTC brut si Intl indisponible.
+function dateParis(iso) {
+  var t = Date.parse(iso);
+  if (isNaN(t) || !t) return String(iso || "");
+  try {
+    return new Intl.DateTimeFormat("fr-FR", {
+      timeZone: "Europe/Paris",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+    }).format(new Date(t)) + " (Paris)";
+  } catch (e) {
+    return String(iso).replace("T", " ").slice(0, 19) + " (UTC)";
+  }
+}
+
 function carte(ligne) {
   var ancien = ligne.reponse_ancien || "<em>(aucune réponse réelle — l'ancien agent n'a pas encore répondu, ou un collègue l'a prise)</em>";
   var alerte = ligne.avertissement
@@ -95,7 +112,7 @@ function carte(ligne) {
     '<div class="carte">' +
     '<div class="entete">' +
     '<span class="nom">' + echapper(ligne.nom || ligne.contact_id) + "</span>" +
-    '<span class="date">' + echapper(String(ligne.date).replace("T", " ").slice(0, 19)) + "</span>" +
+    '<span class="date">' + echapper(dateParis(ligne.date)) + "</span>" +
     "</div>" +
     '<div class="bloc client"><span class="etiquette">👤 CLIENT</span><div>' + client + "</div></div>" +
     '<div class="deux">' +
@@ -134,7 +151,7 @@ function page(lignes, total, limite) {
     ".vide{background:#fff;border:1px dashed #ccc;border-radius:12px;padding:32px;text-align:center;color:#888}" +
     "</style></head><body>" +
     "<h1>Agent SAV v2 — Observations</h1>" +
-    '<div class="sous">' + total + " observation(s) au total — " + lignes.length + " affichée(s) (limit " + limite + ") — mode observation : aucune réponse du nouveau cerveau n'a été envoyée aux clients.</div>" +
+    '<div class="sous">' + total + " observation(s) au total — " + lignes.length + " affichée(s) (limit " + limite + ") — heures affichées : Paris. Mode observation : aucune réponse du nouveau cerveau n'a été envoyée aux clients.</div>" +
     corps +
     "</body></html>";
 }
