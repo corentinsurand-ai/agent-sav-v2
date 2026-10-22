@@ -118,3 +118,44 @@ Compteurs : `tests/test-process.js` 39/39 (retour à l'original + test
 plaque répétée restauré + assertion cycle_prevu), `tests/test-console.js`
 16/16 (scénario GE-365-DD/GR-335-TT réécrit sur le comportement validé +
 cycle_prevu), `tests/test-cycles.js` 21/21 (NOUVEAU). Projet complet : 285/285.
+
+## CORRECTIF B5.4.3 (23/10) — messages MIXTES + le transfert de l'étape 5 devient RÉEL
+
+Deux incidents console signalés par Corentin (23/10) :
+
+1. **« levier de frein avant cassé. GF-887-DD a une crevaison arrière » → la
+   réponse ne disait QUE « cette plaque ne correspond pas à notre parc »** :
+   la garde interceptait TOUT le message et ignorait le problème décrit (la
+   panne n'était même pas capturée). Le canonique seul reste pour une plaque
+   citée SEULE ; un message MIXTE passe désormais au CERVEAU avec le résultat
+   de la vérification INJECTÉ (l'autorité du parc reste déterministe, ici) :
+   - `messageMixte(texte, plaques)` (PUR) : ≥ 2 mots significatifs hors
+     plaque (stoplist grammaticale, tous formats d'écriture retirés) ;
+   - mixte → leçon « la plaque X n'est PAS dans notre parc — réponds au
+     reste, mais demande la saisie exacte (question OUVERTE) » + journal
+     `process_plaque_mixte` ;
+   - plaque seule → canonique 0 Mistral, INCHANGÉ (comportement validé).
+2. **« après avoir fini la qualification, le cycle ne change pas »** : le
+   prompt ne disait PAS que l'étape 5 = escalade — Mistral répondait « vos
+   demandes sont bien enregistrées, l'équipe technique prendra contact »
+   avec `escalade: false` (clôture muette, le dossier ne part jamais) :
+   - `lib/cerveau.js` : étape 5 = TRANSFERT RÉEL (`"escalade": true` + raison
+     + formulaire COMPLET : panne, telephone_contact, etape 5) ; SORTIE :
+     « escalade = true pour TOUT transfert à l'équipe » + « mets panne à
+     jour DÈS QUE le client décrit un problème » ;
+   - G11 (`transfert_sans_escalade`) : annonce de transfert réclamée à
+     l'étape 5-6 (formulaire.etape du modèle, passé en `etape_candidate`) SANS
+     escalade → faute → régénération. Après correction → escalade true →
+     cycle « A créer dans Praxedo » (dossier complet) ;
+   - G10 (`plaque_hors_parc_ignoree`) : la réponse doit traiter la plaque
+     hors parc (la citer, ou « notre parc »/« saisie exacte »/« immatriculation ») ;
+   - exception G4 : plaque hors parc non résolue → la demande de saisie est
+     LÉGITIME (ce n'est pas une redemande).
+
+NB : l'état pré-fusion ne porte JAMAIS d'étape ni de panne (rien ne les
+dérive des messages) — le formulaire complet à l'étape 5 est ce qui rend le
+dossier complet et le cycle « A créer dans Praxedo » visible.
+
+Compteurs : `tests/test-gardes.js` 37/37 (27 + G10/G4x/G11), `tests/test-process.js`
+43/43 (mixte bout en bout, G10 régénération, G11 régénération → « A créer
+dans Praxedo », seuil pur), `tests/test-console.js` 17/17. Projet : 300/300.

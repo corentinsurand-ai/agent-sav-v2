@@ -170,21 +170,47 @@ test("message simple → traite, 1 appel Mistral, aucun transfert", async () => 
   assert.ok(res.corps.reponse.indexOf("-Agent IA U'mob-") !== -1);
 });
 
-test("plaque HORS parc → rejet canonique, 0 Mistral, garde cas A, dans_parc false", async () => {
+test("plaque HORS parc SEULE → rejet canonique, 0 Mistral, garde cas A, dans_parc false", async () => {
   reinitialise();
   const res = faireRes();
   await apiTest(requete("secret=secret-de-test-b54",
-    { message: "mon scooter AA-123-BB ne démarre pas", memoire: [] }, "POST"), res);
+    { message: "c est le AA-123-BB", memoire: [] }, "POST"), res);
   assert.strictEqual(res.statusCode, 200);
   assert.strictEqual(res.corps.statut, "traite");
   assert.strictEqual(res.corps.reponse, REPONSE_PLAQUE);
   assert.strictEqual(res.corps.type, "plaque");
   assert.strictEqual(res.corps.appels_mistral, 0);
   assert.strictEqual(appelsMistral, 0);
+  assert.strictEqual(res.corps.cycle_prevu.cycle, null);
   assert.ok(res.corps.actions_simulees[0].indexOf("rejet canonique plaque hors parc") !== -1);
   assert.strictEqual(res.corps.plaques_verifiees.length, 1);
   assert.strictEqual(res.corps.plaques_verifiees[0].plaque, "AA123BB");
   assert.strictEqual(res.corps.plaques_verifiees[0].dans_parc, false);
+});
+
+test("B5.4.3 MIXTE : plaque hors parc + description → le cerveau répond à TOUT (1 Mistral, type cerveau, cycle Attente client)", async () => {
+  // Incident Corentin 23/10 : « il doit quand même dire au client qu'il a
+  // compris le problème » — le canonique seul ignorait la description.
+  reinitialise();
+  reponseConforme = JSON.stringify({
+    reponse: "J'ai bien noté le problème de démarrage de votre scooter. En revanche, je ne retrouve pas la plaque AA-123-BB dans notre parc — quelle est la saisie exacte de l'immatriculation ?\n-Agent IA U'mob-",
+    formulaire: { panne: "ne démarre pas", etape: 3 },
+    escalade: false,
+    raison_escalade: ""
+  });
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { message: "mon scooter AA-123-BB ne démarre pas", memoire: [] }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.statut, "traite");
+  assert.strictEqual(res.corps.type, "cerveau"); // PLUS de rejet canonique : le cerveau répond à tout
+  assert.strictEqual(res.corps.appels_mistral, 1);
+  assert.strictEqual(appelsMistral, 1);
+  assert.notStrictEqual(res.corps.reponse, REPONSE_PLAQUE);
+  assert.ok(res.corps.reponse.indexOf("ne démarre pas") !== -1 || res.corps.reponse.indexOf("démarrage") !== -1);
+  assert.ok(res.corps.reponse.indexOf("AA-123-BB") !== -1);
+  assert.strictEqual(res.corps.etat.panne, "ne démarre pas"); // la panne est capturée DÈS CE TOUR
+  assert.strictEqual(res.corps.cycle_prevu.cycle, "Attente client"); // question posée au client
 });
 
 // ============================================================================
@@ -195,16 +221,16 @@ test("plaque HORS parc → rejet canonique, 0 Mistral, garde cas A, dans_parc fa
 
 test("rejet puis 2e plaque DIFFÉRENTE hors parc (GE-365-DD → GR-335-TT) → rejet canonique À NOUVEAU, 0 Mistral, cycle inchangé (comportement validé)", async () => {
   reinitialise();
-  // échange 1 : 1re plaque hors parc → rejet canonique (étape 1)
+  // échange 1 : 1re plaque hors parc (SEULE) → rejet canonique (étape 1)
   const r1 = faireRes();
   await apiTest(requete("secret=secret-de-test-b54",
-    { message: "mon scooter GE-365-DD ne démarre pas", memoire: [] }, "POST"), r1);
+    { message: "c est le GE-365-DD", memoire: [] }, "POST"), r1);
   assert.strictEqual(r1.corps.type, "plaque");
   assert.strictEqual(r1.corps.reponse, REPONSE_PLAQUE);
   // échange 2 : le client donne une AUTRE plaque, toujours hors parc — la
   // mémoire du navigateur contient l'échange 1 (entrant + rejet sortant)
   const memoire = [
-    { sortant: false, texte: "mon scooter GE-365-DD ne démarre pas", ts: 1792683540000 },
+    { sortant: false, texte: "c est le GE-365-DD", ts: 1792683540000 },
     { sortant: true, texte: r1.corps.reponse, ts: 1792683541000 }
   ];
   const r2 = faireRes();

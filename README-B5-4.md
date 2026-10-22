@@ -112,3 +112,19 @@ Compteurs : `tests/test-console.js` 16/16 (14 + cycle_prevu, scénario
 GE-365-DD/GR-335-TT réécrit sur le comportement validé),
 `tests/test-cycles.js` 21/21 (NOUVEAU), projet complet 285/285.
 Voir README-B4-2-PREP-2.md (§ Correctif B5.4.2).
+
+## B5.4.3 (23/10) — messages mixtes + transfert réel à l'étape 5
+
+Deux comportements corrigés dans la console (incidents Corentin 23/10) :
+
+1. **Plaque inconnue + description dans le même message** : le canonique seul
+   ignorait le problème (« il doit quand même dire au client qu'il a compris
+   le problème »). Désormais le CERVEAU répond à TOUT : il montre qu'il a
+   compris, signale que la plaque n'est pas au parc et demande la saisie
+   exacte — et la panne est capturée dans le formulaire DÈS CE TOUR. Le
+   canonique 0 Mistral reste pour une plaque citée seule.
+2. **Après le « oui » du récapitulatif** : le transfert est désormais RÉEL —
+   `escalade: true` (garde G11 : une annonce de transfert sans escalade est
+   régénérée). Le cycle affiché passe à **A créer dans Praxedo** (dossier
+   complet : téléphone + panne + étape ≥ 5) ou **A qualifier** si le dossier
+   est incomplet. Voir README-B4-2-PREP-2.md (§ Correctif B5.4.3).

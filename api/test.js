@@ -25,7 +25,7 @@
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B5.4.2";
+var VERSION = "B5.4.3";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");

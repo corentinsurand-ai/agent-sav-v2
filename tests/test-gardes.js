@@ -238,3 +238,115 @@ test('repliNeutre : aucune question, aucun prix, signature présente — il pass
   assert.strictEqual(r.ok, true); // le repli ne doit jamais être lui-même fautif
   assert.ok(repli.indexOf("Agent IA U'mob") !== -1);
 });
+
+// ============================================================================
+// B5.4.3 — G10 (plaque hors parc traitée), exception G4, G11 (transfert
+// étape 5-6 sans escalade) — incidents console Corentin 23/10
+// ============================================================================
+
+test('G10 : plaque hors parc signalée + réponse qui la CITE → ok (redemande légitime)', () => {
+  const etat = etatAvec({ plaques: ['GB585DD', 'GF887DD'] });
+  const r = gardes.verifier({
+    reponse: "J'ai bien noté le levier de frein cassé sur votre GB-585-DD. En revanche, je ne retrouve pas la plaque GF-887-DD dans notre parc — quelle est la saisie exacte de l'immatriculation ?\n-Agent IA U'mob-",
+    escalade: false,
+    etat: etat,
+    plaques_hors_parc: ['GF887DD']
+  });
+  assert.strictEqual(r.ok, true);
+  assert.deepStrictEqual(r.fautes, []);
+});
+
+test('G10 + exception G4 : la réponse CITE la plaque hors parc ET demande sa saisie → ni plaque_hors_parc_ignoree ni plaque_redemandee', () => {
+  const etat = etatAvec({ plaques: ['GB585DD', 'GF887DD'] });
+  const r = gardes.verifier({
+    reponse: "Je ne retrouve pas la plaque GF887DD dans notre parc. Quelle est la saisie exacte de la plaque ?\n-Agent IA U'mob-",
+    escalade: false,
+    etat: etat,
+    plaques_hors_parc: ['GF887DD']
+  });
+  assert.strictEqual(r.ok, true); // la redemande d'une plaque HORS PARC est LÉGITIME
+});
+
+test('G10 : plaque hors parc citée dans un message mixte mais IGNORÉE par la réponse → faute avec rappel précis', () => {
+  const etat = etatAvec({ plaques: ['GB585DD', 'GF887DD'] });
+  const r = gardes.verifier({
+    reponse: "Merci pour ces précisions. J'ai bien noté le levier de frein cassé sur votre GB-585-DD.\n-Agent IA U'mob-",
+    escalade: false,
+    etat: etat,
+    plaques_hors_parc: ['GF887DD']
+  });
+  assert.strictEqual(r.ok, false);
+  assert.ok(codes(r).indexOf('plaque_hors_parc_ignoree') !== -1);
+  assert.ok(r.fautes[0].rappel.indexOf('GF-887-DD') !== -1);
+});
+
+test('G10 : réponse qui parle du parc SANS citer la plaque → ok (formulation libre tolérée)', () => {
+  const etat = etatAvec({ plaques: ['GF887DD'] });
+  const r = gardes.verifier({
+    reponse: "Merci, c'est noté. Par contre je ne retrouve pas ce scooter dans notre parc — quelle est la saisie exacte de l'immatriculation ?\n-Agent IA U'mob-",
+    escalade: false,
+    etat: etat,
+    plaques_hors_parc: ['GF887DD']
+  });
+  assert.strictEqual(r.ok, true);
+});
+
+test('G10 : pas de plaques_hors_parc (clé absente) → la garde ne dit rien (rétrocompatibilité)', () => {
+  const etat = etatAvec({ plaques: ['GB585DD'] });
+  const r = gardes.verifier({
+    reponse: "J'ai bien noté votre problème de frein.\n-Agent IA U'mob-",
+    escalade: false,
+    etat: etat
+  });
+  assert.strictEqual(r.ok, true);
+});
+
+test('G11 : annonce de transfert à l étape 5-6 SANS escalade → faute (incident console 23/10 : le cycle ne changeait pas)', () => {
+  // Réalité du terrain : l'état PRÉ-fusion ne porte jamais d'étape (rien ne
+  // la dérive des messages) — c'est le MODÈLE qui réclame etape: 6 dans son
+  // formulaire, comme Mistral dans l'incident console.
+  const etat = etatAvec({ plaques: ['GB585DD', 'GF887DD'], telephone_contact: '33620203963' });
+  const incident = "Vos demandes pour les scooters GB-585-DD et GF-887-DD sont bien enregistrées. L'équipe technique prendra contact avec vous pour organiser les interventions.\n-Agent IA U'mob-";
+  const r = gardes.verifier({ reponse: incident, escalade: false, etat: etat, etape_candidate: 6 });
+  assert.strictEqual(r.ok, false);
+  assert.ok(codes(r).indexOf('transfert_sans_escalade') !== -1);
+});
+
+test('G11 : même annonce AVEC escalade true → ok', () => {
+  const etat = etatAvec({ plaques: ['GB585DD'], telephone_contact: '33620203963' });
+  const transfert = "Merci pour votre confirmation. Je transmets votre dossier à notre équipe technique, qui prendra contact avec vous.\n-Agent IA U'mob-";
+  const r = gardes.verifier({ reponse: transfert, escalade: true, etat: etat, etape_candidate: 5 });
+  assert.strictEqual(r.ok, true);
+});
+
+test('G11 : étape < 5 avec une phrase sur l équipe → PAS de faute (qualification en cours)', () => {
+  const etat = etatAvec({ plaques: ['GB585DD'] });
+  const r = gardes.verifier({
+    reponse: "C'est noté, l'équipe technique regardera votre scooter. Quel est le numéro de téléphone à contacter le jour de l'intervention ?\n-Agent IA U'mob-",
+    escalade: false,
+    etat: etat,
+    etape_candidate: 3
+  });
+  assert.strictEqual(r.ok, true);
+});
+
+test('G11 : étape 5-6 réponse de clôture SANS mot de transfert → ok (simple politesse)', () => {
+  const etat = etatAvec({ plaques: ['GB585DD'] });
+  const r = gardes.verifier({
+    reponse: "Avec plaisir, je reste disponible si besoin. Bonne journée.\n-Agent IA U'mob-",
+    escalade: false,
+    etat: etat,
+    etape_candidate: 6
+  });
+  assert.strictEqual(r.ok, true);
+});
+
+test('G11 : sans etape_candidate ni etape dans l état (vieux comportement) → PAS de faute', () => {
+  const etat = etatAvec({ plaques: ['GB585DD'] });
+  const r = gardes.verifier({
+    reponse: "L'équipe technique prendra contact avec vous pour l'intervention.\n-Agent IA U'mob-",
+    escalade: false,
+    etat: etat
+  });
+  assert.strictEqual(r.ok, true); // rétrocompatibilité : la garde ne dit rien sans étape connue
+});

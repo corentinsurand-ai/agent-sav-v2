@@ -800,13 +800,13 @@ function fichePlaqueTest(tags) {
   fiches["444445"] = { phone: "+33620203963", fullName: "PLAQUE TEST", lifecycle: { name: "Nouvelle Demande" }, tags: tags || [] };
 }
 
-test("PLAQUE hors parc : rejet canonique identique à l ancien, 0 appel Mistral (bout en bout)", async () => {
+test("PLAQUE hors parc SEULE : rejet canonique identique à l ancien, 0 appel Mistral (bout en bout)", async () => {
   reinitialiseDb();
   fichePlaqueTest();
   historiques["444445"] = [
-    itemRespondio({ ts: 1792683540000, texte: "mon scooter GN-223-DD ne démarre pas" })
+    itemRespondio({ ts: 1792683540000, texte: "c est le GN-223-DD" })
   ];
-  enfileMessage("444445", "mon scooter GN-223-DD ne démarre pas");
+  enfileMessage("444445", "c est le GN-223-DD");
   const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
   assert.strictEqual(r.corps.contacts, 1);
   const res = r.corps.resultats[0];
@@ -828,6 +828,110 @@ test("PLAQUE hors parc : rejet canonique identique à l ancien, 0 appel Mistral 
   assert.ok(d.etat && d.etat.plaques.indexOf("GN223DD") !== -1);
   // message consommé
   assert.strictEqual(db.messages[0].statut, "traite");
+});
+
+test("B5.4.3 MIXTE : plaque hors parc + description → le cerveau répond à TOUT (1 Mistral, directive injectée, panne capturée)", async () => {
+  // Incident Corentin 23/10 : « levier de frein avant cassé. GF-887-DD a une
+  // crevaison arrière » → le canonique seul IGNORAIT le problème décrit.
+  reinitialiseDb();
+  fichePlaqueTest();
+  const message = "mon scooter GN-223-DD ne démarre pas";
+  historiques["444445"] = [itemRespondio({ ts: 1792683540000, texte: message })];
+  enfileMessage("444445", message);
+  reponsesMistral.push(JSON.stringify({
+    reponse: "J'ai bien noté le problème de démarrage de votre scooter. En revanche, je ne retrouve pas la plaque GN-223-DD dans notre parc — quelle est la saisie exacte de l'immatriculation ?\n-Agent IA U'mob-",
+    formulaire: { panne: "ne démarre pas", etape: 3 },
+    escalade: false,
+    raison_escalade: ""
+  }));
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  const res = r.corps.resultats[0];
+  assert.strictEqual(res.statut, "traite");
+  assert.strictEqual(res.appels_mistral, 1);
+  assert.notStrictEqual(res.reponse, processLib.REPONSE_PLAQUE);
+  assert.ok(res.reponse.indexOf("ne démarre pas") !== -1 || res.reponse.indexOf("démarrage") !== -1, "la réponse montre que le problème est compris");
+  assert.ok(res.reponse.indexOf("GN-223-DD") !== -1 || res.reponse.indexOf("parc") !== -1, "la réponse signale la plaque inconnue");
+  // la directive plaque hors parc a bien été injectée dans le prompt du cerveau
+  assert.ok(appelsMistral.length === 1);
+  const prompt = JSON.stringify(appelsMistral[0]);
+  assert.ok(prompt.indexOf("n'est PAS dans notre parc") !== -1 && prompt.indexOf("GN-223-DD") !== -1);
+  // journal : PAS de rejet canonique, une étape dédiée mixte
+  assert.ok(!db.journal.some((j) => j.etape === "process_plaque"));
+  assert.ok(db.journal.some((j) => j.etape === "process_plaque_mixte" && j.texte.indexOf("GN223DD") !== -1));
+  // dossier : la panne est capturée DÈS CE TOUR (plus jamais perdue)
+  assert.strictEqual(db.dossiers["444445"].etat.panne, "ne démarre pas");
+  // observation cerveau normale + cycle « Attente client » (question posée)
+  const obs = db.journal.find((j) => j.etape === "observation" && j.contact_id === "444445");
+  assert.strictEqual(obs.detail.cycle_prevu.cycle, "Attente client");
+});
+
+test("B5.4.3 MIXTE : réponse du cerveau qui IGNORE la plaque hors parc → garde G10 → régénération corrigée retenue", async () => {
+  reinitialiseDb();
+  fichePlaqueTest();
+  const message = "mon scooter GN-223-DD ne démarre pas";
+  historiques["444445"] = [itemRespondio({ ts: 1792683540000, texte: message })];
+  enfileMessage("444445", message);
+  reponsesMistral.push(JSON.stringify({
+    reponse: "Merci pour ces précisions, la panne est bien notée.\n-Agent IA U'mob-",
+    formulaire: { panne: "ne démarre pas", etape: 3 },
+    escalade: false,
+    raison_escalade: ""
+  }));
+  reponsesMistral.push(JSON.stringify({
+    reponse: "Merci pour ces précisions, la panne est bien notée. En revanche, je ne retrouve pas la plaque GN-223-DD dans notre parc — quelle est la saisie exacte de l'immatriculation ?\n-Agent IA U'mob-",
+    formulaire: { panne: "ne démarre pas", etape: 3 },
+    escalade: false,
+    raison_escalade: ""
+  }));
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  const res = r.corps.resultats[0];
+  assert.strictEqual(res.statut, "traite");
+  assert.strictEqual(res.appels_mistral, 2); // faute → UNE régénération
+  assert.ok(res.reponse.indexOf("GN-223-DD") !== -1, "la réponse corrigée traite la plaque");
+  // la faute G10 est journalisée avec son code
+  const g = db.journal.find((j) => j.etape === "process_gardes" && j.detail && j.detail.fautes);
+  assert.ok(g && g.detail.fautes.indexOf("plaque_hors_parc_ignoree") !== -1);
+});
+
+test("B5.4.3 G11 : transfert annoncé SANS escalade après le oui → régénération → escalade true, cycle « A créer dans Praxedo »", async () => {
+  // Incident Corentin 23/10 : « Vos demandes sont bien enregistrées, l'équipe
+  // technique prendra contact » + escalade:false → le cycle ne changeait pas.
+  reinitialiseDb();
+  fichePlaqueTest();
+  historiques["444445"] = [
+    itemRespondio({ ts: 1792683540000, texte: "mon scooter AB-123-CD a le levier de frein cassé" }),
+    itemRespondio({ ts: 1792683541000, texte: "Quel est le numéro de téléphone à contacter le jour de l'intervention ?", sortant: true }),
+    itemRespondio({ ts: 1792683542000, texte: "c est le 06 12 34 56 78" }),
+    itemRespondio({ ts: 1792683543000, texte: "Voici le récapitulatif : AB-123-CD, levier cassé, 0612345678. Est-ce que tout est correct ?", sortant: true }),
+    itemRespondio({ ts: 1792683544000, texte: "oui" })
+  ];
+  enfileMessage("444445", "oui");
+  reponsesMistral.push(JSON.stringify({
+    reponse: "Vos demandes sont bien enregistrées. L'équipe technique prendra contact avec vous pour organiser l'intervention.\n-Agent IA U'mob-",
+    formulaire: { panne: "levier de frein cassé", etape: 6 },
+    escalade: false,
+    raison_escalade: ""
+  }));
+  reponsesMistral.push(JSON.stringify({
+    reponse: "Merci pour votre confirmation. Je transmets votre dossier à notre équipe technique, qui prendra contact avec vous au plus vite.\n-Agent IA U'mob-",
+    formulaire: { panne: "levier de frein cassé", telephone_contact: "0612345678", etape: 5 },
+    escalade: true,
+    raison_escalade: "dossier complet — transfert SAV"
+  }));
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  const res = r.corps.resultats[0];
+  assert.strictEqual(res.statut, "traite");
+  assert.strictEqual(res.appels_mistral, 2); // G11 → régénération
+  assert.strictEqual(res.escalade, true);
+  assert.strictEqual(res.raison_escalade, "dossier complet — transfert SAV");
+  assert.ok(res.reponse.indexOf("transmets") !== -1);
+  // la faute G11 est journalisée
+  const g = db.journal.find((j) => j.etape === "process_gardes" && j.detail && j.detail.fautes);
+  assert.ok(g && g.detail.fautes.indexOf("transfert_sans_escalade") !== -1);
+  // dossier COMPLET → le cycle que B4.2 poserait est « A créer dans Praxedo »
+  const obs = db.journal.find((j) => j.etape === "observation" && j.contact_id === "444445");
+  assert.strictEqual(obs.detail.escalade, true);
+  assert.strictEqual(obs.detail.cycle_prevu.cycle, "A créer dans Praxedo");
 });
 
 test("PLAQUE présente dans le parc (autre ligne du miroir) : pas de rejet, traitement normal (1 appel Mistral)", async () => {
@@ -917,3 +1021,22 @@ test("PLAQUE : sans vérificateur parc injecté, aucun rejet (rétrocompatibilit
   assert.notStrictEqual(res.reponse, processLib.REPONSE_PLAQUE);
 });
 
+
+// ============================================================================
+// B5.4.3 — messageMixte : le seuil « la plaque n'est pas seule » (PUR)
+// ============================================================================
+
+test("messageMixte : plaque SEULE → pas mixte (canonique) ; plaque + description → mixte (cerveau)", () => {
+  // pas mixte : le canonique déterministe reste (comportement validé)
+  assert.strictEqual(processLib.messageMixte("GF-887-DD", ["GF887DD"]), false);
+  assert.strictEqual(processLib.messageMixte("c est GR-335-TT", ["GR335TT"]), false);
+  assert.strictEqual(processLib.messageMixte("mon scooter AA-123-BB", ["AA123BB"]), false);
+  // « bonjour » + identification = 2 mots significatifs → mixte : l'agent
+  // salue ET demande la saisie exacte (plus propre que le canonique sec)
+  assert.strictEqual(processLib.messageMixte("bonjour, mon scooter AA-123-BB", ["AA123BB"]), true);
+  // mixte : le cerveau répond à TOUT (plaque inconnue + problème compris)
+  assert.strictEqual(processLib.messageMixte("mon scooter AA-123-BB ne démarre pas", ["AA123BB"]), true);
+  assert.strictEqual(processLib.messageMixte("levier de frein avant cassé. GF-887-DD a une crevaison arrière", ["GF887DD"]), true);
+  // tolérance aux formats d'écriture de la plaque (espaces, casse, points)
+  assert.strictEqual(processLib.messageMixte("le GF 887 DD a une crevaison arrière", ["GF887DD"]), true);
+});
