@@ -16,6 +16,7 @@ Tous les secrets vivent dans les variables d'environnement Vercel, jamais dans c
 - B5.3 : lib/comparaison + api/observations — cycles et transferts visibles à l'écran (voir README-B5-3.md)
 - B4.2-PREP.1 : lib/process — RESET/RAZ, purge mémoire déterministe 0 Mistral (voir README-B4-2-PREP.md)
 - B4.2-PREP.2 : lib/process + api/process — vérification plaque contre le parc, rejet canonique cas A (voir README-B4-2-PREP-2.md)
+- B4.2-PREP.3 : cycles-respondio — liste exacte validée des 12 cycles respond.io, référence pour B4.2 (voir cycles-respondio.md)
 
 ## Fichiers
 
@@ -27,4 +28,5 @@ Tous les secrets vivent dans les variables d'environnement Vercel, jamais dans c
 ## Tests
 
 Commandes : node --test tests/test-webhook.js puis node --test tests/test-contexte.js, etc. — TOUJOURS fichier par fichier (jamais node --test tests/ en bloc).
+
 
