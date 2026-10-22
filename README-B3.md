@@ -12,6 +12,7 @@
 | B3.1 | **État structuré** (livré) | `lib/etat.js` — le formulaire du dossier |
 | B3.2 | **Cerveau** (livré) | `lib/cerveau.js` (pur) + `lib/mistral.js` (adaptateur) — réponse candidate + mise à jour du formulaire |
 | B3.3 | **Gardes** (livré) | `lib/gardes.js` — code déterministe avant envoi, faute → 1 régénération, récidive → repli neutre |
+| B3.4 | **Rejeu des incidents** (livré) | `tests/test-incidents.js` — la preuve exigée : 9 incidents historiques rejoués sur la chaîne complète |
 | B3.2 | Cerveau | prompt court (règles v1) + 1 appel Mistral `mistral-large-latest` + adaptateur Mistral isolé ; rend réponse candidate + mise à jour du formulaire |
 | B3.3 | Gardes | `lib/gardes.js` — code déterministe avant envoi (question fermée, prix/délai sans source, signature, plaque/téléphone redemandés, récap multi-scooters) |
 | B3.4 | Rejeu des incidents | scénarios des incidents réels documentés (AGB, GG-798-NL…) contre cerveau + gardes |
@@ -128,5 +129,48 @@ Chaque garde rejouée contre les fautes documentées de l'ancien agent, ET les
 vraies réponses validées en prod (fil GG-798-NL : réponse « disjoncteur »,
 demande téléphone de l'étape 3) doivent toutes PASSER. Fautes cumulées
 remontées ensemble, repli neutre auto-vérifié.
+
+## B3.4 — le rejeu des incidents historiques (`tests/test-incidents.js`)
+
+**La preuve exigée par l'architecture pour fermer B3** : les incidents
+réels documentés, rejoués sur la chaîne COMPLÈTE —
+`reconstruireEtat` (B3.1) → `construireMessages` (B3.2) → réponse modèle
+simulée → `parserReponse` → `gardes.verifier` (B3.3) → `fusionnerMajEtat`.
+
+Pour chaque incident, QUATRE vérifications : (a) le formulaire porte les bons
+signaux, (b) le prompt les transmet au modèle, (c) **la faute réelle de
+l'ancien agent est ATTRAPÉE par une garde**, (d) une réponse conforme au
+cahier des charges PASSE.
+
+| Scénario | Incident rejoué | Ce qui est prouvé |
+|---|---|---|
+| S1 | AGB 547248828 : réponse à un push traitée en ticket SAV | signal campagne ⚠ dans formulaire+prompt ; la plaque connue par fichier n'est plus réclamée |
+| S2 | Garde cas B 547248828 : transfert forcé « il manque immat + tél » | synergie B2.2 : plaques flotte CONNUES → jamais redemandées ; réponse conforme qualifie sans bloquer |
+| S3 | Fil réel GG-798-NL 547249072 | téléphone « DÉJÀ FOURNI » ; prise de main → silence déterministe ; la vraie réponse prod passe |
+| S4 | Réponse orpheline « oui c'est fait » | escalade avec raison (§8) ; on ne devine jamais |
+| S5 | Message vocal (règle 5) | signal vocal ; proposer écrit/photos passe |
+| S6 | Demande commerciale (§4) | signal commercial ; bascule équipe commerciale sans plaque |
+| S7 | « une minute » (règle 3) | relance ATTRAPÉE ; accueil sans question passe |
+| S8 | Dossier impayé (GRILL CHICKEN 547248736, B2.2) | statut risque dans le prompt ; engagement inventé (« gratuitement sous 2 jours ») ATTRAPÉ ; neutre passe |
+| S9 | Cycles (§5) | lien déterministe escalade commerciale → cycle « DE Commerciales » (posé par l'adaptateur B4, casse exacte) |
+
+**Limite assumée** : le modèle réel n'est pas appelé dans ces tests (réponses
+simulées aux formes réelles). La moitié DÉTERMINISTE du pipeline est prouvée ;
+la preuve du comportement du modèle sur les vraies conversations est la
+brique B4 (observation).
+
+## B3 — BILAN (à valider par Corentin)
+
+- **B3.1 état** (23 tests) — le formulaire, fautes impossibles par construction
+- **B3.2 cerveau + adaptateur Mistral** (23 tests) — prompt court < 4 000 car.,
+  JSON strict + tolérant, fusion whitelist, retry borné, zéro secret en dur
+- **B3.3 gardes** (27 tests) — 9 gardes déterministes, rappels précis, repli neutre
+- **B3.4 incidents** (15 tests) — 9 incidents historiques rejoués sur la chaîne
+- **Total : 186/186 tests verts** (31 B1 + 67 B2 + 88 B3)
+- Aucun endpoint modifié pendant B3 : la prod n'a pas bougé.
+- Prochaine brique : **B4 — observation** (le processeur `/api/process` +
+  l'envoi court-circuité, l'ancien agent continue de répondre aux clients ;
+  MISTRAL_API_KEY à ajouter dans Vercel à ce moment-là).
+
 
 
