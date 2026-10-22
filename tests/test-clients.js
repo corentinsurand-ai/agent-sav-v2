@@ -253,6 +253,23 @@ test('obtenirJeton : cache — les appels parallèles ne demandent QU\'UN token'
   assert.ok(dix.every(j => j === 'jeton-test-b2'));
 });
 
+test('obtenirJeton : clé privée collée avec les guillemets et les \\n du JSON — tolérée', async () => {
+  razCompteurs();
+  const sauve = process.env.GOOGLE_PRIVATE_KEY;
+  // Forme exacte d'un copier-coller depuis le fichier JSON : guillemets +
+  // séquences \n littérales
+  process.env.GOOGLE_PRIVATE_KEY = '"' + sauve.replace(/\n/g, '\\n') + '"';
+  const jeton = await google.obtenirJeton();
+  assert.strictEqual(jeton, 'jeton-test-b2');
+  const parties = dernierAssertion.split('.');
+  const ok = crypto.verify('RSA-SHA256',
+    Buffer.from(parties[0] + '.' + parties[1]),
+    paire.publicKey,
+    Buffer.from(parties[2], 'base64url'));
+  assert.ok(ok, 'signature JWT invalide avec la clé entre guillemets');
+  process.env.GOOGLE_PRIVATE_KEY = sauve;
+});
+
 test('lirePlage : erreur Google ≥ 400 → exception avec code et extrait', async () => {
   razCompteurs();
   reponsesErreurs.push({ match: "sheets.googleapis.com", status: 403, corps: { error: { message: "PERMISSION_DENIED" } } });
