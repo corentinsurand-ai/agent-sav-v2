@@ -16,6 +16,7 @@ Tous les secrets vivent dans les variables d'environnement Vercel, jamais dans c
 - B5.4 : api/test — la console de test du nouvel agent, bac à sable zéro écriture (voir README-B5-4.md)
 - B5.4.2 : annulation du correctif B5.4.1 (transfert auto cas A — comportement d'origine validé par Corentin) + affichage du cycle que B4.2 poserait à chaque échange, mapping §5 déterministe via lib/cycles.js (voir README-B4-2-PREP-2.md § Correctif B5.4.2)
 - B5.4.3 : messages MIXTES (plaque inconnue + description → le cerveau répond à tout, garde G10) + étape 5 = transfert RÉEL (escalade:true obligatoire, garde G11, formulaire complet) (voir README-B4-2-PREP-2.md § Correctif B5.4.3)
+- B6.1 : les actions B4.2 STRUCTURÉES (lib/actions.js — envoi, cycle, tags, commentaire TRANSFERT SAV, formes exactes prod v136) journalisées à chaque tour + exécution VERROUILLÉE derrière MODE_AGENT=actif + B42_EXECUTION=1 ; B6.2 : scan « Attente client » 2 h + reprise-de-zéro (lib/scan.js) (voir README-B6.md)
 - B5.3 : lib/comparaison + api/observations — cycles et transferts visibles à l'écran (voir README-B5-3.md)
 - B4.2-PREP.1 : lib/process — RESET/RAZ, purge mémoire déterministe 0 Mistral (voir README-B4-2-PREP.md)
 - B4.2-PREP.2 : lib/process + api/process — vérification plaque contre le parc, rejet canonique cas A (voir README-B4-2-PREP-2.md)

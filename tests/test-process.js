@@ -552,7 +552,7 @@ test("file vide → 200, contacts: 0", async () => {
   reinitialiseDb();
   const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
   assert.strictEqual(r.statusCode, 200);
-  assert.strictEqual(r.corps.version, "B4.1");
+  assert.strictEqual(r.corps.version, "B6.1");
   assert.strictEqual(r.corps.mode, "observation");
   assert.strictEqual(r.corps.contacts, 0);
 });
@@ -1039,4 +1039,139 @@ test("messageMixte : plaque SEULE → pas mixte (canonique) ; plaque + descripti
   assert.strictEqual(processLib.messageMixte("levier de frein avant cassé. GF-887-DD a une crevaison arrière", ["GF887DD"]), true);
   // tolérance aux formats d'écriture de la plaque (espaces, casse, points)
   assert.strictEqual(processLib.messageMixte("le GF 887 DD a une crevaison arrière", ["GF887DD"]), true);
+});
+
+// ============================================================================
+// B6.1 — les ACTIONS B4.2 : structurées, journalisées, exécutées SEULEMENT
+// derrière le double verrou MODE_AGENT=actif + B42_EXECUTION=1
+// ============================================================================
+
+function scenarioTransfertComplet() {
+  // Réutilise le scénario G11 (oui au récapitulatif → escalade + dossier complet)
+  reinitialiseDb();
+  fichePlaqueTest();
+  historiques["444445"] = [
+    itemRespondio({ ts: 1792683540000, texte: "mon scooter AB-123-CD a le levier de frein cassé" }),
+    itemRespondio({ ts: 1792683541000, texte: "Quel est le numéro de téléphone à contacter le jour de l'intervention ?", sortant: true }),
+    itemRespondio({ ts: 1792683542000, texte: "c est le 06 12 34 56 78" }),
+    itemRespondio({ ts: 1792683543000, texte: "Voici le récapitulatif : AB-123-CD, levier cassé, 0612345678. Est-ce que tout est correct ?", sortant: true }),
+    itemRespondio({ ts: 1792683544000, texte: "oui" })
+  ];
+  enfileMessage("444445", "oui");
+  reponsesMistral.push(JSON.stringify({
+    reponse: "Vos demandes sont bien enregistrées. L'équipe technique prendra contact avec vous pour organiser l'intervention.\n-Agent IA U'mob-",
+    formulaire: { panne: "levier de frein cassé", etape: 6 },
+    escalade: false,
+    raison_escalade: ""
+  }));
+  reponsesMistral.push(JSON.stringify({
+    reponse: "Merci pour votre confirmation. Je transmets votre dossier à notre équipe technique, qui prendra contact avec vous au plus vite.\n-Agent IA U'mob-",
+    formulaire: { panne: "levier de frein cassé", telephone_contact: "0612345678", etape: 5 },
+    escalade: true,
+    raison_escalade: "dossier complet — transfert SAV"
+  }));
+}
+
+test("B6.1 observation : escalade + dossier complet → 4 actions B4.2 STRUCTURÉES journalisées, AUCUNE écriture respond.io", async () => {
+  scenarioTransfertComplet();
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  assert.strictEqual(r.statusCode, 200);
+  const obs = db.journal.find((j) => j.etape === "observation" && j.contact_id === "444445");
+  const a = obs.detail.actions_b42;
+  assert.ok(Array.isArray(a) && a.length === 4, "4 actions attendues (envoi, cycle, tag, commentaire)");
+  assert.strictEqual(a[0].action, "envoyer_message");
+  assert.strictEqual(a[1].action, "poser_cycle");
+  assert.strictEqual(a[1].cycle, "A créer dans Praxedo");
+  assert.strictEqual(a[2].action, "ajouter_tag");
+  assert.strictEqual(a[2].tag, "Prise de main");
+  assert.strictEqual(a[3].action, "commentaire");
+  assert.ok(a[3].texte.indexOf("TRANSFERT SAV") === 0);
+  assert.ok(a[3].texte.indexOf("RÉCAPITULATIF DE LA QUALIFICATION") !== -1);
+  assert.ok(a[3].texte.indexOf("AB-123-CD") !== -1);
+  assert.ok(a[3].texte.indexOf("@user") === -1); // assignation EXCLUE (décision Corentin)
+  // INVARIANT observation : aucune écriture respond.io dans tout le run
+  assert.strictEqual(appelsFetch.filter((c) => c.url.indexOf("api.respond.io") !== -1 && c.method !== "GET").length, 0);
+});
+
+test("B6.1 mode actif ARMÉ (MODE_AGENT=actif + B42_EXECUTION=1) : les actions B4.2 sont EXÉCUTÉES chez respond.io", async () => {
+  scenarioTransfertComplet();
+  process.env.MODE_AGENT = "actif";
+  process.env.B42_EXECUTION = "1";
+  const vraiFetch = globalThis.fetch;
+  const ecritures = [];
+  globalThis.fetch = async function (url, options) {
+    url = String(url);
+    const methode = (options && options.method) || "GET";
+    if (url.indexOf("api.respond.io") !== -1 && methode !== "GET") {
+      ecritures.push({ url: url, methode: methode, corps: options.body ? JSON.parse(options.body) : null });
+      return json(200, {});
+    }
+    return vraiFetch(url, options);
+  };
+  try {
+    const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+    assert.strictEqual(r.statusCode, 200);
+    const res = r.corps.resultats[0];
+    assert.strictEqual(res.envoyee, true);
+    assert.strictEqual(res.actions_executees.length, 4);
+    assert.ok(res.actions_executees.every((x) => x.ok === true));
+    // L'entrée journal du tour porte le mode actif ARMÉ
+    const obs = db.journal.find((j) => j.etape === "process_actif" && j.contact_id === "444445");
+    assert.ok(obs, "entrée process_actif attendue");
+    assert.strictEqual(obs.detail.envoyee, true);
+    // Chaque écriture journalisée en b42_*
+    for (const etape of ["b42_envoyer_message", "b42_poser_cycle", "b42_ajouter_tag", "b42_commentaire"]) {
+      assert.ok(db.journal.some((j) => j.etape === etape && j.contact_id === "444445"), "journal " + etape);
+    }
+    // Formes EXACTES prod v136 chez respond.io
+    assert.strictEqual(ecritures.length, 4);
+    const envoi = ecritures.find((c) => c.url.indexOf("/message") !== -1);
+    assert.strictEqual(envoi.methode, "POST");
+    assert.strictEqual(envoi.corps.message.type, "text");
+    assert.ok(envoi.corps.message.text.indexOf("transmets") !== -1);
+    const cycle = ecritures.find((c) => c.url.indexOf("/lifecycle/update") !== -1);
+    assert.deepStrictEqual(cycle.corps, { name: "A créer dans Praxedo" }); // CASSE EXACTE
+    const tag = ecritures.find((c) => c.url.indexOf("/tag") !== -1);
+    assert.deepStrictEqual(tag.corps, ["Prise de main"]);
+    const com = ecritures.find((c) => c.url.indexOf("/comment") !== -1);
+    assert.ok(com.corps.text.indexOf("TRANSFERT SAV") === 0);
+    assert.ok(com.corps.text.indexOf("AB-123-CD") !== -1);
+  } finally {
+    globalThis.fetch = vraiFetch;
+    delete process.env.MODE_AGENT;
+    delete process.env.B42_EXECUTION;
+  }
+});
+
+test("B6.1 mode actif NON ARMÉ (B42_EXECUTION absent) : verrou — zéro écriture respond.io, rétrogradé en observation", async () => {
+  scenarioTransfertComplet();
+  process.env.MODE_AGENT = "actif";
+  const vraiFetch = globalThis.fetch;
+  const ecritures = [];
+  globalThis.fetch = async function (url, options) {
+    url = String(url);
+    const methode = (options && options.method) || "GET";
+    if (url.indexOf("api.respond.io") !== -1 && methode !== "GET") {
+      ecritures.push({ url: url, methode: methode });
+      return json(200, {});
+    }
+    return vraiFetch(url, options);
+  };
+  try {
+    const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+    assert.strictEqual(r.statusCode, 200);
+    const res = r.corps.resultats[0];
+    assert.strictEqual(res.envoyee, false);
+    assert.strictEqual(res.actions_executees.length, 0);
+    assert.strictEqual(ecritures.length, 0);
+    // rétrogradé avec avertissement, comme avant
+    assert.ok(db.journal.some((j) => j.etape === "process_avertissement" && j.contact_id === "444445"));
+    const obs = db.journal.find((j) => j.etape === "observation" && j.contact_id === "444445");
+    assert.strictEqual(obs.detail.envoyee, false);
+    // les actions restent visibles (dry-run) mais non exécutées
+    assert.strictEqual(obs.detail.actions_b42.length, 4);
+  } finally {
+    globalThis.fetch = vraiFetch;
+    delete process.env.MODE_AGENT;
+  }
 });

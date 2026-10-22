@@ -18,14 +18,16 @@
 //   POST /api/test?secret=…  body {telephone, message, memoire}
 //        → {ok, statut, reponse, escalade, raison_escalade, appels_mistral,
 //           type (cerveau|reset|plaque), cycle_prevu {cycle, raison},
-//           actions_simulees, plaques_verifiees, client, etat, journal}
+//           actions_b42 (B6.1 : écritures B4.2 STRUCTURÉES — envoyer, cycle,
+//           tags, commentaire TRANSFERT SAV), actions_simulees,
+//           plaques_verifiees, client, etat, journal}
 //
 // Réponses : 200 HTML/JSON ; 400 corps invalide ; 401 secret invalide ;
 // 405 méthode ; 500 configuration manquante (SUPABASE_URL,
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B5.4.3";
+var VERSION = "B6.1";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");
@@ -257,6 +259,9 @@ async function traiterEchange(corps) {
     appels_mistral: resultat.appels,
     type: type,
     cycle_prevu: cyclePrevu,
+    actions_b42: (resultat.actions_b42 || []).map(function (a) {
+      return { action: a.action, cycle: a.cycle || null, tag: a.tag || null, texte: String(a.texte || "").substring(0, 600) };
+    }),
     actions_simulees: comparaison.actionsSimulees(
       type,
       resultat.escalade === true,
@@ -369,7 +374,22 @@ function carteEchange(entree, reponse) {
   var journal = (reponse.journal || []).map(function (j) {
     return "&bull; [" + ech(j.etape) + "] " + ech(j.texte);
   }).join("<br>") || "(vide)";
-  var actions = (reponse.actions_simulees || []).map(function (a) { return "&bull; " + ech(a); }).join("<br>");
+  var actions = (reponse.actions_b42 && reponse.actions_b42.length)
+    ? reponse.actions_b42.map(function (a) {
+        var libelles = {
+          envoyer_message: "envoyer la réponse au client",
+          poser_cycle: "poser le cycle",
+          ajouter_tag: "poser le tag",
+          retirer_tag: "retirer le tag",
+          commentaire: "commentaire interne (jamais visible du client)"
+        };
+        var t = libelles[a.action] || String(a.action || "?");
+        if (a.action === "poser_cycle") t += " « " + (a.cycle || "?") + " »";
+        if (a.action === "ajouter_tag" || a.action === "retirer_tag") t += " « " + (a.tag || "?") + " »";
+        if (a.action === "commentaire") t += " — aperçu : « " + String(a.texte || "").replace(/\n+/g, " / ").substring(0, 260) + "… »";
+        return "&bull; " + ech(t);
+      }).join("<br>")
+    : (reponse.actions_simulees || []).map(function (a) { return "&bull; " + ech(a); }).join("<br>") || "(vide)";
   var cp = reponse.cycle_prevu || {};
   var cycleTxt = cp.cycle
     ? "<b>" + ech(cp.cycle) + "</b> &mdash; " + ech(cp.raison || "")

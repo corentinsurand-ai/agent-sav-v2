@@ -1,12 +1,20 @@
 // ============================================================================
-// Agent SAV U'mob v2 — B4.1 : /api/process — le processeur, MODE OBSERVATION
+// Agent SAV U'mob v2 — B4.1/B6.1 : /api/process — le processeur
 //
 // RÔLE : vider la file agent_sav.messages en traitant chaque contact à travers
-// la chaîne complète (contexte → état → cerveau → gardes → fusion), SANS
-// JAMAIS envoyer la réponse au client : elle est journalisée « non envoyée »
-// (mode OBSERVATION, cahier des charges §9 — l'ancien agent continue de
-// répondre en réel). Aucune écriture chez respond.io (B2 : lecture seule),
-// aucun cycle n'est posé.
+// la chaîne complète (contexte → état → cerveau → gardes → fusion → actions
+// B4.2). MODE OBSERVATION par défaut : la réponse est journalisée « non
+// envoyée » avec la liste EXACTE des écritures que le mode actif ferait
+// (detail.actions_b42) — aucune écriture chez respond.io, aucun cycle posé.
+//
+// B6.1 — MODE ACTIF ARMÉ (bascule B4.2) : UNIQUEMENT si les DEUX variables
+// d'environnement sont posées dans Vercel (MODE_AGENT=actif ET
+// B42_EXECUTION=1 — le feu vert de Corentin), les actions B4.2 sont
+// EXÉCUTÉES via l'adaptateur (lib/respondio.js) : envoi de la réponse, cycle
+// casse exacte, tags, commentaire TRANSFERT SAV. Chaque écriture est
+// journalisée (b42_envoyer_message, b42_poser_cycle, …) ; une écriture en
+// échec n'interrompt JAMAIS les suivantes (une demande ne doit jamais être
+// perdue). Tant que B42_EXECUTION n'existe pas, ce code est INATTEIGNABLE.
 //
 //   GET|POST /api/process?secret=<WEBHOOK_SECRET>&max=<1-20>&contact=<id>
 //   — ou Authorization: Bearer <CRON_SECRET> (déclenchement cron Vercel)
@@ -30,7 +38,7 @@
 // 500 configuration manquante (RIEN n'est réclamé dans ce cas).
 // ============================================================================
 
-var VERSION = "B4.1";
+var VERSION = "B6.1";
 var SCHEMA = "agent_sav";
 
 var contexte = require("../lib/contexte.js");
@@ -38,6 +46,7 @@ var respondio = require("../lib/respondio.js");
 var etatLib = require("../lib/etat.js");
 var mistral = require("../lib/mistral.js");
 var processLib = require("../lib/process.js");
+var actionsLib = require("../lib/actions.js"); // B6.1 — exécution B4.2 (armée)
 
 function env(nom) { return process.env[nom] || ""; }
 
@@ -247,12 +256,35 @@ async function traiterContact(contactId, idMessage, mode) {
     client: client,
     lecons: lecons,
     mode: mode,
+    execution_armee: mode === "actif" && env("B42_EXECUTION") === "1", // B6.1
     parc: plaqueDansParc, // B4.2-PREP.2 — vérification plaque contre le parc (garde cas A)
     mistral: async function (messages) {
       var r = await mistral.appelMistral(messages);
       return r.texte;
     }
   });
+
+  // B6.1 — EXÉCUTION B4.2 : UNIQUEMENT en mode actif ARMÉ (MODE_AGENT=actif
+  // + B42_EXECUTION=1). En observation ce bloc est INATTEIGNABLE — aucune
+  // écriture respond.io, exactement comme avant. L'adaptateur est la seule
+  // couche autorisée à écrire ; une action en échec n'arrête jamais les
+  // suivantes ; chaque résultat est journalisé (b42_*).
+  var actionsExecutees = [];
+  if (mode === "actif" && env("B42_EXECUTION") === "1" &&
+      resultat.actions_b42 && resultat.actions_b42.length) {
+    actionsExecutees = await actionsLib.executerActions(resultat.actions_b42, {
+      envoyerMessage: function (texte, canal) { return respondio.envoyerMessage(contactId, texte, canal); },
+      poserCycle: function (cycle) { return respondio.poserCycle(contactId, cycle); },
+      ajouterTag: function (tag) { return respondio.ajouterTag(contactId, tag); },
+      retirerTag: function (tag) { return respondio.retirerTag(contactId, tag); },
+      ecrireCommentaire: function (texte) { return respondio.ecrireCommentaire(contactId, texte); }
+    });
+    for (var a = 0; a < actionsExecutees.length; a++) {
+      var ac = actionsExecutees[a] || {};
+      await journaliser(contactId, "b42_" + String(ac.action || "?"),
+        (ac.ok ? "B4.2 exécutée : " : "B4.2 ÉCHEC : ") + String(ac.action || "?") + (ac.erreur ? " — " + ac.erreur : ""), ac);
+    }
+  }
 
   // Journal — chaque étape, best effort (jamais bloquant)
   for (var i = 0; i < resultat.journal.length; i++) {
@@ -271,6 +303,12 @@ async function traiterContact(contactId, idMessage, mode) {
 
   await supabasePatch("messages", "id=eq." + encodeURIComponent(idMessage), { statut: "traite" });
 
+  // B6.1 — le résumé porte le compte-rendu d'exécution en mode armé ; en
+  // observation, envoyee reste false et actions_executees vide (comme avant).
+  var envoyeeReelle = actionsExecutees.some(function (ac) {
+    return ac.action === "envoyer_message" && ac.ok === true;
+  });
+
   return {
     contact: contactId,
     statut: resultat.statut,
@@ -278,7 +316,8 @@ async function traiterContact(contactId, idMessage, mode) {
     escalade: resultat.escalade,
     raison_escalade: resultat.raison_escalade || "",
     reponse: String(resultat.reponse || "").substring(0, 200),
-    envoyee: false
+    envoyee: envoyeeReelle,
+    actions_executees: actionsExecutees
   };
 }
 

@@ -382,3 +382,49 @@ test("zéro écriture Supabase (uniquement des GET) et aucun accès respond.io",
   assert.ok(appelsFetch.every((a) => a.url.indexOf("api.respond.io") === -1), "aucun accès respond.io");
   assert.strictEqual(appelsMistral, 1);
 });
+
+// ============================================================================
+// B6.1 — les ACTIONS B4.2 STRUCTURÉES dans la console
+// ============================================================================
+
+test("B6.1 — escalade + dossier complet → actions_b42 : envoi, cycle « A créer dans Praxedo », tag PDM, commentaire TRANSFERT SAV", async () => {
+  reinitialise();
+  reponseConforme = JSON.stringify({
+    reponse: "Merci pour votre confirmation. Je transmets votre dossier à notre équipe technique, qui prendra contact avec vous au plus vite.\n-Agent IA U'mob-",
+    formulaire: { panne: "levier de frein cassé", telephone_contact: "0612345678", etape: 5 },
+    escalade: true,
+    raison_escalade: "dossier complet — transfert SAV"
+  });
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { message: "oui", memoire: [{ sortant: false, texte: "mon scooter AB-123-CD a le levier de frein cassé, appelez le 06 12 34 56 78", ts: 1792683540000 }] }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.statut, "traite");
+  assert.strictEqual(res.corps.escalade, true);
+  const a = res.corps.actions_b42;
+  assert.ok(Array.isArray(a) && a.length === 4, "4 actions B4.2 attendues");
+  assert.strictEqual(a[0].action, "envoyer_message");
+  assert.strictEqual(a[1].action, "poser_cycle");
+  assert.strictEqual(a[1].cycle, "A créer dans Praxedo");
+  assert.strictEqual(a[2].action, "ajouter_tag");
+  assert.strictEqual(a[2].tag, "Prise de main");
+  assert.strictEqual(a[3].action, "commentaire");
+  assert.ok(a[3].texte.indexOf("TRANSFERT SAV") === 0);
+  assert.ok(a[3].texte.indexOf("RÉCAPITULATIF DE LA QUALIFICATION") !== -1);
+  assert.ok(a[3].texte.indexOf("@user") === -1); // assignation EXCLUE
+  // compat : actions_simulees toujours présentes (écran B5)
+  assert.ok(res.corps.actions_simulees.length >= 1);
+  // INVARIANT du bac à sable conservé : zéro écriture, zéro respond.io
+  assert.ok(appelsFetch.every((x) => x.url.indexOf("api.respond.io") === -1));
+});
+
+test("B6.1 — la page embarque l'affichage des actions B4.2 (libellés + aperçu du commentaire interne)", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54"), res);
+  assert.strictEqual(res.statusCode, 200);
+  const html = String(res.html);
+  assert.ok(html.indexOf("commentaire interne (jamais visible du client)") !== -1);
+  assert.ok(html.indexOf("poser le cycle") !== -1);
+  assert.ok(html.indexOf("B4.2 (mode actif) ferait") !== -1);
+});
