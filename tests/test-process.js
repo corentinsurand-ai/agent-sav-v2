@@ -674,3 +674,101 @@ test("POST avec secret : accepté (même logique)", async () => {
   const r = await apiProcess(requete("?secret=secret-de-test-b4", {}, "POST"), faireRes());
   assert.strictEqual(r.statusCode, 200);
 });
+
+// ============================================================================
+// B4.2-PREP.1 — RESET / RAZ (purge mémoire déterministe, 0 appel Mistral)
+// Contact dédié 444444 (même téléphone que la fiche client → flotte GG798NL)
+// ============================================================================
+
+function ficheResetTest(tags) {
+  fiches["444444"] = { phone: "+33620203963", fullName: "RESET TEST", lifecycle: { name: "Nouvelle Demande" }, tags: tags || [] };
+}
+
+test("RESET : réponse canonique identique à l ancien, 0 appel Mistral, dossier purgé (fiche flotte conservée)", async () => {
+  reinitialiseDb();
+  ficheResetTest();
+  historiques["444444"] = [
+    itemRespondio({ ts: 1792683540000, texte: "Mon scooter AB-123-CD ne démarre pas, mon téléphone est le 06 11 22 33 44" }),
+    itemRespondio({ ts: 1792683541000, texte: "Merci, nous prenons en charge votre demande.", sortant: true }),
+    itemRespondio({ ts: 1792683550000, texte: "RESET" })
+  ];
+  enfileMessage("444444", "RESET");
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  assert.strictEqual(r.corps.contacts, 1);
+  const res = r.corps.resultats[0];
+  assert.strictEqual(res.statut, "reset");
+  assert.strictEqual(res.appels_mistral, 0);
+  assert.ok(res.reponse.indexOf("Mémoire de la conversation réinitialisée") !== -1);
+  assert.ok(res.reponse.indexOf("Agent IA U'mob") !== -1);
+  assert.strictEqual(appelsMistral.length, 0);
+  // journal : étape dédiée + observation NON envoyée (visible sur l'écran B5 → parité ANCIEN = NOUVEAU)
+  assert.ok(db.journal.some((j) => j.etape === "process_reset" && j.contact_id === "444444"));
+  const obs = db.journal.find((j) => j.etape === "observation" && j.contact_id === "444444");
+  assert.ok(obs && obs.detail.envoyee === false);
+  assert.ok(obs.detail.reponse.indexOf("Mémoire de la conversation réinitialisée") !== -1);
+  // dossier PURGÉ : état vierge + fiche client réappliquée
+  const d = db.dossiers["444444"];
+  assert.ok(d.etat);
+  assert.strictEqual(d.etat.panne, "");
+  assert.strictEqual(d.etat.telephone_contact, "");
+  assert.strictEqual(d.etat.etape, 1);
+  assert.ok((d.etat.plaques || []).indexOf("AB123CD") === -1, "plaque DITE EN CONVERSATION purgée");
+  assert.ok((d.etat.plaques || []).indexOf("GG798NL") !== -1, "plaque FLOTTE (fiche client B2.2) conservée");
+  assert.strictEqual(d.etat.enseigne, "PIZZA SERVICES ETAMPES");
+  // message consommé
+  assert.strictEqual(db.messages[0].statut, "traite");
+});
+
+test("RESET insensible à la casse/espaces, et RAZ aussi reconnu", async () => {
+  reinitialiseDb();
+  ficheResetTest();
+  historiques["444444"] = [
+    itemRespondio({ ts: 1792683540000, texte: "mon scooter ne démarre pas" }),
+    itemRespondio({ ts: 1792683550000, texte: "  reset  " })
+  ];
+  enfileMessage("444444", "reset");
+  let r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  assert.strictEqual(r.corps.resultats[0].statut, "reset");
+  assert.strictEqual(appelsMistral.length, 0);
+  reinitialiseDb();
+  historiques["444444"][1] = itemRespondio({ ts: 1792683550000, texte: "Raz" });
+  enfileMessage("444444", "Raz");
+  r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  assert.strictEqual(r.corps.resultats[0].statut, "reset");
+  assert.strictEqual(appelsMistral.length, 0);
+});
+
+test("RESET prioritaire sur le silence « Prise de main » (l ancien retire toujours le tag au RESET)", async () => {
+  reinitialiseDb();
+  ficheResetTest(["Prise de main"]);
+  historiques["444444"] = [
+    itemRespondio({ ts: 1792683540000, texte: "mon scooter ne démarre pas" }),
+    itemRespondio({ ts: 1792683550000, texte: "RESET" })
+  ];
+  enfileMessage("444444", "RESET");
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  assert.strictEqual(r.corps.resultats[0].statut, "reset");
+  assert.strictEqual(appelsMistral.length, 0);
+});
+
+test("« veuillez reset le gps » n est PAS un RESET (traitement normal, 1 appel Mistral)", async () => {
+  reinitialiseDb();
+  ficheResetTest();
+  historiques["444444"] = [
+    itemRespondio({ ts: 1792683540000, texte: "Bonjour" }),
+    itemRespondio({ ts: 1792683550000, texte: "veuillez reset le gps svp" })
+  ];
+  enfileMessage("444444", "veuillez reset le gps svp");
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  assert.strictEqual(r.corps.resultats[0].statut, "traite");
+  assert.strictEqual(appelsMistral.length, 1);
+});
+
+test("estResetRaz : texte SEUL exact — jamais média, jamais sortant, jamais une phrase contenant reset", () => {
+  assert.ok(processLib.estResetRaz({ sortant: false, texte: "RESET" }));
+  assert.ok(processLib.estResetRaz({ sortant: false, texte: "  reset " }));
+  assert.ok(processLib.estResetRaz({ sortant: false, texte: "Raz" }));
+  assert.ok(!processLib.estResetRaz({ sortant: false, texte: "veuillez reset le gps" }));
+  assert.ok(!processLib.estResetRaz({ sortant: false, texte: "RESET", media: "https://cdn.example/photo.jpg" }));
+  assert.ok(!processLib.estResetRaz({ sortant: true, texte: "RESET" }));
+});
