@@ -374,6 +374,20 @@ test('ecrireClients : URL on_conflict, headers schéma/merge, lots de 500', asyn
 // 5) HANDLER /api/sync-clients — auth, dry, synchro réelle
 // ============================================================================
 
+test('ecrireClients : SUPABASE_URL avec « /rest/v1 » en trop — URL corrigée (piège PGRST125)', async () => {
+  razCompteurs();
+  feuilleActive = LIGNES;
+  const lecture = await clients.lireClients('1abc', ONGLET);
+  const sauve = process.env.SUPABASE_URL;
+  process.env.SUPABASE_URL = sauve + '/rest/v1/';   // le piège réel constaté en prod
+  const ecrits = await clients.ecrireClients(lecture.clients);
+  assert.strictEqual(ecrits, 2);
+  const post = appelsFetch.filter(a => a.url.indexOf('supabase') !== -1)[0];
+  assert.ok(post.url.indexOf('/rest/v1/rest/v1') === -1, 'jamais de /rest/v1 doublé');
+  assert.ok(post.url.indexOf('/rest/v1/clients?on_conflict=telephone') !== -1);
+  process.env.SUPABASE_URL = sauve;
+});
+
 test('handler : 405 en POST', async () => {
   const res = faireRes();
   await handler({ method: 'POST', url: '/api/sync-clients', query: {}, headers: {} }, res);

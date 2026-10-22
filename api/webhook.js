@@ -28,7 +28,10 @@ function env(nom) { return process.env[nom] || ''; }
 // code ni sur GitHub.
 // ----------------------------------------------------------------------------
 async function supabaseInsert(table, ligne) {
-  var url = env('SUPABASE_URL').replace(/\/+$/, '') + '/rest/v1/' + table;
+  // Tolérant au copier-coller : SUPABASE_URL finissant par « /rest/v1 »
+  // (piège PGRST125 « Invalid path » constaté en prod réelle B2.2)
+  var url = env('SUPABASE_URL').replace(/\/+$/, '').replace(/\/rest\/v1$/, '') +
+    '/rest/v1/' + table;
   var cle = env('SUPABASE_SERVICE_KEY');
   var res = await fetch(url, {
     method: 'POST',
