@@ -552,7 +552,7 @@ test("file vide → 200, contacts: 0", async () => {
   reinitialiseDb();
   const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
   assert.strictEqual(r.statusCode, 200);
-  assert.strictEqual(r.corps.version, "B6.1");
+  assert.strictEqual(r.corps.version, "B6.3");
   assert.strictEqual(r.corps.mode, "observation");
   assert.strictEqual(r.corps.contacts, 0);
 });
@@ -1173,5 +1173,152 @@ test("B6.1 mode actif NON ARMÉ (B42_EXECUTION absent) : verrou — zéro écrit
   } finally {
     globalThis.fetch = vraiFetch;
     delete process.env.MODE_AGENT;
+  }
+});
+
+// ============================================================================
+// B6.3 — CANAL (ton par canal), CONSIGNES @Agent IA (lecture seule),
+// PHOTO RÉCENTE (pas de rejet canonique)
+// ============================================================================
+
+test("B6.3 canal : « mail » injecté → le prompt porte le bloc CANAL : EMAIL (v2.10)", async () => {
+  let recu = null;
+  await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL),
+    canal: "mail",
+    mistral: async (m) => { recu = m; return reponseConformeDefaut; }
+  });
+  assert.ok(recu && recu[1].content.indexOf("CANAL : EMAIL") !== -1);
+});
+
+test("B6.3 canal : ABSENT → aucun bloc canal (ton simple, rétro-compat)", async () => {
+  let recu = null;
+  await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL),
+    mistral: async (m) => { recu = m; return reponseConformeDefaut; }
+  });
+  assert.ok(recu && recu[1].content.indexOf("CANAL :") === -1);
+});
+
+test("B6.3 consigne @Agent IA : détectée et JOURNALISÉE en lecture seule (aucune action)", async () => {
+  const ctx = ctxStandard(filGG798NL);
+  ctx.commentaires = [{ texte: "@Agent IA : arme l'intervention EVE123456 pour AB-123-CD", auteur: "Marine", ts: 1792683530000 }];
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctx,
+    mistral: async () => reponseConformeDefaut
+  });
+  const c = res.journal.find((j) => j.etape === "consigne_detectee");
+  assert.ok(c, "la consigne est journalisée");
+  assert.ok(c.texte.indexOf("LECTURE SEULE") !== -1);
+  assert.strictEqual(c.detail.references[0], "EVE123456");
+  assert.strictEqual(c.detail.plaques[0], "AB123CD");
+});
+
+test("B6.3 consigne : la plaque citée par le COLLÈGUE est VALIDÉE → dans le formulaire (v2.20.58)", async () => {
+  const ctx = ctxStandard(filGG798NL);
+  ctx.commentaires = [{ texte: "@Agent IA c'est AB-123-CD", auteur: "Marine", ts: 1792683530000 }];
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctx,
+    mistral: async () => reponseConformeDefaut
+  });
+  assert.ok(res.etat.plaques.indexOf("AB123CD") !== -1, "plaque du collègue = connue du dossier");
+});
+
+test("B6.3 consigne : commentaire SANS mention @Agent IA → RIEN de journalisé", async () => {
+  const ctx = ctxStandard(filGG798NL);
+  ctx.commentaires = [{ texte: "j'appelle le client demain", auteur: "Marine", ts: 1792683530000 }];
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctx,
+    mistral: async () => reponseConformeDefaut
+  });
+  assert.ok(!res.journal.some((j) => j.etape === "consigne_detectee"));
+});
+
+test("B6.3 photo RÉCENTE : plaque inconnue citée < 5 min après une photo → PAS de rejet canonique, le cerveau répond (v2.20.124)", async () => {
+  let recu = null;
+  const res = await processLib.traiterMessage({
+    contactId: "444445",
+    ctx: ctxStandard([
+      msgNormalise({ ts: 1792683520000, texte: "", type_media: "image", media: "https://x/photo.jpg" }),
+      msgNormalise({ ts: 1792683530000, texte: "c est ZZ-421-WW" })
+    ]),
+    client: clientStandard,
+    parc: async () => false,
+    mistral: async (m) => {
+      recu = m;
+      return JSON.stringify({
+        reponse: "Je vois bien la photo de votre scooter. La plaque ZZ-421-WW n'est pas retrouvée dans notre parc : quelle est la saisie exacte de l'immatriculation ?\n-Agent IA U'mob-",
+        formulaire: { etape: 2 },
+        escalade: false,
+        raison_escalade: ""
+      });
+    }
+  });
+  assert.strictEqual(res.statut, "traite");
+  assert.notStrictEqual(res.reponse, processLib.REPONSE_PLAQUE);
+  assert.strictEqual(res.appels, 1);
+  assert.ok(res.journal.some((j) => j.etape === "process_plaque_photo"), "le journal raconte la photo récente");
+  assert.ok(recu && recu[1].content.indexOf("photo") !== -1, "la leçon « relis la plaque sur la photo » est dans le prompt");
+});
+
+test("B6.3 photo ANCIENNE (> 5 min) : le rejet canonique inchangé (parité B4.2-PREP.2)", async () => {
+  const res = await processLib.traiterMessage({
+    contactId: "444445",
+    ctx: ctxStandard([
+      msgNormalise({ ts: 1792680000000, texte: "", type_media: "image", media: "https://x/photo.jpg" }),
+      msgNormalise({ ts: 1792683530000, texte: "c est ZZ-421-WW" })
+    ]),
+    client: clientStandard,
+    parc: async () => false,
+    mistral: async () => reponseConformeDefaut
+  });
+  assert.strictEqual(res.statut, "traite");
+  assert.strictEqual(res.reponse, processLib.REPONSE_PLAQUE);
+  assert.strictEqual(res.appels, 0);
+  assert.ok(res.journal.some((j) => j.etape === "process_plaque"));
+});
+
+test("B6.3 ENDPOINT : canal résolu depuis la fiche via CANAUX (env) → bloc CANAL dans le prompt réel", async () => {
+  reinitialiseDb();
+  process.env.CANAUX = JSON.stringify({ "1234": "mail" });
+  fiches["547249072"].channelId = "1234";
+  try {
+    enfileMessage("547249072", "bonjour, mon scooter GG-798-NL ne démarre pas");
+    const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+    assert.strictEqual(r.statusCode, 200);
+    assert.strictEqual(r.corps.resultats[0].statut, "traite");
+    assert.ok(
+      appelsMistral.length > 0 &&
+      appelsMistral[appelsMistral.length - 1][1].content.indexOf("CANAL : EMAIL") !== -1,
+      "le canal de la fiche a nourri le prompt"
+    );
+  } finally {
+    delete process.env.CANAUX;
+    delete fiches["547249072"].channelId;
+  }
+});
+
+test("B6.3 ENDPOINT : identification PAR LA PLAQUE en repli (pas trouvé par téléphone) → journalisée", async () => {
+  reinitialiseDb();
+  fiches["999777"] = { fullName: "CONTACT SANS TEL", lifecycle: "", tags: [] };
+  historiques["999777"] = [itemRespondio({ ts: 1792683528000, texte: "bonjour, mon scooter AB-123-CD a un problème" })];
+  try {
+    enfileMessage("999777", "bonjour, mon scooter AB-123-CD a un problème");
+    const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+    assert.strictEqual(r.statusCode, 200);
+    assert.ok(db.journal.some((j) => j.etape === "identification_par_plaque"), "l'identification par plaque est journalisée");
+    assert.ok(
+      appelsMistral.length > 0 &&
+      appelsMistral[appelsMistral.length - 1][1].content.indexOf("AUTRE CLIENT TEST") !== -1,
+      "la fiche client retrouvée par la plaque a nourri le prompt"
+    );
+  } finally {
+    delete fiches["999777"];
+    delete historiques["999777"];
   }
 });

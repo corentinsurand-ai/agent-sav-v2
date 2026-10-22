@@ -256,3 +256,38 @@ test('etatDepuisContexte : contexte vide → formulaire vierge, jamais de crash'
   assert.strictEqual(e.etape, 1);
   assert.deepStrictEqual(e.plaques, []);
 });
+
+// ============================================================================
+// B6.3 — PUSH CAMPAGNE : vocabulaire COMPLET v2.20.116
+// ============================================================================
+test('B6.3 estPushCampagne : « technicien … secteur » → PUSH', () => {
+  assert.strictEqual(lib.estPushCampagne("Un technicien passe prochainement dans votre secteur."), true);
+  assert.strictEqual(lib.estPushCampagne("Notre technicien intervient dans votre secteur cette semaine."), true);
+});
+
+test('B6.3 estPushCampagne : « pneus ou plaquettes » → PUSH', () => {
+  assert.strictEqual(lib.estPushCampagne("Besoin de pneus ou plaquettes ? Profitez de notre passage."), true);
+});
+
+test('B6.3 estPushCampagne : « tout autre besoin » → PUSH', () => {
+  assert.strictEqual(lib.estPushCampagne("Pour tout autre besoin, répondez à ce message."), true);
+});
+
+test('B6.3 estPushCampagne : « dans le cadre de votre maintenance » → PUSH', () => {
+  assert.strictEqual(lib.estPushCampagne("Dans le cadre de votre maintenance, nous vous proposons un contrôle gratuit."), true);
+});
+
+test('B6.3 estPushCampagne : RÉTRO-COMPAT — l ancien vocabulaire B3.1 reste un PUSH', () => {
+  assert.strictEqual(lib.estPushCampagne('Notre équipe tourne prochainement dans votre secteur'), true);
+  assert.strictEqual(lib.estPushCampagne('Passage programmé la semaine prochaine'), true);
+});
+
+test('B6.3 estPushCampagne : signature « Agent IA U mob » → JAMAIS un push (règle inchangée)', () => {
+  assert.strictEqual(lib.estPushCampagne("Bonjour, dans le cadre de votre maintenance je regarde.\n-Agent IA U'mob-"), false);
+  assert.strictEqual(lib.estPushCampagne("Le technicien est dans votre secteur.\n-Agent IA U'mob-"), false);
+});
+
+test('B6.3 estPushCampagne : message neutre → pas un push', () => {
+  assert.strictEqual(lib.estPushCampagne("Merci pour votre message, nous revenons vers vous."), false);
+  assert.strictEqual(lib.estPushCampagne(""), false);
+});

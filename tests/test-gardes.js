@@ -350,3 +350,49 @@ test('G11 : sans etape_candidate ni etape dans l état (vieux comportement) → 
   });
   assert.strictEqual(r.ok, true); // rétrocompatibilité : la garde ne dit rien sans étape connue
 });
+
+// ============================================================================
+// B6.3 — G12 : CAMPAGNE PUSH (v2.20.116) : pas de qualification standard
+// sur une réponse à un push — la plaque n'est PAS redemandée d'entrée.
+// ============================================================================
+test('G12 : réponse push qui demande l immatriculation → FAUTE campagne_push_plaque', () => {
+  const etat = etatAvec({ campagne_push: true });
+  const r = gardes.verifier({
+    reponse: "Bonjour, quelle est l'immatriculation de votre scooter ?\n-Agent IA U'mob-",
+    escalade: false,
+    etat: etat
+  });
+  assert.strictEqual(r.ok, false);
+  assert.ok(r.fautes.some((f) => f.code === 'campagne_push_plaque'));
+});
+
+test('G12 : réponse push qui interroge le BESOIN → conforme', () => {
+  const etat = etatAvec({ campagne_push: true });
+  const r = gardes.verifier({
+    reponse: "Bonjour, merci pour votre retour. Quel est le besoin concernant votre scooter ?\n-Agent IA U'mob-",
+    escalade: false,
+    etat: etat
+  });
+  assert.strictEqual(r.ok, true);
+});
+
+test('G12 : SANS signal push → la demande d immatriculation reste LÉGITIME (étape 2)', () => {
+  const etat = etatAvec({}); // pas de campagne_push
+  const r = gardes.verifier({
+    reponse: "Bonjour, quelle est l'immatriculation du scooter concerné, s'il vous plaît ?\n-Agent IA U'mob-",
+    escalade: false,
+    etat: etat
+  });
+  assert.strictEqual(r.ok, true);
+});
+
+test('G12 : le rappel est réinjectable au cerveau (texte de régénération présent)', () => {
+  const etat = etatAvec({ campagne_push: true });
+  const r = gardes.verifier({
+    reponse: "Quelle est la plaque de votre scooter ?\n-Agent IA U'mob-",
+    escalade: false,
+    etat: etat
+  });
+  const f = r.fautes.find((x) => x.code === 'campagne_push_plaque');
+  assert.ok(f && f.rappel.indexOf('CAMPAGNE PUSH') !== -1 && f.rappel.indexOf('OUVERTE') !== -1);
+});

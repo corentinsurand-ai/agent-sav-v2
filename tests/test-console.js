@@ -428,3 +428,15 @@ test("B6.1 — la page embarque l'affichage des actions B4.2 (libellés + aperç
   assert.ok(html.indexOf("poser le cycle") !== -1);
   assert.ok(html.indexOf("B4.2 (mode actif) ferait") !== -1);
 });
+
+// ============================================================================
+// B6.3 — la console embarque la version B6.3 (et les nouveaux libellés)
+// ============================================================================
+test("B6.3 — la console répond en version B6.3", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { message: "bonjour", memoire: [] }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.version, "B6.3");
+});

@@ -38,7 +38,7 @@
 // 500 configuration manquante (RIEN n'est réclamé dans ce cas).
 // ============================================================================
 
-var VERSION = "B6.1";
+var VERSION = "B6.3";
 var SCHEMA = "agent_sav";
 
 var contexte = require("../lib/contexte.js");
@@ -202,6 +202,49 @@ async function chercherClient(contactId) {
   }
 }
 
+// B6.3 — IDENTIFICATION PAR LA PLAQUE (repli, audit §1 🟡) : si le contact
+// n'est pas trouvé par téléphone (fiche sans numéro, numéro absent du miroir
+// clients…), on cherche la ligne clients PAR LA PLAQUE citée dans le
+// dernier message entrant. Best effort : en cas d'erreur, null (le dossier
+// suit sans fiche client, comme avant).
+async function chercherClientParPlaque(ctx) {
+  try {
+    var messages = (ctx && ctx.messages) || [];
+    var entrant = null;
+    for (var i = messages.length - 1; i >= 0; i--) {
+      if (!messages[i].sortant) { entrant = messages[i]; break; }
+    }
+    if (!entrant) return null;
+    var plaques = etatLib.extrairePlaques(String(entrant.texte || ""));
+    for (var p = 0; p < plaques.length; p++) {
+      var lignes = await supabaseGet("clients", "select=telephone,plaque,enseigne,statut_risque&plaque=ilike." +
+        encodeURIComponent("*" + plaques[p] + "*") + "&limit=1");
+      if (lignes.length) {
+        return { client: lignes[0], plaque: plaques[p] };
+      }
+    }
+    return null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// B6.3 — RÉSOLUTION DU CANAL (ton par canal, portage v2.10) : le channelId
+// respond.io devient un NOM de canal lisible par le cerveau. D'abord la
+// correspondance explicite (env CANAUX : {"1234":"whatsapp", "5678":"mail"}),
+// sinon heuristique sur l'identifiant ; '' = non résolu → ton simple.
+function nomCanal(channelId) {
+  var id = String(channelId || "");
+  if (!id) return "";
+  var map = {};
+  try { map = JSON.parse(env("CANAUX")) || {}; } catch (e) { map = {}; }
+  if (map[id]) return String(map[id]);
+  var bas = id.toLowerCase();
+  if (/whatsapp|\bwa\b/.test(bas)) return "whatsapp";
+  if (/mail|smtp|courriel/.test(bas)) return "mail";
+  return "";
+}
+
 // Leçons actives pour ce dossier (cahier des charges §6.3) : ciblées client
 // OU générales, jamais empilées (max 5).
 async function chercherLecons(contactId) {
@@ -250,12 +293,27 @@ async function traiterContact(contactId, idMessage, mode) {
   var client = await chercherClient(contactId);
   var lecons = await chercherLecons(contactId);
 
+  // B6.3 — repli PAR LA PLAQUE : pas trouvé par téléphone → la plaque citée
+  // dans le dernier message entrant identifie la fiche (journalisée).
+  if (!client) {
+    var parPlaque = await chercherClientParPlaque(ctx);
+    if (parPlaque) {
+      client = parPlaque.client;
+      await journaliser(contactId, "identification_par_plaque",
+        "fiche client retrouvée par la plaque citée : " + parPlaque.plaque);
+    }
+  }
+
+  // B6.3 — canal résolu (ton par canal, portage v2.10) : '' si inconnu.
+  var canal = nomCanal(ctx.contact && ctx.contact.channelId);
+
   var resultat = await processLib.traiterMessage({
     contactId: contactId,
     ctx: ctx,
     client: client,
     lecons: lecons,
     mode: mode,
+    canal: canal,
     execution_armee: mode === "actif" && env("B42_EXECUTION") === "1", // B6.1
     parc: plaqueDansParc, // B4.2-PREP.2 — vérification plaque contre le parc (garde cas A)
     mistral: async function (messages) {

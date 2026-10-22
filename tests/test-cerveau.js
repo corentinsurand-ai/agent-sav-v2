@@ -309,3 +309,54 @@ test('intégration : fil réel → prompt → réponse simulée → parse → fu
   // 5. La réponse partira vers les gardes (B3.3), pas directement au client
   assert.ok(p.reponse.indexOf("Agent IA U'mob") !== -1);
 });
+
+// ============================================================================
+// B6.3 — TON PAR CANAL (blocCanal, portage v2.10)
+// ============================================================================
+test("B6.3 blocCanal : canal EMAIL → vouvoiement, formules complètes, pas de SMS/emoji, UN email structuré", () => {
+  const b = cerveau.blocCanal("mail");
+  assert.ok(b.indexOf("CANAL : EMAIL") !== -1);
+  assert.ok(b.indexOf("vouvoiement") !== -1);
+  assert.ok(b.indexOf("pas de langage SMS") !== -1);
+  assert.ok(b.indexOf("UN seul email structuré") !== -1);
+});
+
+test("B6.3 blocCanal : canal WHATSAPP → sobre, direct, phrases courtes", () => {
+  const b = cerveau.blocCanal("whatsapp");
+  assert.ok(b.indexOf("CANAL : WHATSAPP") !== -1);
+  assert.ok(b.indexOf("sobre et direct") !== -1);
+});
+
+test("B6.3 blocCanal : variations tolérées (courriel, smtp, wa, chat, suffixe « | » v2.10)", () => {
+  assert.ok(cerveau.blocCanal("courriel").indexOf("EMAIL") !== -1);
+  assert.ok(cerveau.blocCanal("smtp|55").indexOf("EMAIL") !== -1);
+  assert.ok(cerveau.blocCanal("wa|123").indexOf("WHATSAPP") !== -1);
+  assert.ok(cerveau.blocCanal("chat").indexOf("WHATSAPP") !== -1);
+});
+
+test("B6.3 blocCanal : canal non identifié → bloc neutre ; canal vide → AUCUN bloc", () => {
+  assert.ok(cerveau.blocCanal("signet").indexOf("non identifié") !== -1);
+  assert.strictEqual(cerveau.blocCanal(""), "");
+  assert.strictEqual(cerveau.blocCanal(null), "");
+});
+
+test("B6.3 construireMessages : canal passé → le bloc est DANS le prompt (avant le formulaire)", () => {
+  const msgs = cerveau.construireMessages({
+    contact: { nom: "Marco", cycle: "", tags: [] },
+    etat: etatLib.etatVierge(),
+    messages: [{ texte: "bonjour", sortant: false, humain: false, emis_a: "2026-10-22T08:00:00Z" }],
+    canal: "mail"
+  });
+  const c = msgs[1].content;
+  assert.ok(c.indexOf("CANAL : EMAIL") !== -1);
+  assert.ok(c.indexOf("FORMULAIRE DU DOSSIER") > c.indexOf("CANAL : EMAIL"));
+});
+
+test("B6.3 construireMessages : SANS canal → pas de bloc canal (ton simple, rétro-compat)", () => {
+  const msgs = cerveau.construireMessages({
+    contact: { nom: "Marco", cycle: "", tags: [] },
+    etat: etatLib.etatVierge(),
+    messages: []
+  });
+  assert.ok(msgs[1].content.indexOf("CANAL :") === -1);
+});
