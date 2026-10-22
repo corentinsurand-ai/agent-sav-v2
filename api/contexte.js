@@ -22,7 +22,7 @@
 // 500 si RESPONDIO_TOKEN n'est pas configuré.
 // ============================================================================
 
-var VERSION = 'B2.1';
+var VERSION = 'B2.1.1';
 
 var contexte = require('../lib/contexte.js');
 
@@ -78,7 +78,10 @@ module.exports = async function handler(req, res) {
   if (limite > 100) limite = 100;                    // borne « conversation » v132
 
   try {
-    var ctx = await contexte.assemblerContexte(contact, limite);
+    // Diagnostic brut=1 (méthode prod v135/v136) : mêmes appels + réponses
+    // BRUTES respond.io pour diagnostiquer en prod (cycle de vie, 404…)
+    var brut = paramDe(req, 'brut') === '1';
+    var ctx = await contexte.assemblerContexte(contact, limite, brut);
     return res.status(200).json({
       ok: true,
       brique: 'B2',
@@ -88,7 +91,8 @@ module.exports = async function handler(req, res) {
       contact: ctx.contact,
       messages: ctx.messages,
       commentaires: ctx.commentaires,
-      avertissements: ctx.avertissements
+      avertissements: ctx.avertissements,
+      brut: ctx.brut
     });
   } catch (e) {
     return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
