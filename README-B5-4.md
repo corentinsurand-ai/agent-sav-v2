@@ -71,30 +71,44 @@ transfert), plaque hors parc (rejet canonique, 0 Mistral, garde cas A,
 message vide (400), et l'INVARIANT : zéro écriture Supabase (uniquement des
 GET), aucun accès respond.io.
 
-## Correctif B5.4.1 (23/10) — le cas A complet arrive dans la console
 
-Incident signalé par Corentin : test console avec GE-365-DD puis GR-335-TT
-(same conversation) — « le cycle ne change jamais ». La console ne montrait
-que l'étape 1 du cas A (rejet canonique) ; l'ancien système transférait à un
-collègue dès la plaque confirmée hors parc (v2.20.6/9/10).
+## B5.4.2 (23/10) — le transfert auto cas A est ANNULÉ, le cycle devient VISIBLE
 
-Désormais dans le bac à sable (comme en prod) :
+Historique : le signalement « GE-365-DD puis GR-335-TT — le cycle ne change
+jamais » avait été mal interprété en B5.4.1 (transfert automatique après
+vérification plaque). Clarification de Corentin : le fonctionnement d'origine
+était le bon — ce qu'il voulait, c'est VOIR le cycle. B5.4.1 est ANNULÉ,
+retour au comportement validé :
 
-1. 1re plaque hors parc → rejet canonique (inchangé), actions : « cycle
-   inchangé — si le client redonne une plaque toujours hors parc : transfert
-   automatique cas A ».
-2. Le client redonne une plaque (confirmée, corrigée ou nouvelle) TOUJOURS
-   hors parc → **transfert auto déterministe, 0 Mistral** : réponse canonique
-   « Merci pour la confirmation. Je ne retrouve pas l'immatriculation
-   GR-335-TT dans notre parc. Je transmets votre demande à un membre de
-   notre équipe… », `type: cas_a`, escalade + motif « PLAQUE NON IDENTIFIÉE
-   AU PARC (cas A) », et le bloc « B4.2 (mode actif) ferait » affiche le
-   cycle « A qualifier » + le tag « Prise de main » + le commentaire
-   TRANSFERT SAV.
-3. Plaque corrigée reconnue au parc / message mixte / message sans plaque /
-   erreur parc → PAS de transfert, la qualification poursuit (règle 6).
+- 1re plaque hors parc → rejet canonique (inchangé, 0 Mistral) ;
+- plaque RÉPÉTÉE ou redonnée différente : JAMAIS de transfert auto — la
+  qualification poursuit par le cerveau (la plaque n'est pas bloquante,
+  règle 6 ; le transfert reste la décision du cerveau).
 
-NB bac à sable : il n'y a pas de tag « Prise de main » (fiche fictive) —
-après un transfert, un nouveau message avec plaque hors parc re-déclenche le
-transfert ; en prod, le tag posé par B4.2 rendrait la main à un humain
-(silence). Voir README-B4-2-PREP-2.md (§ Correctif B5.4.1).
+NOUVEAU dans la console — chaque carte d'échange affiche désormais :
+
+> 📍 Cycle que B4.2 poserait : **…** — raison
+
+C'est le mapping §5 du cahier des charges (NOUVEAU `lib/cycles.js`, Node
+pur, DÉTERMINISTE — jamais le LLM, casse exacte respond.io) :
+
+| Situation | Cycle que B4.2 poserait |
+| --- | --- |
+| RESET / silence / rejet plaque | (inchangé) |
+| Escalade + demande commerciale | DE Commerciales |
+| Escalade + client « Impayé » | Bloquée Impayé |
+| Escalade + « Mauvais payeur » | Attente Paiement ou pré-auto CB |
+| Escalade + dossier complet (téléphone + panne + étape ≥ 5) | A créer dans Praxedo |
+| Escalade autre | A qualifier |
+| Réponse qui pose une question | Attente client (posé après 2 h sans réponse par le scan horaire) |
+| Réponse sans question | (inchangé) |
+
+Jamais posé ici : « En cours de réalisation » / « Traitée » (Praxedo B6+).
+Le JSON de la console expose `cycle_prevu: {cycle, raison}` ; l'écran B5
+(README-B5-3) affiche la même information sur chaque ligne (« ⚙️ B4.2
+poserait : … »).
+
+Compteurs : `tests/test-console.js` 16/16 (14 + cycle_prevu, scénario
+GE-365-DD/GR-335-TT réécrit sur le comportement validé),
+`tests/test-cycles.js` 21/21 (NOUVEAU), projet complet 285/285.
+Voir README-B4-2-PREP-2.md (§ Correctif B5.4.2).

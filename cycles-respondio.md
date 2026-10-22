@@ -5,6 +5,11 @@ caractère par Corentin lui-même dans les paramètres respond.io. C'est la
 référence unique pour B4.2 : l'adaptateur posera les cycles avec CES chaînes
 exactes, en dur dans le code — à la lettre près.
 
+> B5.4.2 : le mapping état → cycle (table §5 du cahier des charges) vit
+> désormais dans `lib/cycles.js` (Node pur, déterministe) — `CYCLES` reprend
+> ces chaînes exactes. La console de test et l'écran B5 affichent le cycle
+> prévu à chaque échange via `cycle_prevu`.
+
 ## Les 12 cycles de respond.io
 
 ### 9 cycles PILOTÉS PAR L'AGENT (posés par le code B4.2, jamais par le LLM)

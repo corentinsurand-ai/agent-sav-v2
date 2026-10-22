@@ -32,16 +32,21 @@ const db = {
 let appelsFetch = [];   // tous les appels réseau simulés
 let appelsMistral = 0;  // chaque appel au modèle compte
 
-const reponseConforme = JSON.stringify({
+// mutable : certains tests (cycle_prevu « Attente client ») substituent une
+// réponse du modèle qui pose une question au client.
+let reponseConforme = JSON.stringify({
   reponse: "Merci pour votre message, nous prenons en charge votre demande.\n-Agent IA U'mob-",
   formulaire: {},
   escalade: false,
   raison_escalade: ""
 });
 
+const reponseConformeParDefaut = reponseConforme;
+
 function reinitialise() {
   appelsFetch = [];
   appelsMistral = 0;
+  reponseConforme = reponseConformeParDefaut;
 }
 
 function paramsDe(url) {
@@ -183,13 +188,12 @@ test("plaque HORS parc → rejet canonique, 0 Mistral, garde cas A, dans_parc fa
 });
 
 // ============================================================================
-// B5.4.1 — CORRECTIF CAS A ÉTAPE 2 (incident console GE-365-DD / GR-335-TT) :
-// après UNE vérification, une plaque redonnée toujours hors parc → TRANSFERT
-// AUTO déterministe (0 Mistral) — chez l'ancien, le cycle PASSAIT à « A
-// qualifier » à ce moment-là (v2.20.6/9/10) ; il ne changeait jamais.
+// B5.4.2 — comportement VALIDÉ par Corentin (le transfert reste la décision
+// du CERVEAU, jamais de la garde plaque) + AFFICHAGE DU CYCLE que le mode
+// actif B4.2 poserait (mapping §5, lib/cycles.js → detail.cycle_prevu).
 // ============================================================================
 
-test("cas A étape 2 : rejet puis 2e plaque hors parc (GE-365-DD → GR-335-TT) → TRANSFERT AUTO, 0 Mistral, cycle → A qualifier", async () => {
+test("rejet puis 2e plaque DIFFÉRENTE hors parc (GE-365-DD → GR-335-TT) → rejet canonique À NOUVEAU, 0 Mistral, cycle inchangé (comportement validé)", async () => {
   reinitialise();
   // échange 1 : 1re plaque hors parc → rejet canonique (étape 1)
   const r1 = faireRes();
@@ -208,21 +212,22 @@ test("cas A étape 2 : rejet puis 2e plaque hors parc (GE-365-DD → GR-335-TT) 
     { message: "c est GR-335-TT", memoire }, "POST"), r2);
   assert.strictEqual(r2.statusCode, 200);
   assert.strictEqual(r2.corps.statut, "traite");
-  assert.strictEqual(r2.corps.type, "cas_a");
+  // comportement restauré B5.4.2 : GR-335-TT est une plaque NOUVELLE hors
+  // parc → rejet canonique à nouveau (la plaque n'est PAS bloquante, jamais
+  // de transfert automatique — le cerveau tranche)
+  assert.strictEqual(r2.corps.type, "plaque");
   assert.strictEqual(r2.corps.appels_mistral, 0);
   assert.strictEqual(appelsMistral, 0);
-  assert.strictEqual(r2.corps.escalade, true);
-  assert.ok(r2.corps.reponse.indexOf("Merci pour la confirmation. Je ne retrouve pas l'immatriculation GR-335-TT dans notre parc.") !== -1);
-  assert.ok(r2.corps.reponse.indexOf("Agent IA U'mob") !== -1);
-  assert.ok(r2.corps.raison_escalade.indexOf("PLAQUE NON IDENTIFIÉE AU PARC (cas A)") !== -1);
-  // le bloc « B4.2 (mode actif) ferait » affiche le TRANSFERT complet
-  const actions = r2.corps.actions_simulees.join(" | ");
-  assert.ok(actions.indexOf("cycle → « A qualifier »") !== -1);
-  assert.ok(actions.indexOf("tag « Prise de main » posé") !== -1);
-  assert.ok(actions.indexOf("TRANSFERT SAV") !== -1);
+  assert.strictEqual(r2.corps.reponse, REPONSE_PLAQUE);
+  assert.strictEqual(r2.corps.escalade, false);
+  // B5.4.2 — le cycle que B4.2 poserait est AFFICHÉ (inchangé ici)
+  assert.ok(r2.corps.cycle_prevu, "cycle_prevu présent dans la réponse JSON");
+  assert.strictEqual(r2.corps.cycle_prevu.cycle, null);
+  assert.ok(r2.corps.actions_simulees[0].indexOf("rejet canonique plaque hors parc") !== -1);
+  assert.ok(r2.corps.actions_simulees.join(" | ").indexOf("cycle inchangé") !== -1);
 });
 
-test("cas A étape 2 : plaque corrigée AU parc après rejet → PAS de transfert, la qualification poursuit (1 Mistral)", async () => {
+test("plaque corrigée AU parc après rejet → la qualification poursuit (1 Mistral), cycle_prevu affiché", async () => {
   reinitialise();
   const memoire = [
     { sortant: false, texte: "mon scooter GE-365-DD ne démarre pas", ts: 1792683540000 },
@@ -235,6 +240,36 @@ test("cas A étape 2 : plaque corrigée AU parc après rejet → PAS de transfer
   assert.strictEqual(r.corps.type, "cerveau");
   assert.strictEqual(r.corps.appels_mistral, 1);
   assert.strictEqual(r.corps.escalade, false);
+  // B5.4.2 — réponse SANS question → cycle inchangé
+  assert.strictEqual(r.corps.cycle_prevu.cycle, null);
+});
+
+test("B5.4.2 — réponse du cerveau qui POSE UNE QUESTION → cycle_prevu « Attente client » (posé après 2 h par le scan horaire)", async () => {
+  reinitialise();
+  reponseConforme = JSON.stringify({
+    reponse: "Quel est le modèle exact de votre scooter ?\n-Agent IA U'mob-",
+    formulaire: {},
+    escalade: false,
+    raison_escalade: ""
+  });
+  const r = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { message: "mon scooter a un problème de batterie", memoire: [] }, "POST"), r);
+  assert.strictEqual(r.statusCode, 200);
+  assert.strictEqual(r.corps.statut, "traite");
+  assert.strictEqual(r.corps.type, "cerveau");
+  assert.strictEqual(r.corps.appels_mistral, 1);
+  assert.strictEqual(r.corps.cycle_prevu.cycle, "Attente client");
+  assert.ok(r.corps.cycle_prevu.raison.indexOf("2 h") !== -1);
+});
+
+test("B5.4.2 — RESET → cycle_prevu inchangé (null), jamais de « Nouvelle Demande » inventé", async () => {
+  reinitialise();
+  const r = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { message: "RESET", memoire: [{ sortant: false, texte: "mon scooter GG-798-NL ne démarre pas", ts: 1792683540000 }] }, "POST"), r);
+  assert.strictEqual(r.corps.statut, "reset");
+  assert.strictEqual(r.corps.cycle_prevu.cycle, null);
 });
 
 test("plaque DU parc → qualification normale, dans_parc true", async () => {

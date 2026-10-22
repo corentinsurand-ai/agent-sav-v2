@@ -352,6 +352,11 @@ test("escalade orphelin : aucune régénération, raison journalisée pour le co
   assert.strictEqual(res.escalade, true);
   assert.strictEqual(res.appels, 1);
   assert.ok(res.journal.some((j) => j.etape === "process_escalade" && j.texte.indexOf("orpheline") !== -1));
+  // B5.4.2 — l'observation porte le cycle que le mode actif poserait (§5) :
+  // escalade sans dossier complet → « A qualifier »
+  const obs = res.journal.find((j) => j.etape === "observation");
+  assert.ok(obs && obs.detail.cycle_prevu, "cycle_prevu présent dans le journal d observation");
+  assert.strictEqual(obs.detail.cycle_prevu.cycle, "A qualifier");
 });
 
 test("garde fautive → UNE régénération AVEC rappels → réponse corrigée retenue", async () => {
@@ -856,159 +861,31 @@ test("PLAQUE de la flotte du client (B2.2) : jamais revérifiée — traitement 
   assert.ok(!appelsFetch.some((f) => f.url.indexOf("plaque=ilike.") !== -1));
 });
 
-test("CAS A étape 2 : plaque RÉPÉTÉE confirmée hors parc → TRANSFERT AUTO déterministe (0 Mistral, plus jamais de 2e vérification)", async () => {
-  reinitialiseDb();
-  fichePlaqueTest();
-  historiques["444445"] = [
-    itemRespondio({ ts: 1792683540000, texte: "mon scooter GN-223-DD ne démarre pas" }),
-    itemRespondio({ ts: 1792683541000, texte: "Cette plaque ne correspond pas à notre parc. Quelle est la saisie exacte de la plaque ?", sortant: true }),
-    itemRespondio({ ts: 1792683542000, texte: "GN-223-DD c est bien ça" })
-  ];
-  enfileMessage("444445", "GN-223-DD c est bien ça");
-  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
-  const res = r.corps.resultats[0];
-  assert.strictEqual(res.statut, "traite");
-  assert.strictEqual(res.appels_mistral, 0);
-  assert.strictEqual(appelsMistral.length, 0);
-  assert.strictEqual(res.escalade, true);
-  assert.ok(res.reponse.indexOf("Merci pour la confirmation. Je ne retrouve pas l'immatriculation GN-223-DD dans notre parc.") !== -1);
-  assert.ok(res.raison_escalade.indexOf("PLAQUE NON IDENTIFIÉE AU PARC (cas A)") !== -1);
-  assert.ok(db.journal.some((j) => j.etape === "process_transfert_cas_a" && j.contact_id === "444445"));
-  const obs = db.journal.find((j) => j.etape === "observation" && j.contact_id === "444445");
-  assert.ok(obs && obs.detail.type === "cas_a");
-  assert.strictEqual(obs.detail.escalade, true);
-  assert.strictEqual(obs.detail.appels_mistral, 0);
-  assert.ok(obs.detail.reponse.indexOf("Agent IA U'mob") !== -1, "le canonique complet (avec signature) vit dans le journal");
-  // la plaque reste dans l'état du dossier (le collègue la retrouvera)
-  assert.ok(db.dossiers["444445"].etat.plaques.indexOf("GN223DD") !== -1);
-});
-
-test("CAS A étape 2 : 2e plaque DIFFÉRENTE toujours hors parc → TRANSFERT AUTO citant la nouvelle plaque (scénario console GE-365-DD / GR-335-TT)", async () => {
-  reinitialiseDb();
-  fichePlaqueTest();
-  historiques["444445"] = [
-    itemRespondio({ ts: 1792683540000, texte: "mon scooter GE-365-DD ne démarre pas" }),
-    itemRespondio({ ts: 1792683541000, texte: "Cette plaque ne correspond pas à notre parc. Quelle est la saisie exacte de la plaque ?", sortant: true }),
-    itemRespondio({ ts: 1792683542000, texte: "c est GR-335-TT" })
-  ];
-  enfileMessage("444445", "c est GR-335-TT");
-  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
-  const res = r.corps.resultats[0];
-  assert.strictEqual(res.statut, "traite");
-  assert.strictEqual(appelsMistral.length, 0);
-  assert.strictEqual(res.escalade, true);
-  assert.ok(res.reponse.indexOf("l'immatriculation GR-335-TT dans notre parc") !== -1);
-  assert.ok(db.journal.some((j) => j.etape === "process_transfert_cas_a"));
-});
-
-test("CAS A étape 2 : plaque CORRIGÉE reconnue au parc → PAS de transfert, la qualification poursuit (1 appel Mistral)", async () => {
-  reinitialiseDb();
-  fichePlaqueTest();
-  historiques["444445"] = [
-    itemRespondio({ ts: 1792683540000, texte: "mon scooter GN-223-DD ne démarre pas" }),
-    itemRespondio({ ts: 1792683541000, texte: "Cette plaque ne correspond pas à notre parc. Quelle est la saisie exacte de la plaque ?", sortant: true }),
-    itemRespondio({ ts: 1792683542000, texte: "ah mince, c est AB-123-CD" })
-  ];
-  enfileMessage("444445", "ah mince, c est AB-123-CD");
-  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
-  const res = r.corps.resultats[0];
-  assert.strictEqual(res.statut, "traite");
-  assert.strictEqual(res.appels_mistral, 1);
-  assert.strictEqual(res.escalade, false);
-  assert.ok(!db.journal.some((j) => j.etape === "process_transfert_cas_a"));
-});
-
-test("CAS A étape 2 : message SANS plaque après vérification → pas de transfert déterministe (le cerveau traite)", async () => {
-  reinitialiseDb();
-  fichePlaqueTest();
-  historiques["444445"] = [
-    itemRespondio({ ts: 1792683540000, texte: "mon scooter GN-223-DD ne démarre pas" }),
-    itemRespondio({ ts: 1792683541000, texte: "Cette plaque ne correspond pas à notre parc. Quelle est la saisie exacte de la plaque ?", sortant: true }),
-    itemRespondio({ ts: 1792683542000, texte: "je ne sais pas du tout où la trouver" })
-  ];
-  enfileMessage("444445", "je ne sais pas du tout où la trouver");
-  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
-  const res = r.corps.resultats[0];
-  assert.strictEqual(res.statut, "traite");
-  assert.strictEqual(res.appels_mistral, 1);
-  assert.ok(!db.journal.some((j) => j.etape === "process_transfert_cas_a"));
-});
-
-test("CAS A étape 2 : message MIXTE (plaque flotte AU parc + plaque inconnue) → pas de transfert, la plaque reconnue débloque", async () => {
-  reinitialiseDb();
-  fichePlaqueTest();
-  historiques["444445"] = [
-    itemRespondio({ ts: 1792683540000, texte: "mon scooter GN-223-DD ne démarre pas" }),
-    itemRespondio({ ts: 1792683541000, texte: "Cette plaque ne correspond pas à notre parc. Quelle est la saisie exacte de la plaque ?", sortant: true }),
-    itemRespondio({ ts: 1792683542000, texte: "c est le GG-798-NL pas le GN-223-DD" })
-  ];
-  enfileMessage("444445", "c est le GG-798-NL pas le GN-223-DD");
-  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
-  const res = r.corps.resultats[0];
-  assert.strictEqual(res.statut, "traite");
-  assert.strictEqual(res.appels_mistral, 1);
-  assert.ok(!db.journal.some((j) => j.etape === "process_transfert_cas_a"));
-});
-
-test("CAS A étape 2 : vérification faite par l ANCIEN agent (texte v2.20.6) → transfert reconnu AUSSI (parité période de comparaison)", async () => {
-  reinitialiseDb();
-  fichePlaqueTest();
-  historiques["444445"] = [
-    itemRespondio({ ts: 1792683540000, texte: "mon scooter GN-223-DD ne démarre pas" }),
-    itemRespondio({ ts: 1792683541000, texte: "Pouvez-vous vérifier l'immatriculation de votre scooter, s'il vous plaît ?", sortant: true }),
-    itemRespondio({ ts: 1792683542000, texte: "GN-223-DD" })
-  ];
-  enfileMessage("444445", "GN-223-DD");
-  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
-  const res = r.corps.resultats[0];
-  assert.strictEqual(res.statut, "traite");
-  assert.strictEqual(appelsMistral.length, 0);
-  assert.strictEqual(res.escalade, true);
-  assert.ok(res.reponse.indexOf("Merci pour la confirmation") !== -1);
-});
-
-test("CAS A étape 2 : parc en ERREUR au tour du transfert → jamais de transfert (best effort, règle 6)", async () => {
+test("CAS A : la plaque RÉPÉTÉE n est plus nouvelle — la qualification poursuit (2e échec, 1 appel Mistral, jamais de blocage)", async () => {
+  // GN-223-DD a déjà été rejetée au tour précédent (canonique sortant dans
+  // l'historique) : le client redit « GN-223-DD c est bien ça ». La plaque
+  // est désormais dans etat.plaques → plus NOUVELLE → jamais revérifiée :
+  // le cerveau prend le relais (1 appel Mistral). Comportement VALIDÉ par
+  // Corentin (B5.4.2) : la plaque n'est PAS bloquante, la qualification
+  // poursuit — le transfert reste la décision du cerveau, pas de la garde.
   reinitialiseDb();
   const res = await processLib.traiterMessage({
     contactId: "444445",
     ctx: ctxStandard([
       msgNormalise({ ts: 1792683540000, texte: "mon scooter GN-223-DD ne démarre pas" }),
-      msgNormalise({ ts: 1792683541000, texte: "Cette plaque ne correspond pas à notre parc. Quelle est la saisie exacte de la plaque ?", sortant: true }),
+      msgNormalise({ ts: 1792683541000, texte: processLib.REPONSE_PLAQUE, sortant: true }),
       msgNormalise({ ts: 1792683542000, texte: "GN-223-DD c est bien ça" })
     ]),
     client: clientStandard,
     lecons: [],
-    parc: async () => { throw new Error("Supabase indisponible"); },
+    parc: async () => false,
     mistral: async () => reponseConformeDefaut
   });
   assert.strictEqual(res.statut, "traite");
   assert.strictEqual(res.appels, 1);
   assert.strictEqual(res.escalade, false);
-  assert.ok(!res.journal.some((j) => j.etape === "process_transfert_cas_a"));
-});
-
-test("B5.4.1 — helpers purs : formaterPlaque et verificationPlaqueDejaDemandee", () => {
-  assert.strictEqual(processLib.formaterPlaque("GR335TT"), "GR-335-TT");
-  assert.strictEqual(processLib.formaterPlaque("GE365DD"), "GE-365-DD");
-  assert.strictEqual(processLib.formaterPlaque("gn223dd"), "GN-223-DD");
-  assert.strictEqual(processLib.formaterPlaque("AA123BB123"), "AA123BB123"); // pas 7 car. : brut
-  assert.strictEqual(processLib.verificationPlaqueDejaDemandee([]), false);
-  assert.strictEqual(processLib.verificationPlaqueDejaDemandee([
-    { sortant: false, texte: "GN-223-DD c est bien ça" }
-  ]), false);
-  assert.strictEqual(processLib.verificationPlaqueDejaDemandee([
-    { sortant: true, texte: processLib.REPONSE_PLAQUE }
-  ]), true);
-  assert.strictEqual(processLib.verificationPlaqueDejaDemandee([
-    { sortant: true, texte: "Pouvez-vous vérifier l'immatriculation de votre scooter, s'il vous plaît ?" }
-  ]), true);
-  assert.strictEqual(processLib.verificationPlaqueDejaDemandee([
-    { sortant: true, texte: "Je ne retrouve pas cette immatriculation dans notre parc." }
-  ]), true);
-  // pas de faux positif sur un message sortant sans rapport avec la plaque
-  assert.strictEqual(processLib.verificationPlaqueDejaDemandee([
-    { sortant: true, texte: "Nous allons vérifier votre batterie au plus vite." }
-  ]), false);
+  assert.ok(!res.journal.some((j) => j.etape === "process_plaque"), "une plaque répétée n est JAMAIS revérifiée");
+  assert.ok(!res.journal.some((j) => j.etape === "process_transfert_cas_a"), "B5.4.1 annulé : plus de transfert auto cas A");
 });
 
 test("PLAQUE : vérification parc en ERREUR → jamais de rejet (best effort, la plaque n est pas bloquante)", async () => {

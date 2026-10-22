@@ -71,45 +71,50 @@ Quand le DERNIER message entrant du contact cite une ou plusieurs plaques :
 Exécution : `node --test tests/test-process.js` — 39/39 (33 + 6).
 Projet complet : 242/242 (31+42+25+23+23+27+15+17+39).
 
-## CORRECTIF B5.4.1 (23/10) — cas A COMPLET : l'étape 2 manquait
+## CORRECTIF B5.4.2 (23/10) — cas A : le transfert auto est ANNULÉ, le cycle devient VISIBLE
 
-Incident console de test (Corentin, 23/10) : conversation avec GE-365-DD puis
-GR-335-TT — « le cycle ne change jamais ». Cause : le portage n'avait pris que
-l'ÉTAPE 1 de la garde cas A de l'ancien (le rejet canonique). Le v2.20.6/9/10
-comportait DEUX étapes, et c'est l'étape 2 qui change le cycle :
+Historique : le signalement console de Corentin (« GE-365-DD puis GR-335-TT,
+le cycle ne change jamais ») avait été mal interprété en B5.4.1 comme un
+transfert automatique manquant. Clarification de Corentin : **le
+fonctionnement d'origine était le bon** — il voulait VOIR le cycle que le mode
+actif poserait, pas de transfert auto sur la plaque. B5.4.1 est ANNULÉ :
 
-1. **ÉTAPE 1 — 1re vérification** (B4.2-PREP.2, inchangée) : plaque citée
-   pour la 1re fois absente du parc → rejet canonique
-   « Cette plaque ne correspond pas à notre parc. Quelle est la saisie
-   exacte de la plaque ? », 0 Mistral. Une seule fois, JAMAIS deux.
-2. **ÉTAPE 2 — TRANSFERT AUTO** (porté en B5.4.1) : une vérification a déjà
-   été envoyée dans le fil (canonique v2 OU texte de l'ancien agent :
-   « vérifier l'immatriculation », « je ne retrouve pas cette
-   immatriculation »…) ET le client REDONNE une plaque TOUJOURS absente du
-   parc (confirmée, corrigée ou nouvelle — toutes les plaques du message
-   sont revérifiées, y compris répétées) → TRANSFERT DÉTERMINISTE, 0 Mistral :
-   - réponse canonique v2.20.9/10 : « Merci pour la confirmation. Je ne
-     retrouve pas l'immatriculation GR-335-TT dans notre parc. Je transmets
-     votre demande à un membre de notre équipe, qui aura accès à notre
-     conversation et vous répondra au plus vite. » + signature ;
-   - `escalade: true` + raison « PLAQUE NON IDENTIFIÉE AU PARC (cas A) : … » ;
-   - type `cas_a` → en mode actif B4.2 : cycle « A qualifier » + tag
-     « Prise de main » + commentaire TRANSFERT SAV ; à l'écran B5.3/console :
-     le bloc « B4.2 (mode actif) ferait » affichera le transfert complet.
+- `lib/process.js` : retour à la garde 2bis ORIGINALE (B4.2-PREP.2) — étape 1
+  seule. Une plaque citée pour la 1re fois absente du parc → rejet canonique
+  (0 Mistral) ; une plaque RÉPÉTÉE ou de la flotte n'est JAMAIS revérifiée ;
+  au 2e échec la qualification poursuit par le cerveau (la plaque n'est PAS
+  bloquante — règle 6). Le transfert reste la décision du CERVEAU.
+  Helpers `formaterPlaque`/`verificationPlaqueDejaDemandee` supprimés.
 
-Sans cette étape, la conversation restait bloquée à re-demander la plaque
-indéfiniment — chez l'ancien, un collègue reprenait la main dès la
-confirmation. C'est ce qui fait passer le cycle à « A qualifier ».
+- NOUVEAU `lib/cycles.js` (Node pur, zéro réseau) : le mapping §5 état →
+  cycle respond.io, DÉTERMINISTE (jamais le LLM), à la casse exacte :
+  - `CYCLES` : les 9 noms exacts (cycles-respondio.md fait foi) ;
+  - `dossierComplet(etat)` : `telephone_contact && panne && etape >= 5`
+    (la plaque n'est PAS bloquante — règle 6) ;
+  - `cyclePrevu({statut, type, escalade, raison_escalade, etat, reponse})`
+    → `{cycle, raison}` :
+    - reset / silence / rejet plaque → `null` (cycle inchangé) ;
+    - escalade + `demande_commerciale` → « DE Commerciales » ;
+    - escalade + risque « Impayé » → « Bloquée Impayé » ;
+    - escalade + « Mauvais payeur » → « Attente Paiement ou pré-auto CB » ;
+    - escalade + dossier complet → « A créer dans Praxedo » ;
+    - escalade sinon → « A qualifier » ;
+    - réponse avec « ? » → « Attente client » (posé après 2 h sans réponse
+      par le scan horaire) ;
+    - sinon → `null` (inchangé).
+    JAMAIS « En cours de réalisation » ni « Traitée » (Praxedo B6+).
 
-Ne transfèrent JAMAIS (la qualification poursuit par le cerveau) : une plaque
-corrigée reconnue au parc ; un message mixte (au moins une plaque du message
-au parc — la plaque reconnue débloque) ; un message sans plaque après
-vérification ; une erreur du vérificateur parc (règle 6 : jamais de rejet ni
-de transfert sur erreur). Aucune 2e vérification n'est jamais envoyée : après
-l'étape 2, un nouveau message avec une plaque toujours hors parc RE-déclenche
-le transfert (en prod le tag « Prise de main » posé par B4.2 rendra la main à
-un humain → silence ; dans le bac à sable il n'y a pas de tag, c'est visible
-dans les actions simulées).
+- `lib/process.js` : chaque journal d'observation porte désormais
+  `detail.cycle_prevu = {cycle, raison}` (le cycle que B4.2 mode actif
+  poserait). `lib/comparaison.js` le propage (`ligne.cycle_prevu`) et
+  `actionsSimulees` affiche le cycle RÉEL prévu (retombe sur « A qualifier »
+  pour les anciennes entrées sans cycle_prevu).
 
-Compteurs mis à jour : `tests/test-process.js` 46/46 (39 + 8 cas A - 1
-réécrit), `tests/test-console.js` 14/14 (12 + 2 cas A bout en bout).
+- `api/test.js` (B5.4.2) : la console affiche à CHAQUE échange
+  « 📍 Cycle que B4.2 poserait : … ». `api/observations.js` (écran B5) :
+  la ligne meta affiche « ⚙️ B4.2 poserait : … ».
+
+Compteurs : `tests/test-process.js` 39/39 (retour à l'original + test
+plaque répétée restauré + assertion cycle_prevu), `tests/test-console.js`
+16/16 (scénario GE-365-DD/GR-335-TT réécrit sur le comportement validé +
+cycle_prevu), `tests/test-cycles.js` 21/21 (NOUVEAU). Projet complet : 285/285.

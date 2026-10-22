@@ -114,7 +114,9 @@ function carte(ligne) {
   var meta = '<div class="meta">📍 Cycle : ' + echapper(ligne.cycle_ancien || "(inconnu)") +
     " · 🏷️ Tags : " + (ligne.tags_ancien && ligne.tags_ancien.length
       ? ligne.tags_ancien.map(echapper).join(", ")
-      : "aucun") + "</div>";
+      : "aucun") +
+    // B5.4.2 — le cycle que le mode actif poserait (mapping §5, lib/cycles.js)
+    " · ⚙️ B4.2 poserait : " + echapper(ligne.cycle_prevu || "(inchangé)") + "</div>";
   // B5.3 — ce que le mode ACTIF B4.2 ferait (SIMULATION, jamais exécuté).
   var actions = (ligne.actions_simulees || [])
     .map(function (a) { return "• " + echapper(a); })
@@ -227,3 +229,4 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
   }
 };
+

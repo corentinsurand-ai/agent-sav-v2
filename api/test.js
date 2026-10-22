@@ -17,15 +17,15 @@
 //   GET  /api/test?secret=…&telephone=0612345678     → fiche client (JSON)
 //   POST /api/test?secret=…  body {telephone, message, memoire}
 //        → {ok, statut, reponse, escalade, raison_escalade, appels_mistral,
-//           type (cerveau|reset|plaque|cas_a), actions_simulees, plaques_verifiees,
-//           client, etat, journal}
+//           type (cerveau|reset|plaque), cycle_prevu {cycle, raison},
+//           actions_simulees, plaques_verifiees, client, etat, journal}
 //
 // Réponses : 200 HTML/JSON ; 400 corps invalide ; 401 secret invalide ;
 // 405 méthode ; 500 configuration manquante (SUPABASE_URL,
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B5.4.1";
+var VERSION = "B5.4.2";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");
@@ -219,13 +219,21 @@ async function traiterEchange(corps) {
     }
   });
 
-  // Type de l'échange (reset | plaque | cerveau) — extrait du journal, comme
-  // le fait l'écran B5.
+  // Type + cycle prévu de l'échange — extraits du journal d'observation,
+  // comme le fait l'écran B5. cycle_prevu est le mapping §5 (lib/cycles.js) :
+  // le cycle que le mode ACTIF B4.2 poserait sur la fiche respond.io.
   var type = "cerveau";
+  var cyclePrevu = null;
   for (var i = 0; i < resultat.journal.length; i++) {
     var j = resultat.journal[i];
-    if (j.etape === "observation" && j.detail && j.detail.type) {
-      type = String(j.detail.type);
+    if (j.etape === "observation" && j.detail) {
+      if (j.detail.type) type = String(j.detail.type);
+      if (j.detail.cycle_prevu) {
+        cyclePrevu = {
+          cycle: j.detail.cycle_prevu.cycle || null,
+          raison: String(j.detail.cycle_prevu.raison || "")
+        };
+      }
       break;
     }
   }
@@ -248,7 +256,13 @@ async function traiterEchange(corps) {
     raison_escalade: String(resultat.raison_escalade || ""),
     appels_mistral: resultat.appels,
     type: type,
-    actions_simulees: comparaison.actionsSimulees(type, resultat.escalade === true, String(resultat.raison_escalade || "")),
+    cycle_prevu: cyclePrevu,
+    actions_simulees: comparaison.actionsSimulees(
+      type,
+      resultat.escalade === true,
+      String(resultat.raison_escalade || ""),
+      cyclePrevu ? cyclePrevu.cycle : null
+    ),
     plaques_verifiees: plaquesVerifiees,
     client: clientCompact(client),
     etat: etatCompact(resultat.etat),
@@ -356,6 +370,10 @@ function carteEchange(entree, reponse) {
     return "&bull; [" + ech(j.etape) + "] " + ech(j.texte);
   }).join("<br>") || "(vide)";
   var actions = (reponse.actions_simulees || []).map(function (a) { return "&bull; " + ech(a); }).join("<br>");
+  var cp = reponse.cycle_prevu || {};
+  var cycleTxt = cp.cycle
+    ? "<b>" + ech(cp.cycle) + "</b> &mdash; " + ech(cp.raison || "")
+    : "(inchangé)" + (cp.raison ? " &mdash; " + ech(cp.raison) : "");
   var e = reponse.etat || {};
   var etatTxt = "etape " + e.etape +
     " &middot; plaque : " + ech((e.plaques || []).join(", ") || "aucune") +
@@ -377,6 +395,7 @@ function carteEchange(entree, reponse) {
     ech(reponse.reponse || "(aucune réponse — statut " + ech(reponse.statut) + ")") + "</div></div>" +
     '<div class="meta">statut : <b>' + ech(reponse.statut) + "</b> &middot; type : " + ech(reponse.type) +
     " &middot; appels Mistral : " + ech(reponse.appels_mistral) + client + "</div>" +
+    '<div class="meta">📍 Cycle que B4.2 poserait : ' + cycleTxt + "</div>" +
     '<div class="bloc plaques"><span class="etiquette">Vérification parc (affichage)</span><div>' + plaques + "</div></div>" +
     '<div class="actions"><span class="etiquette">B4.2 (mode actif) ferait</span><div>' + actions + "</div></div>" +
     '<div class="journal"><span class="etiquette">Journal</span><div>' + journal + "</div></div>" +

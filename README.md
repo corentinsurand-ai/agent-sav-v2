@@ -14,7 +14,7 @@ Tous les secrets vivent dans les variables d'environnement Vercel, jamais dans c
 - B4.1 : api/process — le processeur, MODE OBSERVATION (voir README-B4.md)
 - B5 : api/observations — l'écran de comparaison §9 (voir README-B5.md)
 - B5.4 : api/test — la console de test du nouvel agent, bac à sable zéro écriture (voir README-B5-4.md)
-- B5.4.1 : correctif cas A — transfert automatique déterministe après vérification plaque (lib/process + console + écran B5.3) (voir README-B4-2-PREP-2.md § Correctif)
+- B5.4.2 : annulation du correctif B5.4.1 (transfert auto cas A — comportement d'origine validé par Corentin) + affichage du cycle que B4.2 poserait à chaque échange, mapping §5 déterministe via lib/cycles.js (voir README-B4-2-PREP-2.md § Correctif B5.4.2)
 - B5.3 : lib/comparaison + api/observations — cycles et transferts visibles à l'écran (voir README-B5-3.md)
 - B4.2-PREP.1 : lib/process — RESET/RAZ, purge mémoire déterministe 0 Mistral (voir README-B4-2-PREP.md)
 - B4.2-PREP.2 : lib/process + api/process — vérification plaque contre le parc, rejet canonique cas A (voir README-B4-2-PREP-2.md)
