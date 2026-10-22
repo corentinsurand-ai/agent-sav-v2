@@ -269,7 +269,7 @@ test('GET complet : 3 appels dans l\'ordre, 200, fiche + messages + commentaires
   assert.strictEqual(res.statusCode, 200);
   assert.strictEqual(res.corps.ok, true);
   assert.strictEqual(res.corps.brique, 'B2');
-  assert.strictEqual(res.corps.version, 'B2.1.2');
+  assert.strictEqual(res.corps.version, 'B2.1.3');
   assert.strictEqual(res.corps.contact_id, '123');
   assert.strictEqual(res.corps.limite, 60);
   // 3 appels dans l'ordre attendu (séquentiel)
@@ -370,7 +370,7 @@ test('brut=1 : réponse embarque fiche + messages + commentaires BRUTS', async (
   const res = faireRes();
   await contexte(reqGet('secret=secret-de-test-b2&contact=123&brut=1'), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, 'B2.1.2');
+  assert.strictEqual(res.corps.version, 'B2.1.3');
   // TOUJOURS 3 appels — le mode brut n'ajoute AUCUN appel API
   assert.strictEqual(appelsFetch.length, 3);
   // Fiche brute : la structure EXACTE renvoyée par respond.io, pas la normalisée
@@ -441,4 +441,98 @@ test('handler : cycle de vie rempli avec la forme chaîne de l\'API actuelle', a
   // 404 commentaires = comportement ATTENDU (aucun endpoint GET dans l'API v2)
   assert.ok(res.corps.avertissements.some(a => a.indexOf('non lisibles') !== -1));
   assert.ok(res.corps.avertissements.some(a => a.indexOf('404') !== -1));
+});
+
+// ============================================================================
+// 6) B2.1.3 — REPLI HORODATAGE µs SUR messageId (constat brut=1 prod 22/10)
+// ============================================================================
+
+test('B2.1.3 : entrant WhatsApp status[] VIDE + messageId µs → ts reconstitué', () => {
+  // Structure réelle du contact 547249072 (message « C'est urgent... »)
+  const m = lib.normaliserMessageItem({
+    messageId: 1792615364667000,
+    channelMessageId: 'wamid.HBgLMzM2MjAyMDM5NjMVAgASGBQzQTFFMERDNDk3MjIwRTAwRTlGNwA=',
+    contactId: 547249072,
+    channelId: 558644,
+    traffic: 'incoming',
+    sender: { source: 'contact' },
+    message: { type: 'text', text: 'C’est urgent j’ai pas de moyens de livraison' },
+    replyTo: null,
+    status: []
+  });
+  assert.strictEqual(m.ts, 1792615364667);
+  assert.strictEqual(m.emis_a, '2026-10-21T20:42:44.667Z');
+  assert.strictEqual(m.sortant, false);
+});
+
+test('B2.1.3 : messageId µs EN CHAÎNE de caractères → également accepté', () => {
+  const m = lib.normaliserMessageItem({
+    messageId: '1792615349496000', traffic: 'incoming', status: [],
+    message: { type: 'text', text: '0620203963' }
+  });
+  assert.strictEqual(m.ts, 1792615349496);
+  assert.strictEqual(m.emis_a, '2026-10-21T20:42:29.496Z');
+});
+
+test('B2.1.3 : garde — messageId UUID → ts reste 0 (jamais inventé)', () => {
+  const m = lib.normaliserMessageItem({
+    messageId: 'a1b2c3d4-e5f6-7890-abcd-ef0123456789', traffic: 'incoming', status: [],
+    message: { type: 'text', text: 'ok' }
+  });
+  assert.strictEqual(m.ts, 0);
+  assert.strictEqual(m.emis_a, null);
+});
+
+test('B2.1.3 : garde — id court / hors plage µs → ts reste 0', () => {
+  assert.strictEqual(lib.normaliserMessageItem({ id: 12345, status: [] }).ts, 0);
+  // 5e14 : trop grand pour le scan v136 (< 4e12), trop petit pour un µs → 0
+  assert.strictEqual(lib.normaliserMessageItem({ id: 500000000000000, status: [] }).ts, 0);
+  // 1e16 : juste au-dessus de la plage µs → 0
+  assert.strictEqual(lib.normaliserMessageItem({ id: 10000000000000000, status: [] }).ts, 0);
+});
+
+test('B2.1.3 : status[] PRÉSENT reste prioritaire sur messageId µs', () => {
+  const m = lib.normaliserMessageItem(itemHistorique({ messageId: 1792615364667000 }));
+  assert.strictEqual(m.ts, 1762893600000); // le status[] gagne, pas le repli
+});
+
+test('B2.1.3 : fil réel GG-798-NL reconstitué dans l\'ordre chronologique', () => {
+  // Ordre API brut (récent d'abord) + vrais messageIds du contact 547249072.
+  // Sortants : status[] renseigné. Entrants : status[] vide, repli sur µs.
+  const items = [
+    { // réponse agent 20:45:30 (via status[])
+      messageId: 1792615529532930, traffic: 'outgoing',
+      sender: { source: 'api' },
+      message: { type: 'text', text: 'Voici ce que nous pouvons faire...' },
+      status: [{ timestamp: 1792615530372, value: 'pending' }]
+    },
+    { // entrant « urgent » 20:42:44 (status[] vide, repli µs)
+      messageId: 1792615364667000, traffic: 'incoming',
+      sender: { source: 'contact' },
+      message: { type: 'text', text: 'C’est urgent j’ai pas de moyens de livraison' },
+      status: []
+    },
+    { // entrant téléphone 20:42:29 (repli µs)
+      messageId: 1792615349496000, traffic: 'incoming',
+      sender: { source: 'contact' },
+      message: { type: 'text', text: '0620203963' },
+      status: []
+    },
+    { // photo reçue 20:38:48 (repli µs)
+      messageId: 1792615128179000, traffic: 'incoming',
+      sender: { source: 'contact' },
+      message: { type: 'image', url: 'https://cdn.chatapi.net/photo.jpg' },
+      status: []
+    }
+  ];
+  const msgs = items.map(lib.normaliserMessageItem);
+  const tries = lib.trierMessages(msgs);
+  // Ordre chronologique croissant : photo → téléphone → urgent → réponse
+  assert.strictEqual(tries.length, 4);
+  assert.strictEqual(tries[0].media.indexOf('photo.jpg') !== -1, true);
+  assert.strictEqual(tries[1].texte, '0620203963');
+  assert.strictEqual(tries[2].texte.indexOf('urgent') !== -1, true);
+  assert.strictEqual(tries[3].texte.indexOf('Voici ce que') !== -1, true);
+  // Strictement croissant
+  assert.ok(tries[0].ts < tries[1].ts && tries[1].ts < tries[2].ts && tries[2].ts < tries[3].ts);
 });

@@ -22,7 +22,7 @@
 // 500 si RESPONDIO_TOKEN n'est pas configuré.
 // ============================================================================
 
-var VERSION = 'B2.1.2';
+var VERSION = 'B2.1.3';
 
 var contexte = require('../lib/contexte.js');
 
