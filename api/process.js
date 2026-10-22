@@ -38,7 +38,7 @@
 // 500 configuration manquante (RIEN n'est réclamé dans ce cas).
 // ============================================================================
 
-var VERSION = "B6.3";
+var VERSION = "B6.4";
 var SCHEMA = "agent_sav";
 
 var contexte = require("../lib/contexte.js");
@@ -47,6 +47,8 @@ var etatLib = require("../lib/etat.js");
 var mistral = require("../lib/mistral.js");
 var processLib = require("../lib/process.js");
 var actionsLib = require("../lib/actions.js"); // B6.1 — exécution B4.2 (armée)
+var praxedoLib = require("../lib/praxedo.js"); // B6.4 — vérification des refs
+var renommageLib = require("../lib/renommage.js"); // B6.4 — renommage (OFF par défaut)
 
 function env(nom) { return process.env[nom] || ""; }
 
@@ -275,11 +277,33 @@ async function plaqueDansParc(plaque) {
   }
 }
 
+// B6.4 — VÉRIFICATEUR PRAXEDO (injecté dans lib/process pour l'armement) :
+// une référence citée par un collègue est contrôlée contre le middleware
+// « Praxedo Interventions » (web app Apps Script v5.7.4 — GET ?reference=REF
+// → {found, interventions:[… statut_code]}). Les 3 états vivent dans
+// lib/praxedo.js verifierReference (erreur ≠ introuvable). Sans
+// PRAXEDO_INTERVENTIONS_URL : null (compte-rendu « indisponible »).
+async function verifierPraxedo(reference) {
+  if (!env("PRAXEDO_INTERVENTIONS_URL")) return null;
+  try {
+    var res = await fetch(env("PRAXEDO_INTERVENTIONS_URL") + "?reference=" + encodeURIComponent(reference), {
+      method: "GET"
+    });
+    var corps = "";
+    try { corps = await res.text(); } catch (e) { corps = ""; }
+    return praxedoLib.verifierReference({ code: reference, statutHttp: res.status, corps: corps });
+  } catch (e) {
+    return "erreur"; // indispo réseau ≠ référence introuvable
+  }
+}
+
 // ----------------------------------------------------------------------------
 // Le traitement d'UN contact : contexte complet → client → leçons → chaîne
 // B4.1 → journal → dossier → statut. Retourne le résumé pour la réponse HTTP.
+// B6.4 — declencheur : 'message' (défaut) | 'consigne' (la ligne claimée est
+// un commentaire @Agent IA) ; consigneTexte : le texte de la consigne enfilée.
 // ----------------------------------------------------------------------------
-async function traiterContact(contactId, idMessage, mode) {
+async function traiterContact(contactId, idMessage, mode, declencheur, consigneTexte) {
   var ctx = await contexte.assemblerContexte(contactId, 60, false);
 
   // Cahier des charges §7 : l'agent ne répond JAMAIS sur un extrait. Si
@@ -307,6 +331,17 @@ async function traiterContact(contactId, idMessage, mode) {
   // B6.3 — canal résolu (ton par canal, portage v2.10) : '' si inconnu.
   var canal = nomCanal(ctx.contact && ctx.contact.channelId);
 
+  // B6.4 — champs PERSISTANTS du dossier (survivent aux reconstructions) :
+  // suivi_refs (armement Praxedo), consigne_vue (dédup 15 min), tag_pdm_ts
+  // (scan de retrait ≥ 2 h), digest_consolide, ts_check_praxedo (throttle).
+  var etatPersistant = {};
+  try {
+    var lignesD = await supabaseGet("dossiers", "select=etat&contact_id=eq." + encodeURIComponent(contactId) + "&limit=1");
+    if (lignesD.length && lignesD[0].etat && typeof lignesD[0].etat === "object") {
+      etatPersistant = lignesD[0].etat;
+    }
+  } catch (e) { /* best effort : un dossier neuf part vierge */ }
+
   var resultat = await processLib.traiterMessage({
     contactId: contactId,
     ctx: ctx,
@@ -316,8 +351,13 @@ async function traiterContact(contactId, idMessage, mode) {
     canal: canal,
     execution_armee: mode === "actif" && env("B42_EXECUTION") === "1", // B6.1
     parc: plaqueDansParc, // B4.2-PREP.2 — vérification plaque contre le parc (garde cas A)
-    mistral: async function (messages) {
-      var r = await mistral.appelMistral(messages);
+    declencheur: declencheur === "consigne" ? "consigne" : "message", // B6.4
+    consigne: declencheur === "consigne" ? { texte: String(consigneTexte || "") } : null, // B6.4
+    suiviRefsPrecedents: etatPersistant.suivi_refs || [], // B6.4
+    consigneVue: etatPersistant.consigne_vue || null, // B6.4
+    praxedo: verifierPraxedo, // B6.4 — vérification des refs à l'armement
+    mistral: async function (messages, options) {
+      var r = await mistral.appelMistral(messages, options || {});
       return r.texte;
     }
   });
@@ -335,12 +375,46 @@ async function traiterContact(contactId, idMessage, mode) {
       poserCycle: function (cycle) { return respondio.poserCycle(contactId, cycle); },
       ajouterTag: function (tag) { return respondio.ajouterTag(contactId, tag); },
       retirerTag: function (tag) { return respondio.retirerTag(contactId, tag); },
-      ecrireCommentaire: function (texte) { return respondio.ecrireCommentaire(contactId, texte); }
+      ecrireCommentaire: function (texte) { return respondio.ecrireCommentaire(contactId, texte); },
+      renommerContact: function (nom) { return respondio.renommerContact(contactId, nom); } // B6.4
     });
     for (var a = 0; a < actionsExecutees.length; a++) {
       var ac = actionsExecutees[a] || {};
       await journaliser(contactId, "b42_" + String(ac.action || "?"),
         (ac.ok ? "B4.2 exécutée : " : "B4.2 ÉCHEC : ") + String(ac.action || "?") + (ac.erreur ? " — " + ac.erreur : ""), ac);
+    }
+    // B6.4 — horodatage de la POSE du tag « Prise de main » (pour le scan de
+    // retrait ≥ 2 h — lib/praxedo.retirerTagDecision).
+    var tagPdmPose = (resultat.actions_b42 || []).some(function (aPdm, iPdm) {
+      return aPdm.action === "ajouter_tag" && aPdm.tag === actionsLib.TAG_PRISE_DE_MAIN &&
+        (actionsExecutees[iPdm] || {}).ok === true;
+    });
+    if (tagPdmPose && resultat.etat) {
+      resultat.etat.tag_pdm_ts = Date.now();
+      await journaliser(contactId, "tag_pdm_pose", "tag « Prise de main » posé — horodatage enregistré pour le scan de retrait (≥ 2 h)");
+    }
+  }
+
+  // B6.4 — RENOMMAGE de la fiche (désactivé par défaut — RENOMMAGE_ACTIF=1,
+  // parité v2.20.136). La décision est DÉTERMINISTE (lib/renommage.js) ;
+  // l'écriture (PATCH respond.io) n'existe qu'en mode actif ARMÉ.
+  var decisionRenommage = renommageLib.decisionRenommage({
+    actif: env("RENOMMAGE_ACTIF") === "1",
+    nom: (ctx.contact && ctx.contact.nom) || "",
+    client: client
+  });
+  if (decisionRenommage.renommer) {
+    if (mode === "actif" && env("B42_EXECUTION") === "1") {
+      try {
+        await respondio.renommerContact(contactId, decisionRenommage.nouveau_nom);
+        await journaliser(contactId, "b42_renommer", "B4.2 exécutée : renommage — " + decisionRenommage.nouveau_nom);
+      } catch (e) {
+        await journaliser(contactId, "b42_renommer", "B4.2 ÉCHEC : renommage — " + String((e && e.message) || e));
+      }
+    } else {
+      await journaliser(contactId, "renommage_prevu",
+        "renommage prévu — NON EXÉCUTÉ (mode observation) : " + decisionRenommage.raison,
+        { nouveau_nom: decisionRenommage.nouveau_nom });
     }
   }
 
@@ -348,6 +422,19 @@ async function traiterContact(contactId, idMessage, mode) {
   for (var i = 0; i < resultat.journal.length; i++) {
     var j = resultat.journal[i];
     await journaliser(contactId, j.etape, j.texte, j.detail);
+  }
+
+  // B6.4 — champs PERSISTANTS jamais perdus par une reconstruction de
+  // l'état : ce que le tour n'a pas recalculé est RÉAPPLIQUÉ depuis le
+  // dossier existant avant l'upsert.
+  if (resultat.etat) {
+    var champsPersistants = ["suivi_refs", "consigne_vue", "tag_pdm_ts", "digest_consolide", "ts_check_praxedo"];
+    for (var cp = 0; cp < champsPersistants.length; cp++) {
+      var cle = champsPersistants[cp];
+      if (resultat.etat[cle] === undefined && etatPersistant[cle] !== undefined) {
+        resultat.etat[cle] = etatPersistant[cle];
+      }
+    }
   }
 
   // Dossier — le formulaire persiste (source de l'écran de comparaison B5).
@@ -421,9 +508,11 @@ module.exports = async function handler(req, res) {
       await supabasePatch("messages", "statut=eq.en_cours&recu_a=lt." + encodeURIComponent(limite), { statut: "en_file" });
     } catch (e) { /* best effort */ }
 
-    // 1) LES CANDIDATS — messages en_file (les plus anciens d'abord)
-    var filtre = "select=id,contact_id,recu_a&statut=eq.en_file&order=recu_a.asc&limit=" + max;
-    if (contactSeul) filtre = "select=id,contact_id,recu_a&statut=eq.en_file&contact_id=eq." + encodeURIComponent(contactSeul) + "&order=recu_a.asc&limit=" + max;
+    // 1) LES CANDIDATS — messages en_file (les plus anciens d'abord).
+    // B6.4 — canal_nom + texte lus : canal_nom='consigne' (commentaire
+    // @Agent IA, webhook B1.2) déclenche le TOUR CONSIGNE dans lib/process.
+    var filtre = "select=id,contact_id,recu_a,canal_nom,texte&statut=eq.en_file&order=recu_a.asc&limit=" + max;
+    if (contactSeul) filtre = "select=id,contact_id,recu_a,canal_nom,texte&statut=eq.en_file&contact_id=eq." + encodeURIComponent(contactSeul) + "&order=recu_a.asc&limit=" + max;
     var candidats = await supabaseGet("messages", filtre);
     if (!candidats.length) {
       return res.status(200).json({ ok: true, brique: "B4", version: VERSION, mode: mode, contacts: 0, resultats: [] });
@@ -472,7 +561,8 @@ module.exports = async function handler(req, res) {
       }
 
       try {
-        resultats.push(await traiterContact(contactId, aTraiter.id, mode));
+        var declencheur = String(aTraiter.canal_nom || "") === "consigne" ? "consigne" : "message";
+        resultats.push(await traiterContact(contactId, aTraiter.id, mode, declencheur, aTraiter.texte));
       } catch (e) {
         // Erreur de traitement (respond.io injoignable, Mistral épuisé…) :
         // le message passe en erreur — JAMAIS rebouclé en en_file (un message

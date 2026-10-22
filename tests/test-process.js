@@ -49,6 +49,7 @@ function enfileMessage(contactId, texte, opts) {
     id: "m" + (++compteur),
     event_id: "evt" + compteur,
     contact_id: String(contactId),
+    canal_nom: opts.canalNom || null,
     texte: texte,
     recu_a: opts.recuA || "2026-10-22T18:30:00.000Z",
     statut: opts.statut || "en_file"
@@ -195,6 +196,12 @@ globalThis.fetch = async function (url, options) {
         corps
       );
       return { status: 201, ok: true, text: async () => "" };
+    }
+    // B6.4 — GET dossiers (lecture de l'état persistant : suivi_refs, consigne_vue…)
+    if (table === "dossiers") {
+      let out = Object.keys(db.dossiers).map((k) => db.dossiers[k]);
+      if (params["contact_id"]) out = out.filter((r) => r.contact_id === params["contact_id"].slice(3));
+      return json(200, out);
     }
     if (table === "clients") {
       let out = db.clients.slice();
@@ -552,7 +559,7 @@ test("file vide → 200, contacts: 0", async () => {
   reinitialiseDb();
   const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
   assert.strictEqual(r.statusCode, 200);
-  assert.strictEqual(r.corps.version, "B6.3");
+  assert.strictEqual(r.corps.version, "B6.4");
   assert.strictEqual(r.corps.mode, "observation");
   assert.strictEqual(r.corps.contacts, 0);
 });
@@ -1321,4 +1328,165 @@ test("B6.3 ENDPOINT : identification PAR LA PLAQUE en repli (pas trouvé par té
     delete fiches["999777"];
     delete historiques["999777"];
   }
+});
+
+// ============================================================================
+// B6.4 — TOUR CONSIGNE (declencheur='consigne') : le pilotage @Agent IA est
+// BRANCHÉ — question interne, armement Praxedo, attente client, reprise,
+// dédup 15 min. Une consigne ne parle JAMAIS au client ni ne retire un tag.
+// ============================================================================
+
+const consignesLib = require("../lib/consignes.js");
+const MAINTENANT = 1792683530000;
+
+test("B6.4 consigne QUESTION INTERNE : réponse EN COMMENTAIRE au collègue, Mistral LIBRE, jamais au client", async () => {
+  const appelsQ = [];
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA ? où on en est sur ce dossier ?" },
+    mistral: async (m, o) => { appelsQ.push({ m: m, o: o }); return "Le dossier attend le téléphone de la personne à contacter sur place."; }
+  });
+  assert.strictEqual(res.statut, "consigne");
+  assert.strictEqual(res.type, "question_interne");
+  assert.strictEqual(res.appels, 1);
+  assert.strictEqual(res.reponse, "", "rien à envoyer au client");
+  assert.strictEqual(res.actions_b42.length, 1);
+  assert.strictEqual(res.actions_b42[0].action, "commentaire");
+  assert.ok(res.actions_b42[0].texte.indexOf("téléphone de la personne à contacter") !== -1);
+  assert.ok(res.journal.some((j) => j.etape === "consigne_question"));
+  // le prompt est le SYSTEME INTERNE (texte libre)
+  assert.strictEqual(appelsQ.length, 1);
+  assert.strictEqual(appelsQ[0].o.texteLibre, true);
+  assert.ok(appelsQ[0].m[0].content.indexOf("assistant interne") !== -1);
+  assert.ok(appelsQ[0].m[1].content.indexOf("où on en est sur ce dossier ?") !== -1);
+});
+
+test("B6.4 consigne ARMEMENT : refs Praxedo → cycle « En cours de réalisation » + compte-rendu vérifié + suivi_refs stockés", async () => {
+  const verifs = [];
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL, { nom: "PIZZA SERVICES ETAMPES", cycle: "A créer dans Praxedo", tags: [] }),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA intervention EVE05189 créée" },
+    praxedo: async (ref) => { verifs.push(ref); return "trouvee"; },
+    mistral: async () => { throw new Error("le cerveau ne doit pas être appelé sur un armement"); }
+  });
+  assert.strictEqual(res.statut, "consigne");
+  assert.strictEqual(res.type, "armement");
+  assert.strictEqual(res.appels, 0, "zéro appel Mistral — décision déterministe");
+  assert.deepStrictEqual(verifs, ["EVE05189"]);
+  assert.strictEqual(res.actions_b42.length, 2);
+  assert.strictEqual(res.actions_b42[0].action, "poser_cycle");
+  assert.strictEqual(res.actions_b42[0].cycle, "En cours de réalisation");
+  assert.strictEqual(res.actions_b42[1].action, "commentaire");
+  assert.ok(res.actions_b42[1].texte.indexOf("SUIVI PRAXEDO ARMÉ : EVE05189") !== -1);
+  assert.ok(res.actions_b42[1].texte.indexOf("retrouvée dans Praxedo") !== -1);
+  assert.deepStrictEqual(res.etat.suivi_refs, ["EVE05189"]);
+  assert.ok(res.journal.some((j) => j.etape === "consigne_armement"));
+});
+
+test("B6.4 armement SANS middleware Praxedo : compte-rendu « indisponible », suivi armé quand même", async () => {
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL, { nom: "X", cycle: "A créer dans Praxedo", tags: [] }),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA intervention 05190 créée" },
+    mistral: async () => { throw new Error("pas de cerveau ici"); }
+  });
+  assert.strictEqual(res.type, "armement");
+  assert.ok(res.actions_b42[1].texte.indexOf("middleware Praxedo non configuré") !== -1);
+  assert.deepStrictEqual(res.etat.suivi_refs, ["05190"]);
+});
+
+test("B6.4 armement : cycle DÉJÀ « En cours de réalisation » → le cycle n'est JAMAIS reposé", async () => {
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL, { nom: "X", cycle: "En cours de réalisation", tags: [] }),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA intervention EVE00002 créée" },
+    mistral: async () => { throw new Error("pas de cerveau ici"); }
+  });
+  assert.strictEqual(res.actions_b42.length, 1);
+  assert.strictEqual(res.actions_b42[0].action, "commentaire");
+  assert.deepStrictEqual(res.etat.suivi_refs, ["EVE00002"]);
+});
+
+test("B6.4 consigne REPRISE + ATTENTE CLIENT → silence journalisé (v2.20.119)", async () => {
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA poursuis la qualification dès que le client aura répondu" },
+    mistral: async () => { throw new Error("silence : aucun appel"); }
+  });
+  assert.strictEqual(res.statut, "silence");
+  assert.strictEqual(res.type, "attente_client");
+  assert.strictEqual(res.appels, 0);
+  assert.deepStrictEqual(res.actions_b42, []);
+  assert.ok(res.journal.some((j) => j.etape === "consigne_attente_client"));
+});
+
+test("B6.4 consigne REPRISE : bypass du silence prise de main — la chaîne NORMALE reprend (tag JAMAIS retiré)", async () => {
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL, { nom: "X", cycle: "A qualifier", tags: ["Prise de main"] }),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA poursuis la qualification" },
+    mistral: async () => reponseConformeDefaut
+  });
+  assert.strictEqual(res.statut, "traite", "la reprise bypass le silence de prise de main");
+  assert.strictEqual(res.appels, 1);
+  assert.ok(res.journal.some((j) => j.etape === "consigne_reprise"));
+  assert.ok(res.journal.some((j) => j.etape === "process_reprise"));
+  // le tag n'est JAMAIS retiré par une consigne (v2.20.106)
+  assert.ok(!res.actions_b42.some((a) => a.action === "retirer_tag"));
+});
+
+test("B6.4 consigne DÉDUP 15 min : repost de la MÊME consigne → silence, zéro appel (v2.20.99)", async () => {
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA poursuis la qualification" },
+    maintenant: MAINTENANT,
+    consigneVue: { cle: consignesLib.cleDedup("547249072", "poursuis la qualification"), ts: MAINTENANT - 5 * 60 * 1000 },
+    mistral: async () => { throw new Error("dédup : aucun appel"); }
+  });
+  assert.strictEqual(res.statut, "silence");
+  assert.strictEqual(res.appels, 0);
+  assert.ok(res.journal.some((j) => j.etape === "consigne_dedup"));
+});
+
+test("B6.4 api : une CONSIGNE en file (canal_nom=consigne) → tour consigne, réponse au collègue, AUCUNE écriture respond.io", async () => {
+  reinitialiseDb();
+  enfileMessage("547249072", "@Agent IA ? où on en est ?", { canalNom: "consigne" });
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  assert.strictEqual(r.statusCode, 200);
+  assert.strictEqual(r.corps.resultats.length, 1);
+  assert.strictEqual(r.corps.resultats[0].statut, "consigne");
+  assert.ok(db.journal.some((j) => j.etape === "consigne_question"));
+  // observation : AUCUNE écriture respond.io (que des GET de lecture)
+  const ecrituresRespondio = appelsFetch.filter((a) => a.url.indexOf("api.respond.io") !== -1 && a.method !== "GET");
+  assert.strictEqual(ecrituresRespondio.length, 0);
+  // la ligne consommée est marquée traite
+  assert.strictEqual(db.messages.filter((m) => m.statut === "traite").length, 1);
+});
+
+test("B6.4 api : les champs PERSISTANTS du dossier (suivi_refs, consigne_vue) survivent à un tour NORMAL", async () => {
+  reinitialiseDb();
+  db.dossiers["547249072"] = {
+    contact_id: "547249072",
+    cycle_actuel: "A qualifier",
+    etat: { suivi_refs: ["EVE00001"], consigne_vue: { cle: "x", ts: 1 }, tag_pdm_ts: 123 }
+  };
+  enfileMessage("547249072", "Toujours rien, le scooter est immobile");
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  assert.strictEqual(r.statusCode, 200);
+  assert.strictEqual(r.corps.resultats[0].statut, "traite");
+  const etatSauve = db.dossiers["547249072"].etat;
+  assert.deepStrictEqual(etatSauve.suivi_refs, ["EVE00001"], "suivi_refs réappliqué depuis le dossier");
+  assert.deepStrictEqual(etatSauve.consigne_vue, { cle: "x", ts: 1 });
+  assert.strictEqual(etatSauve.tag_pdm_ts, 123);
 });

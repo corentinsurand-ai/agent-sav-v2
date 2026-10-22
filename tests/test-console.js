@@ -430,13 +430,13 @@ test("B6.1 — la page embarque l'affichage des actions B4.2 (libellés + aperç
 });
 
 // ============================================================================
-// B6.3 — la console embarque la version B6.3 (et les nouveaux libellés)
+// B6.4 — la console embarque la version B6.4
 // ============================================================================
-test("B6.3 — la console répond en version B6.3", async () => {
+test("B6.4 — la console répond en version B6.4", async () => {
   reinitialise();
   const res = faireRes();
   await apiTest(requete("secret=secret-de-test-b54",
     { message: "bonjour", memoire: [] }, "POST"), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, "B6.3");
+  assert.strictEqual(res.corps.version, "B6.4");
 });

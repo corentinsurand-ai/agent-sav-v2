@@ -1,7 +1,7 @@
 // ============================================================================
 // Agent SAV U'mob v2 — B1.1 : tests du webhook (node --test)
 // Exécution : node --test tests/test-webhook.js
-// (25 tests — aucune dépendance, Supabase et fetch sont SIMULÉS)
+// (30 tests — aucune dépendance, Supabase et fetch sont SIMULÉS)
 // ============================================================================
 
 const test = require('node:test');
@@ -91,11 +91,11 @@ test('GET santé : 200, ok=true, brique B1', async () => {
   assert.strictEqual(res.corps.brique, 'B1');
 });
 
-test('GET santé : version B1.1', async () => {
+test('GET santé : version B1.2', async () => {
   appelsFetch = []; reponses = [];
   const res = faireRes();
   await webhook({ method: 'GET', url: '/api/webhook' }, res);
-  assert.strictEqual(res.corps.version, 'B1.1');
+  assert.strictEqual(res.corps.version, 'B1.2');
 });
 
 // ============================ AUTHENTIFICATION ================================
@@ -349,19 +349,101 @@ test('event_type "message_received" (underscore) → traité aussi (tolérance)'
   assert.ok(dernierAppelMessages(), 'insert messages attendu');
 });
 
-test('comment.created → 200, IGNORÉ (pas d\'insert messages), journal dédié', async () => {
+test('comment.created SANS mention @Agent IA → 200, IGNORÉ (pas d\'insert messages), journal dédié', async () => {
   appelsFetch = []; reponses = [];
   const res = faireRes();
   await webhook(reqPost('secret=secret-de-test-b1', payloadStandard({
     event_type: 'comment.created',
-    text: '@Agent IA intervention 05511 créée'
+    text: 'Je m\'occupe de ce dossier ce matin'
   })), res);
   assert.strictEqual(res.statusCode, 200);
   assert.strictEqual(res.corps.enregistre, false);
-  assert.strictEqual(dernierAppelMessages(), null, 'aucun insert messages pour un commentaire');
+  assert.strictEqual(dernierAppelMessages(), null, 'aucun insert messages pour un commentaire sans mention');
   const j = dernierAppelJournal();
   assert.ok(j, 'journal attendu');
   assert.strictEqual(JSON.parse(j.options.body).etape, 'webhook_commentaire_ignore');
+});
+
+// ============================ B6.4 — CONSIGNES @Agent IA =======================
+test('B6.4 comment.created AVEC mention @Agent IA → ENFILÉ canal_nom=consigne, statut en_file', async () => {
+  appelsFetch = []; reponses = [];
+  const res = faireRes();
+  await webhook(reqPost('secret=secret-de-test-b1', payloadStandard({
+    event_type: 'comment.created',
+    event_id: 'evt-consigne-1',
+    text: '@Agent IA intervention EVE05189 créée'
+  })), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.ok, true);
+  assert.strictEqual(res.corps.consigne, true);
+  assert.strictEqual(res.corps.enregistre, true);
+  const l = corpsDernierMessage();
+  assert.strictEqual(l.canal_nom, 'consigne');
+  assert.strictEqual(l.statut, 'en_file');
+  assert.strictEqual(l.texte, '@Agent IA intervention EVE05189 créée');
+  assert.strictEqual(l.event_id, 'evt-consigne-1');
+  assert.strictEqual(l.contact_id, '547249072');
+  const j = dernierAppelJournal();
+  assert.ok(j, 'journal attendu');
+  assert.strictEqual(JSON.parse(j.options.body).etape, 'webhook_consigne_enfile');
+});
+
+test('B6.4 comment.created mention dans body.comment.text (forme imbriquée) → enfilé aussi', async () => {
+  appelsFetch = []; reponses = [];
+  const res = faireRes();
+  const p = payloadStandard({
+    event_type: 'comment.created',
+    comment: { id: 'c-77', text: '@Agent IA ? où on en est sur ce dossier ?' }
+  });
+  delete p.event_id; // sans event_id → repli sur l'id du commentaire
+  await webhook(reqPost('secret=secret-de-test-b1', p), res);
+  assert.strictEqual(res.corps.consigne, true);
+  const l = corpsDernierMessage();
+  assert.strictEqual(l.event_id, 'c-77');
+  assert.strictEqual(l.canal_nom, 'consigne');
+  assert.strictEqual(l.texte, '@Agent IA ? où on en est sur ce dossier ?');
+});
+
+test('B6.4 consigne : createdAt numérique → emis_a ISO', async () => {
+  appelsFetch = []; reponses = [];
+  const res = faireRes();
+  await webhook(reqPost('secret=secret-de-test-b1', payloadStandard({
+    event_type: 'comment.created',
+    event_id: 'evt-consigne-2',
+    createdAt: 1762900000000,
+    text: '@Agent IA poursuis la qualification'
+  })), res);
+  const l = corpsDernierMessage();
+  assert.strictEqual(l.emis_a, new Date(1762900000000).toISOString());
+});
+
+test('B6.4 consigne en doublon (409 retry) → ok, doublon=true, pas de journal enfile', async () => {
+  appelsFetch = []; reponses = [{ status: 409, ok: false, text: 'duplicate key' }];
+  const res = faireRes();
+  await webhook(reqPost('secret=secret-de-test-b1', payloadStandard({
+    event_type: 'comment.created',
+    event_id: 'evt-consigne-3',
+    text: '@Agent IA intervention 05190 créée'
+  })), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.ok, true);
+  assert.strictEqual(res.corps.doublon, true);
+  assert.strictEqual(res.corps.consigne, true);
+});
+
+test('B6.4 consigne : Supabase en panne (500) → 200 quand même + journal erreur', async () => {
+  appelsFetch = []; reponses = [{ status: 500, ok: false, text: 'boom' }, { status: 201, ok: true, text: '' }];
+  const res = faireRes();
+  await webhook(reqPost('secret=secret-de-test-b1', payloadStandard({
+    event_type: 'comment.created',
+    event_id: 'evt-consigne-4',
+    text: '@Agent IA arme le suivi EVE001'
+  })), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.enregistre, false);
+  const j = dernierAppelJournal();
+  assert.ok(j, 'l\'incident doit être journalisé');
+  assert.strictEqual(JSON.parse(j.options.body).etape, 'webhook_erreur_supabase');
 });
 
 test('contact.updated → 200, IGNORÉ, journal webhook_ignore', async () => {

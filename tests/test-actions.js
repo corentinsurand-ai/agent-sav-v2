@@ -85,6 +85,18 @@ test("B6.1 texteTransfertSav dossier COMPLET : récapitulatif + ACTION À FAIRE"
   assert.ok(t.indexOf("Praxedo") !== -1);
 });
 
+test("B6.4 texteTransfertSav : citation EXACTE de l'armement (v2.20.68) — consigne @Agent IA + suivi auto 2 h", () => {
+  const t = actions.texteTransfertSav({ etat: etatComplet(), raison_escalade: "récapitulatif validé" });
+  assert.ok(t.indexOf("créer l'intervention dans Praxedo (plaque, problème, téléphone de la personne à contacter sur place)") !== -1,
+    "l'action cite plaque + problème + téléphone sur place");
+  assert.ok(t.indexOf("@Agent IA intervention EVE123456 créée") !== -1, "l'exemple singulier est cité");
+  assert.ok(t.indexOf("@Agent IA interventions 05189, 05190 créées") !== -1, "l'exemple pluriel est cité");
+  assert.ok(t.indexOf("les deux formats sont reconnus") !== -1);
+  assert.ok(t.indexOf("passera seule en « Traitée »") !== -1, "le passage auto en Traitée est annoncé");
+  assert.ok(t.indexOf("vérification toutes les 2 h") !== -1, "la cadence du scan est annoncée");
+  assert.ok(t.indexOf("Retirer ensuite le tag « Prise de main »") !== -1, "le retrait du tag pour rendre la main est rappelé");
+});
+
 test("B6.1 texteTransfertSav dossier INCOMPLET : RAISON + manques PRÉCIS (v2.20.95)", () => {
   const e = etatComplet();
   e.telephone_contact = "";
@@ -256,4 +268,29 @@ test("B6.1 executerActions : une écriture en ÉCHEC n'interrompt JAMAIS les sui
   assert.ok(comptes[0].erreur.indexOf("503") !== -1);
   assert.strictEqual(comptes[1].ok, true);
   assert.strictEqual(comptes[2].ok, true);
+});
+
+test("B6.4 executerActions : action renommer → io.renommerContact(nom)", async () => {
+  const appels = [];
+  const io = {
+    envoyerMessage: async () => {},
+    poserCycle: async () => {},
+    ajouterTag: async () => {},
+    retirerTag: async () => {},
+    ecrireCommentaire: async () => {},
+    renommerContact: async (nom) => { appels.push(["renommerContact", nom]); }
+  };
+  const comptes = await actions.executerActions([
+    { action: "renommer", nom: "Marie Dupont (PIZZA SERVICES - Paris)" }
+  ], io);
+  assert.strictEqual(comptes[0].ok, true);
+  assert.strictEqual(appels.length, 1);
+  assert.strictEqual(appels[0][1], "Marie Dupont (PIZZA SERVICES - Paris)");
+});
+
+test("B6.4 executerActions : action inconnue → ÉCHEC explicite (jamais de faux ok)", async () => {
+  const io = { envoyerMessage: async () => {}, poserCycle: async () => {}, ajouterTag: async () => {}, retirerTag: async () => {}, ecrireCommentaire: async () => {} };
+  const comptes = await actions.executerActions([{ action: "annuler_monde", x: 1 }], io);
+  assert.strictEqual(comptes[0].ok, false);
+  assert.ok(comptes[0].erreur.indexOf("action inconnue") !== -1);
 });

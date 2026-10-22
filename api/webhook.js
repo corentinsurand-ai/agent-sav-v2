@@ -15,10 +15,11 @@
 //          (respond.io desactive son webhook sur les echecs).
 // ============================================================================
 
-var VERSION = 'B1.1';
+var VERSION = 'B1.2';
 var SCHEMA = 'agent_sav';
 
 var normaliser = require('../lib/normaliser.js');
+var consignesLib = require('../lib/consignes.js'); // B6.4 — consignes @Agent IA via comment.created
 
 function env(nom) { return process.env[nom] || ''; }
 
@@ -97,13 +98,82 @@ module.exports = async function handler(req, res) {
 
   // Type d'événement (format RÉEL respond.io, prouvé en prod : "message.received"
   // avec un point ; tolère l'écriture underscore). B1 ne traite QUE les messages
-  // clients — commentaires, mises à jour de contact, etc. : 200 + journal, JAMAIS
-  // d'erreur (respond.io ne doit pas compter d'échec).
+  // clients — sauf B6.4 : un COMMENTAIRE qui s'adresse à l'agent (« @Agent IA … »)
+  // est ENFILÉ avec canal_nom='consigne' (les commentaires ne sont PAS lisibles
+  // par GET respond.io, B2.1 : le webhook est le SEUL canal d'entrée des
+  // consignes). Les autres événements : 200 + journal, JAMAIS d'erreur
+  // (respond.io ne doit pas compter d'échec).
   var typeEvt = String((req.body && req.body.event_type) || '').replace('_', '.');
   var estMessage = typeEvt === 'message.received';
   if (!estMessage && !typeEvt && req.body && req.body.message && req.body.contact) {
     estMessage = true; // repli défensif : structure message complète sans étiquette
   }
+
+  // --------------------------------------------------------------------------
+  // B6.4 — COMMENTAIRE @Agent IA (event_type comment.created) : ENFILER en
+  // tant que declencheur='consigne'. Le texte est extrait de façon tolérante
+  // (payload réel respond.io : formes body.text / body.comment.text /
+  // body.data.text observées). Un commentaire SANS mention reste IGNORÉ.
+  // --------------------------------------------------------------------------
+  if (typeEvt.indexOf('comment') !== -1) {
+    var texteCommentaire = '';
+    var candsTexte = [
+      req.body && req.body.text,
+      req.body && req.body.comment && req.body.comment.text,
+      req.body && req.body.data && req.body.data.text,
+      req.body && req.body.body
+    ];
+    for (var ct = 0; ct < candsTexte.length; ct++) {
+      if (typeof candsTexte[ct] === 'string' && candsTexte[ct]) { texteCommentaire = candsTexte[ct]; break; }
+    }
+    var idContactCommentaire = (req.body && req.body.contact && req.body.contact.id) || null;
+
+    if (texteCommentaire && consignesLib.mentionneAgent(texteCommentaire)) {
+      // event_id : dédup respond.io (retries rejoués) — event_id du payload,
+      // sinon id du commentaire, sinon repli horodaté (rare).
+      var eventC = (req.body && req.body.event_id) ||
+        (req.body && req.body.comment && req.body.comment.id) ||
+        (req.body && req.body.data && req.body.data.id) ||
+        ('comment-' + idContactCommentaire + '-' + Date.now());
+      var tsC = (req.body && req.body.createdAt) ||
+        (req.body && req.body.comment && req.body.comment.createdAt) || null;
+      var emisC = null;
+      if (typeof tsC === 'number' && tsC > 0) emisC = new Date(tsC).toISOString();
+      else if (typeof tsC === 'string' && tsC) {
+        var dC = new Date(tsC);
+        if (!isNaN(dC.getTime())) emisC = dC.toISOString();
+      }
+      try {
+        var insertionC = await supabaseInsert('messages', {
+          event_id: String(eventC),
+          contact_id: idContactCommentaire,
+          conversation_id: (req.body && req.body.conversation_id) || null,
+          canal_nom: 'consigne',
+          canal_id: null,
+          texte: texteCommentaire,
+          media_url: null,
+          type_media: null,
+          emis_a: emisC,
+          statut: 'en_file',
+          brut: req.body
+        });
+      } catch (e) {
+        await journaliser(idContactCommentaire, 'webhook_erreur_supabase', String(e && e.message || e), { event_id: String(eventC) });
+        return res.status(200).json({ ok: true, enregistre: false, erreur: 'supabase indisponible' });
+      }
+      if (insertionC.doublon) {
+        return res.status(200).json({ ok: true, enregistre: true, doublon: true, consigne: true });
+      }
+      await journaliser(idContactCommentaire, 'webhook_consigne_enfile',
+        'CONSIGNE @Agent IA enfilée (comment.created) — pilotage interne', { event_id: String(eventC) });
+      return res.status(200).json({ ok: true, enregistre: true, consigne: true });
+    }
+
+    await journaliser(idContactCommentaire, 'webhook_commentaire_ignore',
+      'Commentaire SANS mention @Agent IA — ignoré', { event_type: typeEvt || null });
+    return res.status(200).json({ ok: true, enregistre: false, raison: 'commentaire sans mention agent' });
+  }
+
   if (!estMessage) {
     var idIgnore = (req.body && req.body.contact && req.body.contact.id) || null;
     await journaliser(idIgnore,

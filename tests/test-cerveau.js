@@ -360,3 +360,69 @@ test("B6.3 construireMessages : SANS canal → pas de bloc canal (ton simple, r�
   });
   assert.ok(msgs[1].content.indexOf("CANAL :") === -1);
 });
+
+// ============================================================================
+// B6.4 — MODE QUESTION INTERNE (Mistral LIBRE — jamais au client)
+// ============================================================================
+
+const consignes = require('../lib/consignes.js');
+
+function msgT(texte, ts, sortant) {
+  return { texte: texte, ts: ts || 1792683528000, emis_a: new Date(ts || 1792683528000).toISOString(), sortant: !!sortant };
+}
+
+test('B6.4 SYSTEME_INTERNE : assistant d\'équipe, texte brut, jamais au client', () => {
+  const s = cerveau.SYSTEME_INTERNE;
+  assert.ok(s.indexOf('assistant interne') !== -1);
+  assert.ok(s.indexOf('JAMAIS visible du client') !== -1);
+  assert.ok(s.indexOf("n'invente JAMAIS") !== -1);
+  assert.ok(s.indexOf('texte brut') !== -1);
+  assert.ok(s.length < 1500, 'court par construction');
+});
+
+test('B6.4 construireMessagesQuestion : dossier 4 points + question + historique rendus', () => {
+  const msgs = cerveau.construireMessagesQuestion({
+    question: 'où on en est ?',
+    dossier: consignes.etatDossier4Points({
+      cycle: 'En cours de réalisation',
+      etat: { plaques: ['GG798NL'], panne: 'ne démarre pas', telephone_contact: '0612345678' },
+      suiviRefs: ['EVE05189']
+    }),
+    nom: 'PIZZA SERVICES ETAMPES',
+    messages: [msgT('Bonjour GG-798-NL ne démarre pas', 1792683528000), msgT('Bien noté.', 1792683529000, true)]
+  });
+  assert.strictEqual(msgs.length, 2);
+  assert.strictEqual(msgs[0].role, 'system');
+  assert.strictEqual(msgs[0].content, cerveau.SYSTEME_INTERNE);
+  const u = msgs[1].content;
+  assert.ok(u.indexOf('Cycle : En cours de réalisation') !== -1);
+  assert.ok(u.indexOf('Intervention Praxedo : EVE05189') !== -1);
+  assert.ok(u.indexOf('PIZZA SERVICES ETAMPES') !== -1);
+  assert.ok(u.indexOf('QUESTION DU COLLÈGUE') !== -1);
+  assert.ok(u.indexOf('où on en est ?') !== -1);
+  assert.ok(u.indexOf('CLIENT : Bonjour GG-798-NL ne démarre pas') !== -1);
+  assert.ok(u.indexOf('Réponds au collègue en texte brut, sans JSON') !== -1);
+});
+
+test('B6.4 construireMessagesQuestion : sans historique ni dossier → prompt minimal sans crash', () => {
+  const msgs = cerveau.construireMessagesQuestion({ question: 'quoi ?' });
+  assert.ok(msgs[1].content.indexOf('(état du dossier inconnu)') !== -1);
+  assert.ok(msgs[1].content.indexOf('quoi ?') !== -1);
+});
+
+test('B6.4 appelMistral { texteLibre: true } : PAS de response_format (réponse brute)', async () => {
+  appelsFetch = []; reponses = [];
+  reponses.push({ status: 200, corps: JSON.stringify({ choices: [{ message: { content: 'Le dossier attend le téléphone sur place.' } }] }) });
+  const r = await mistral.appelMistral([{ role: 'user', content: 'où on en est ?' }], { texteLibre: true });
+  assert.strictEqual(r.texte, 'Le dossier attend le téléphone sur place.');
+  const corps = JSON.parse(appelsFetch[0].options.body);
+  assert.strictEqual(corps.response_format, undefined, 'aucun response_format en mode texte libre');
+});
+
+test('B6.4 appelMistral sans option : response_format json_object conservé (rétro-compat)', async () => {
+  appelsFetch = []; reponses = [];
+  reponses.push({ status: 200, corps: JSON.stringify({ choices: [{ message: { content: '{"reponse":"ok"}' } }] }) });
+  await mistral.appelMistral([{ role: 'user', content: 'dis bonjour' }]);
+  const corps = JSON.parse(appelsFetch[0].options.body);
+  assert.deepStrictEqual(corps.response_format, { type: 'json_object' });
+});
