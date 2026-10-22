@@ -269,7 +269,7 @@ test('GET complet : 3 appels dans l\'ordre, 200, fiche + messages + commentaires
   assert.strictEqual(res.statusCode, 200);
   assert.strictEqual(res.corps.ok, true);
   assert.strictEqual(res.corps.brique, 'B2');
-  assert.strictEqual(res.corps.version, 'B2.1.1');
+  assert.strictEqual(res.corps.version, 'B2.1.2');
   assert.strictEqual(res.corps.contact_id, '123');
   assert.strictEqual(res.corps.limite, 60);
   // 3 appels dans l'ordre attendu (séquentiel)
@@ -370,7 +370,7 @@ test('brut=1 : réponse embarque fiche + messages + commentaires BRUTS', async (
   const res = faireRes();
   await contexte(reqGet('secret=secret-de-test-b2&contact=123&brut=1'), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, 'B2.1.1');
+  assert.strictEqual(res.corps.version, 'B2.1.2');
   // TOUJOURS 3 appels — le mode brut n'ajoute AUCUN appel API
   assert.strictEqual(appelsFetch.length, 3);
   // Fiche brute : la structure EXACTE renvoyée par respond.io, pas la normalisée
@@ -411,4 +411,34 @@ test('brut=1 + section commentaires en 404 : brut.commentaires null, diagnostic 
   // Le reste du contexte reste INTACT (best-effort par section)
   assert.strictEqual(res.corps.contact.nom, 'PIZZA AL FORNO (CLAMART)');
   assert.strictEqual(res.corps.messages.length, 1);
+});
+
+// ============================================================================
+// 5) B2.1.2 — CONSTATS DU DIAGNOSTIC brut=1 EN PROD RÉELLE (22/10)
+// ============================================================================
+
+test('extraireContact : lifecycle CHAÎNE à la racine (forme API actuelle, constat prod 22/10)', () => {
+  const c = lib.extraireContact({ firstName: 'PIZZA SERVICES', lifecycle: 'En cours de réalisation' });
+  assert.strictEqual(c.cycle, 'En cours de réalisation');
+});
+
+test('extraireContact : lifecycle objet {name} (ancienne forme prod v136) toujours acceptée', () => {
+  const c = lib.extraireContact({ fullName: 'X', lifecycle: { name: 'A qualifier' } });
+  assert.strictEqual(c.cycle, 'A qualifier');
+});
+
+test('handler : cycle de vie rempli avec la forme chaîne de l\'API actuelle', async () => {
+  appelsFetch = [];
+  reponses = [
+    { status: 200, corps: ficheContact({ lifecycle: 'En cours de réalisation' }) },
+    { status: 200, corps: { items: [] } },
+    { status: 404, corps: { message: 'Not Found' } }
+  ];
+  const res = faireRes();
+  await contexte(reqGet('secret=secret-de-test-b2&contact=123'), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.contact.cycle, 'En cours de réalisation');
+  // 404 commentaires = comportement ATTENDU (aucun endpoint GET dans l'API v2)
+  assert.ok(res.corps.avertissements.some(a => a.indexOf('non lisibles') !== -1));
+  assert.ok(res.corps.avertissements.some(a => a.indexOf('404') !== -1));
 });
