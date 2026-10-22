@@ -206,6 +206,23 @@ async function chercherLecons(contactId) {
   }
 }
 
+// B4.2-PREP.2 — la plaque citée pour la 1re fois par le client existe-t-elle
+// dans le PARC ? Le miroir agent_sav.clients (B2.2) contient TOUTES les
+// plaques du parc (colonne plaque, « / »-séparées) : like *AA123BB* = recherche
+// pleine colonne, insensible à la casse (ilike). Best effort : en cas d'erreur
+// on ne rejette JAMAIS (la plaque n'est pas bloquante, règle 6) — la garde
+// rejetante vit dans lib/process.js, ce fichier ne fait que RÉPONDRE à la
+// question « cette plaque est-elle dans le parc ? ».
+async function plaqueDansParc(plaque) {
+  try {
+    var lignes = await supabaseGet("clients", "select=plaque&plaque=ilike." +
+      encodeURIComponent("*" + String(plaque || "").toUpperCase() + "*") + "&limit=1");
+    return lignes.length > 0;
+  } catch (e) {
+    return true; // dans le doute : la qualification poursuit
+  }
+}
+
 // ----------------------------------------------------------------------------
 // Le traitement d'UN contact : contexte complet → client → leçons → chaîne
 // B4.1 → journal → dossier → statut. Retourne le résumé pour la réponse HTTP.
@@ -230,6 +247,7 @@ async function traiterContact(contactId, idMessage, mode) {
     client: client,
     lecons: lecons,
     mode: mode,
+    parc: plaqueDansParc, // B4.2-PREP.2 — vérification plaque contre le parc (garde cas A)
     mistral: async function (messages) {
       var r = await mistral.appelMistral(messages);
       return r.texte;

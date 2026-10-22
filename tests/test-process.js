@@ -199,6 +199,12 @@ globalThis.fetch = async function (url, options) {
     if (table === "clients") {
       let out = db.clients.slice();
       if (params["telephone"]) out = out.filter((r) => r.telephone === params["telephone"].slice(3));
+      // B4.2-PREP.2 — filtre plaque=ilike.*AA123BB* (recherche pleine colonne)
+      if (params["plaque"] && params["plaque"].slice(0, 6) === "ilike.") {
+        const motif = params["plaque"].slice(6).replace(/^\*/, "").replace(/\*$/, "");
+        out = out.filter((r) => String(r.plaque || "").toUpperCase().indexOf(motif.toUpperCase()) !== -1);
+      }
+      if (params["limit"]) out = out.slice(0, parseInt(params["limit"], 10));
       return json(200, out);
     }
     if (table === "lecons") {
@@ -771,4 +777,125 @@ test("estResetRaz : texte SEUL exact — jamais média, jamais sortant, jamais u
   assert.ok(!processLib.estResetRaz({ sortant: false, texte: "veuillez reset le gps" }));
   assert.ok(!processLib.estResetRaz({ sortant: false, texte: "RESET", media: "https://cdn.example/photo.jpg" }));
   assert.ok(!processLib.estResetRaz({ sortant: true, texte: "RESET" }));
+});
+
+
+// ============================================================================
+// B4.2-PREP.2 — GARDE PLAQUE PARC (divergence n°2, garde cas A de l'ancien)
+// Contact dédié 444445 (même téléphone que la fiche client → flotte GG798NL).
+// Parc de test = db.clients : GG798NL (flotte du contact) + AB123CD (autre client).
+// ============================================================================
+
+if (!db.clients.some((c) => c.plaque === "AB123CD")) {
+  db.clients.push({ telephone: "33699999999", plaque: "AB123CD", enseigne: "AUTRE CLIENT TEST", statut_risque: null });
+}
+
+function fichePlaqueTest(tags) {
+  fiches["444445"] = { phone: "+33620203963", fullName: "PLAQUE TEST", lifecycle: { name: "Nouvelle Demande" }, tags: tags || [] };
+}
+
+test("PLAQUE hors parc : rejet canonique identique à l ancien, 0 appel Mistral (bout en bout)", async () => {
+  reinitialiseDb();
+  fichePlaqueTest();
+  historiques["444445"] = [
+    itemRespondio({ ts: 1792683540000, texte: "mon scooter GN-223-DD ne démarre pas" })
+  ];
+  enfileMessage("444445", "mon scooter GN-223-DD ne démarre pas");
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  assert.strictEqual(r.corps.contacts, 1);
+  const res = r.corps.resultats[0];
+  assert.strictEqual(res.statut, "traite");
+  assert.strictEqual(res.appels_mistral, 0);
+  assert.strictEqual(res.reponse, processLib.REPONSE_PLAQUE);
+  assert.strictEqual(appelsMistral.length, 0);
+  // la vérification parc a bien eu lieu (like pleine colonne sur agent_sav.clients)
+  assert.ok(appelsFetch.some((f) => f.url.indexOf("plaque=ilike.") !== -1 && f.url.indexOf("GN223DD") !== -1));
+  // journal : étape dédiée + observation NON envoyée (visible sur l'écran B5 → parité ANCIEN = NOUVEAU)
+  assert.ok(db.journal.some((j) => j.etape === "process_plaque" && j.contact_id === "444445" && j.texte.indexOf("GN223DD") !== -1));
+  const obs = db.journal.find((j) => j.etape === "observation" && j.contact_id === "444445");
+  assert.ok(obs && obs.detail.envoyee === false);
+  assert.strictEqual(obs.detail.reponse, processLib.REPONSE_PLAQUE);
+  assert.strictEqual(obs.detail.appels_mistral, 0);
+  // dossier : la plaque dite RESTE dans l'état (comportement cas A : au 2e échec on poursuit)
+  const d = db.dossiers["444445"];
+  assert.ok(d.etat && d.etat.plaques.indexOf("GN223DD") !== -1);
+  // message consommé
+  assert.strictEqual(db.messages[0].statut, "traite");
+});
+
+test("PLAQUE présente dans le parc (autre ligne du miroir) : pas de rejet, traitement normal (1 appel Mistral)", async () => {
+  reinitialiseDb();
+  fichePlaqueTest();
+  historiques["444445"] = [
+    itemRespondio({ ts: 1792683540000, texte: "mon scooter AB-123-CD ne démarre pas" })
+  ];
+  enfileMessage("444445", "mon scooter AB-123-CD ne démarre pas");
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  const res = r.corps.resultats[0];
+  assert.strictEqual(res.statut, "traite");
+  assert.strictEqual(res.appels_mistral, 1);
+  assert.notStrictEqual(res.reponse, processLib.REPONSE_PLAQUE);
+  assert.ok(!db.journal.some((j) => j.etape === "process_plaque"));
+  assert.ok(appelsFetch.some((f) => f.url.indexOf("plaque=ilike.") !== -1 && f.url.indexOf("AB123CD") !== -1));
+});
+
+test("PLAQUE de la flotte du client (B2.2) : jamais revérifiée — traitement normal sans requête parc", async () => {
+  reinitialiseDb();
+  fichePlaqueTest();
+  historiques["444445"] = [
+    itemRespondio({ ts: 1792683540000, texte: "mon scooter GG-798-NL ne démarre pas" })
+  ];
+  enfileMessage("444445", "mon scooter GG-798-NL ne démarre pas");
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  const res = r.corps.resultats[0];
+  assert.strictEqual(res.statut, "traite");
+  assert.strictEqual(res.appels_mistral, 1);
+  assert.notStrictEqual(res.reponse, processLib.REPONSE_PLAQUE);
+  assert.ok(!appelsFetch.some((f) => f.url.indexOf("plaque=ilike.") !== -1));
+});
+
+test("CAS A : la plaque RÉPÉTÉE n est plus nouvelle — la qualification poursuit (2e échec, 1 appel Mistral, jamais de blocage)", async () => {
+  reinitialiseDb();
+  fichePlaqueTest();
+  historiques["444445"] = [
+    itemRespondio({ ts: 1792683540000, texte: "mon scooter GN-223-DD ne démarre pas" }),
+    itemRespondio({ ts: 1792683541000, texte: "Cette plaque ne correspond pas à notre parc. Quelle est la saisie exacte de la plaque ?", sortant: true }),
+    itemRespondio({ ts: 1792683542000, texte: "GN-223-DD c est bien ça" })
+  ];
+  enfileMessage("444445", "GN-223-DD c est bien ça");
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  const res = r.corps.resultats[0];
+  assert.strictEqual(res.statut, "traite");
+  assert.strictEqual(res.appels_mistral, 1);
+  assert.notStrictEqual(res.reponse, processLib.REPONSE_PLAQUE);
+  assert.ok(!db.journal.some((j) => j.etape === "process_plaque"));
+});
+
+test("PLAQUE : vérification parc en ERREUR → jamais de rejet (best effort, la plaque n est pas bloquante)", async () => {
+  reinitialiseDb();
+  const res = await processLib.traiterMessage({
+    contactId: "444445",
+    ctx: ctxStandard([msgNormalise({ texte: "mon scooter ZZ-421-WW ne démarre pas" })]),
+    client: clientStandard,
+    lecons: [],
+    parc: async () => { throw new Error("Supabase indisponible"); },
+    mistral: async () => reponseConformeDefaut
+  });
+  assert.strictEqual(res.statut, "traite");
+  assert.strictEqual(res.appels, 1);
+  assert.notStrictEqual(res.reponse, processLib.REPONSE_PLAQUE);
+});
+
+test("PLAQUE : sans vérificateur parc injecté, aucun rejet (rétrocompatibilité — traitement normal)", async () => {
+  reinitialiseDb();
+  const res = await processLib.traiterMessage({
+    contactId: "444445",
+    ctx: ctxStandard([msgNormalise({ texte: "mon scooter ZZ-421-WW ne démarre pas" })]),
+    client: clientStandard,
+    lecons: [],
+    mistral: async () => reponseConformeDefaut
+  });
+  assert.strictEqual(res.statut, "traite");
+  assert.strictEqual(res.appels, 1);
+  assert.notStrictEqual(res.reponse, processLib.REPONSE_PLAQUE);
 });
