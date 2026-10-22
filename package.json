@@ -1,0 +1,13 @@
+{
+  "name": "agent-sav-v2",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Agent SAV U'mob v2 — briques B1 (webhook → Supabase) + B2.1 (lecture contexte respond.io)",
+  "main": "api/webhook.js",
+  "scripts": {
+    "test": "node --test tests/test-webhook.js && node --test tests/test-contexte.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
