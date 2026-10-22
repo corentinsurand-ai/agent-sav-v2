@@ -70,3 +70,31 @@ transfert), plaque hors parc (rejet canonique, 0 Mistral, garde cas A,
 (fiche client injectée, enseigne visible), GET `?telephone` (fiche ou null),
 message vide (400), et l'INVARIANT : zéro écriture Supabase (uniquement des
 GET), aucun accès respond.io.
+
+## Correctif B5.4.1 (23/10) — le cas A complet arrive dans la console
+
+Incident signalé par Corentin : test console avec GE-365-DD puis GR-335-TT
+(same conversation) — « le cycle ne change jamais ». La console ne montrait
+que l'étape 1 du cas A (rejet canonique) ; l'ancien système transférait à un
+collègue dès la plaque confirmée hors parc (v2.20.6/9/10).
+
+Désormais dans le bac à sable (comme en prod) :
+
+1. 1re plaque hors parc → rejet canonique (inchangé), actions : « cycle
+   inchangé — si le client redonne une plaque toujours hors parc : transfert
+   automatique cas A ».
+2. Le client redonne une plaque (confirmée, corrigée ou nouvelle) TOUJOURS
+   hors parc → **transfert auto déterministe, 0 Mistral** : réponse canonique
+   « Merci pour la confirmation. Je ne retrouve pas l'immatriculation
+   GR-335-TT dans notre parc. Je transmets votre demande à un membre de
+   notre équipe… », `type: cas_a`, escalade + motif « PLAQUE NON IDENTIFIÉE
+   AU PARC (cas A) », et le bloc « B4.2 (mode actif) ferait » affiche le
+   cycle « A qualifier » + le tag « Prise de main » + le commentaire
+   TRANSFERT SAV.
+3. Plaque corrigée reconnue au parc / message mixte / message sans plaque /
+   erreur parc → PAS de transfert, la qualification poursuit (règle 6).
+
+NB bac à sable : il n'y a pas de tag « Prise de main » (fiche fictive) —
+après un transfert, un nouveau message avec plaque hors parc re-déclenche le
+transfert ; en prod, le tag posé par B4.2 rendrait la main à un humain
+(silence). Voir README-B4-2-PREP-2.md (§ Correctif B5.4.1).

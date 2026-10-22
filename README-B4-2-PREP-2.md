@@ -70,3 +70,46 @@ Quand le DERNIER message entrant du contact cite une ou plusieurs plaques :
 
 Exécution : `node --test tests/test-process.js` — 39/39 (33 + 6).
 Projet complet : 242/242 (31+42+25+23+23+27+15+17+39).
+
+## CORRECTIF B5.4.1 (23/10) — cas A COMPLET : l'étape 2 manquait
+
+Incident console de test (Corentin, 23/10) : conversation avec GE-365-DD puis
+GR-335-TT — « le cycle ne change jamais ». Cause : le portage n'avait pris que
+l'ÉTAPE 1 de la garde cas A de l'ancien (le rejet canonique). Le v2.20.6/9/10
+comportait DEUX étapes, et c'est l'étape 2 qui change le cycle :
+
+1. **ÉTAPE 1 — 1re vérification** (B4.2-PREP.2, inchangée) : plaque citée
+   pour la 1re fois absente du parc → rejet canonique
+   « Cette plaque ne correspond pas à notre parc. Quelle est la saisie
+   exacte de la plaque ? », 0 Mistral. Une seule fois, JAMAIS deux.
+2. **ÉTAPE 2 — TRANSFERT AUTO** (porté en B5.4.1) : une vérification a déjà
+   été envoyée dans le fil (canonique v2 OU texte de l'ancien agent :
+   « vérifier l'immatriculation », « je ne retrouve pas cette
+   immatriculation »…) ET le client REDONNE une plaque TOUJOURS absente du
+   parc (confirmée, corrigée ou nouvelle — toutes les plaques du message
+   sont revérifiées, y compris répétées) → TRANSFERT DÉTERMINISTE, 0 Mistral :
+   - réponse canonique v2.20.9/10 : « Merci pour la confirmation. Je ne
+     retrouve pas l'immatriculation GR-335-TT dans notre parc. Je transmets
+     votre demande à un membre de notre équipe, qui aura accès à notre
+     conversation et vous répondra au plus vite. » + signature ;
+   - `escalade: true` + raison « PLAQUE NON IDENTIFIÉE AU PARC (cas A) : … » ;
+   - type `cas_a` → en mode actif B4.2 : cycle « A qualifier » + tag
+     « Prise de main » + commentaire TRANSFERT SAV ; à l'écran B5.3/console :
+     le bloc « B4.2 (mode actif) ferait » affichera le transfert complet.
+
+Sans cette étape, la conversation restait bloquée à re-demander la plaque
+indéfiniment — chez l'ancien, un collègue reprenait la main dès la
+confirmation. C'est ce qui fait passer le cycle à « A qualifier ».
+
+Ne transfèrent JAMAIS (la qualification poursuit par le cerveau) : une plaque
+corrigée reconnue au parc ; un message mixte (au moins une plaque du message
+au parc — la plaque reconnue débloque) ; un message sans plaque après
+vérification ; une erreur du vérificateur parc (règle 6 : jamais de rejet ni
+de transfert sur erreur). Aucune 2e vérification n'est jamais envoyée : après
+l'étape 2, un nouveau message avec une plaque toujours hors parc RE-déclenche
+le transfert (en prod le tag « Prise de main » posé par B4.2 rendra la main à
+un humain → silence ; dans le bac à sable il n'y a pas de tag, c'est visible
+dans les actions simulées).
+
+Compteurs mis à jour : `tests/test-process.js` 46/46 (39 + 8 cas A - 1
+réécrit), `tests/test-console.js` 14/14 (12 + 2 cas A bout en bout).

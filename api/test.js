@@ -17,7 +17,7 @@
 //   GET  /api/test?secret=…&telephone=0612345678     → fiche client (JSON)
 //   POST /api/test?secret=…  body {telephone, message, memoire}
 //        → {ok, statut, reponse, escalade, raison_escalade, appels_mistral,
-//           type (cerveau|reset|plaque), actions_simulees, plaques_verifiees,
+//           type (cerveau|reset|plaque|cas_a), actions_simulees, plaques_verifiees,
 //           client, etat, journal}
 //
 // Réponses : 200 HTML/JSON ; 400 corps invalide ; 401 secret invalide ;
@@ -25,7 +25,7 @@
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B5.4";
+var VERSION = "B5.4.1";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");
