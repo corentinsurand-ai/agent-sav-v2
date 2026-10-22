@@ -11,6 +11,7 @@
 |---|---|---|
 | B3.1 | **État structuré** (livré) | `lib/etat.js` — le formulaire du dossier |
 | B3.2 | **Cerveau** (livré) | `lib/cerveau.js` (pur) + `lib/mistral.js` (adaptateur) — réponse candidate + mise à jour du formulaire |
+| B3.3 | **Gardes** (livré) | `lib/gardes.js` — code déterministe avant envoi, faute → 1 régénération, récidive → repli neutre |
 | B3.2 | Cerveau | prompt court (règles v1) + 1 appel Mistral `mistral-large-latest` + adaptateur Mistral isolé ; rend réponse candidate + mise à jour du formulaire |
 | B3.3 | Gardes | `lib/gardes.js` — code déterministe avant envoi (question fermée, prix/délai sans source, signature, plaque/téléphone redemandés, récap multi-scooters) |
 | B3.4 | Rejeu des incidents | scénarios des incidents réels documentés (AGB, GG-798-NL…) contre cerveau + gardes |
@@ -95,4 +96,37 @@ silence voulu) ; fusion (dédup, jamais d'écrasement, étape bornée, champs
 inconnus ignorés) ; adaptateur simulé (Bearer, json_object, 401 immédiat, 503
 puis 200, 3×503 → épuisement, erreur réseau) ; intégration complète sur le fil
 réel GG-798-NL.
+
+## B3.3 — les gardes (`lib/gardes.js`)
+
+**Code DÉTERMINISTE avant envoi** (cahier des charges §6.2) : vérifiées en
+millisecondes contre le formulaire B3.1, zéro appel modèle, zéro loterie.
+Faute → **UNE** régénération avec le rappel précis de la règle ; récidive →
+**repli neutre** + Prise de main (B4). Le client ne voit jamais une réponse
+fautive. Une garde nouvelle ne s'ajoute que si une leçon l'exige (§6.5).
+
+| Garde | Règle | Détection |
+|---|---|---|
+| `signature` | 8 | « Agent IA U'mob » absent (apostrophe typographique tolérée) |
+| `question_fermee` | 2 | « Pouvez-vous / Avez-vous / est-ce que vous… » — exception : « Est-ce que tout est correct ? » |
+| `invention` | 9 | montant en €, « gratuit », délai chiffré (« sous X jours/heures ») |
+| `plaque_redemandee` | 1/4 | question sur la plaque ALORS QUE le formulaire la connaît |
+| `telephone_redemande` | 1/6 | question sur le téléphone ALORS QU'il est fourni |
+| `recap_incomplet` | 7 | récapitulatif multi-scooters qui ne cite pas chaque plaque (formats variés) |
+| `relance_client_cherche` | 3 | question dans la réponse pendant que le client cherche une info |
+| `vocabulaire_voiture` | ton | « pédale / carburant / essence » |
+| `reponse_vide` | — | réponse vide sans escalade explicite |
+
+API : `gardes.verifier({ reponse, escalade, etat })` →
+`{ ok, fautes: [{ code, rappel }] }` — le `rappel` est le texte exact
+réinjecté au cerveau pour l'unique régénération.
+`gardes.messageRepliNeutre()` — le repli de dernier recours (aucune info,
+aucune promesse, aucune question — et il passe ses propres gardes).
+
+### Tests — `node --test tests/test-gardes.js` (27 tests)
+Chaque garde rejouée contre les fautes documentées de l'ancien agent, ET les
+vraies réponses validées en prod (fil GG-798-NL : réponse « disjoncteur »,
+demande téléphone de l'étape 3) doivent toutes PASSER. Fautes cumulées
+remontées ensemble, repli neutre auto-vérifié.
+
 
