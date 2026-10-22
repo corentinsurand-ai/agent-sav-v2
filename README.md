@@ -12,6 +12,7 @@ Tous les secrets vivent dans les variables d'environnement Vercel, jamais dans c
 - B2.2 : api/sync-clients — miroir Google Sheet → agent_sav.clients (cron quotidien)
 - B3 : le cerveau (lib/etat, lib/cerveau, lib/mistral, lib/gardes) — voir README-B3.md
 - B4.1 : api/process — le processeur, MODE OBSERVATION (voir README-B4.md)
+- B5 : api/observations — l'écran de comparaison §9 (voir README-B5.md)
 
 ## Fichiers
 

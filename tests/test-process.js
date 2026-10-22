@@ -596,7 +596,9 @@ test("anti-double-traitement : un 2e passage ne reprend RIEN (file vidée)", asy
 
 test("claim atomique : un message déjà en en_cours (concurrent) n est JAMAIS retraité", async () => {
   reinitialiseDb();
-  enfileMessage("547249072", "Bonjour", { statut: "en_cours" }); // réclamé par un autre worker
+  // réclamé par un autre worker — recu_a RÉCENT (sinon le filet anti-blocage
+  // des 30 min le réenfilerait et le test casserait selon l'heure d'exécution)
+  enfileMessage("547249072", "Bonjour", { statut: "en_cours", recuA: new Date(Date.now() - 60 * 1000).toISOString() });
   const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
   assert.strictEqual(r.corps.contacts, 0);
   assert.strictEqual(appelsMistral.length, 0);
