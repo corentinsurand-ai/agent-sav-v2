@@ -1,11 +1,6 @@
 {
   "version": 2,
   "regions": ["fra1"],
-  "functions": {
-    "api/*.js": {
-      "maxDuration": 60
-    }
-  },
   "crons": [
     {
       "path": "/api/sync-clients",
