@@ -17,7 +17,7 @@
 // Réponses : 200 HTML ; 401 secret invalide ; 405 non GET ; 500 config.
 // ============================================================================
 
-var VERSION = "B5.1";
+var VERSION = "B5.3";
 var SCHEMA = "agent_sav";
 
 var contexte = require("../lib/contexte.js");
@@ -108,19 +108,34 @@ function carte(ligne) {
     : "";
   var client = echapper(ligne.message_client) +
     (ligne.media_client ? '<br><a href="' + echapper(ligne.media_client) + '" target="_blank">📎 média</a>' : "");
+  // B5.3 (divergence n°3) — cycle et tags ACTUELS de la fiche respond.io :
+  // l'API ne permet pas de relire leur HISTORIQUE, seule la valeur du moment
+  // est lisible (c'est la capture que Corentin voit dans respond.io).
+  var meta = '<div class="meta">📍 Cycle : ' + echapper(ligne.cycle_ancien || "(inconnu)") +
+    " · 🏷️ Tags : " + (ligne.tags_ancien && ligne.tags_ancien.length
+      ? ligne.tags_ancien.map(echapper).join(", ")
+      : "aucun") + "</div>";
+  // B5.3 — ce que le mode ACTIF B4.2 ferait (SIMULATION, jamais exécuté).
+  var actions = (ligne.actions_simulees || [])
+    .map(function (a) { return "• " + echapper(a); })
+    .join("<br>");
+  var blocActions = '<div class="actions"><span class="etiquette">⚙️ B4.2 (mode actif) ferait :</span><div>' + actions + "</div></div>";
   return (
     '<div class="carte">' +
     '<div class="entete">' +
     '<span class="nom">' + echapper(ligne.nom || ligne.contact_id) + "</span>" +
     '<span class="date">' + echapper(dateParis(ligne.date)) + "</span>" +
     "</div>" +
+    meta +
     '<div class="bloc client"><span class="etiquette">👤 CLIENT</span><div>' + client + "</div></div>" +
     '<div class="deux">' +
     '<div class="bloc ancien"><span class="etiquette">🤖 ANCIEN — réellement envoyée</span><div>' + echapper(ancien).replace(/\n/g, "<br>") + "</div></div>" +
-    '<div class="bloc nouveau"><span class="etiquette">🧠 NOUVEAU — simulée, NON envoyée</span><div>' + echapper(ligne.reponse_nouveau).replace(/\n/g, "<br>") + "</div></div>" +
+    '<div class="bloc nouveau"><span class="etiquette">🧠 NOUVEAU — simulée, NON envoyée</span><div>' + echapper(ligne.reponse_nouveau).replace(/\n/g, "<br>") + "</div>" + blocActions + "</div>" +
     "</div>" +
     alerte + escalade +
-    '<div class="pied">appels Mistral : ' + ligne.appels_mistral + "</div>" +
+    '<div class="pied">appels Mistral : ' + ligne.appels_mistral +
+    (ligne.type_observation && ligne.type_observation !== "cerveau" ? " · type : " + echapper(ligne.type_observation) : "") +
+    "</div>" +
     "</div>"
   );
 }
@@ -139,6 +154,8 @@ function page(lignes, total, limite) {
     ".carte{background:#fff;border:1px solid #e2e2e6;border-radius:12px;padding:16px;margin-bottom:16px}" +
     ".entete{display:flex;justify-content:space-between;margin-bottom:12px}" +
     ".nom{font-weight:700}.date{color:#888;font-size:12px}" +
+    ".meta{color:#555;font-size:12px;margin:-6px 0 12px}" +
+    ".actions{background:#fff;border:1px dashed #b7d9c0;border-radius:8px;padding:8px;margin-top:8px;font-size:13px;color:#356}" +
     ".bloc{border-radius:8px;padding:10px;margin-bottom:10px;font-size:14px;white-space:pre-wrap}" +
     ".client{background:#eef4ff;border:1px solid #cfe0ff}" +
     ".deux{display:flex;gap:10px;flex-wrap:wrap}" +
@@ -151,7 +168,7 @@ function page(lignes, total, limite) {
     ".vide{background:#fff;border:1px dashed #ccc;border-radius:12px;padding:32px;text-align:center;color:#888}" +
     "</style></head><body>" +
     "<h1>Agent SAV v2 — Observations</h1>" +
-    '<div class="sous">' + total + " observation(s) au total — " + lignes.length + " affichée(s) (limit " + limite + ") — heures affichées : Paris. Mode observation : aucune réponse du nouveau cerveau n'a été envoyée aux clients.</div>" +
+    '<div class="sous">' + total + " observation(s) au total — " + lignes.length + " affichée(s) (limit " + limite + ") — heures affichées : Paris. Mode observation : aucune réponse du nouveau cerveau n'a été envoyée aux clients. Cycle et tags = valeurs ACTUELLES de la fiche respond.io (l'API ne permet pas de relire leur historique) ; le bloc « B4.2 ferait » est une simulation, jamais exécutée.</div>" +
     corps +
     "</body></html>";
 }

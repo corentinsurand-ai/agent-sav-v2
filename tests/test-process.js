@@ -711,6 +711,7 @@ test("RESET : réponse canonique identique à l ancien, 0 appel Mistral, dossier
   assert.ok(db.journal.some((j) => j.etape === "process_reset" && j.contact_id === "444444"));
   const obs = db.journal.find((j) => j.etape === "observation" && j.contact_id === "444444");
   assert.ok(obs && obs.detail.envoyee === false);
+  assert.strictEqual(obs.detail.type, "reset");
   assert.ok(obs.detail.reponse.indexOf("Mémoire de la conversation réinitialisée") !== -1);
   // dossier PURGÉ : état vierge + fiche client réappliquée
   const d = db.dossiers["444444"];
@@ -814,6 +815,7 @@ test("PLAQUE hors parc : rejet canonique identique à l ancien, 0 appel Mistral 
   assert.ok(db.journal.some((j) => j.etape === "process_plaque" && j.contact_id === "444445" && j.texte.indexOf("GN223DD") !== -1));
   const obs = db.journal.find((j) => j.etape === "observation" && j.contact_id === "444445");
   assert.ok(obs && obs.detail.envoyee === false);
+  assert.strictEqual(obs.detail.type, "plaque");
   assert.strictEqual(obs.detail.reponse, processLib.REPONSE_PLAQUE);
   assert.strictEqual(obs.detail.appels_mistral, 0);
   // dossier : la plaque dite RESTE dans l'état (comportement cas A : au 2e échec on poursuit)

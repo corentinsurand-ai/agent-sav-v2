@@ -339,3 +339,79 @@ test("date affichée en HEURE DE PARIS (l'horodatage Supabase est UTC, Paris est
   assert.ok(r.corps.indexOf("(Paris)") !== -1, "le fuseau est affiché");
   assert.ok(r.corps.indexOf("15:40:01") === -1, "l'heure UTC brute ne doit plus être affichée");
 });
+
+// ============================================================================
+// B5.3 — CYCLES & TRANSFERTS VISIBLES (divergence n°3) — carte enrichie :
+// cycle + tags ACTUELS du contact, actions SIMULÉES du mode actif B4.2.
+// ============================================================================
+
+function contexteEnrichi(messages, cycle, tags) {
+  return { contact: { nom: "PIZZA SERVICES ETAMPES", cycle: cycle || "", tags: tags || [] }, messages: messages, commentaires: [], avertissements: [] };
+}
+
+test("B5.3 moteur : cycle et tags ACTUELS du contact remontent dans la ligne", () => {
+  const lignes = comparaison.lignesComparaison(
+    [observation("547249072", "simulée")],
+    { "547249072": contexteEnrichi(filReel, "A qualifier", ["Prise de main"]) }
+  );
+  assert.strictEqual(lignes[0].cycle_ancien, "A qualifier");
+  assert.deepStrictEqual(lignes[0].tags_ancien, ["Prise de main"]);
+});
+
+test("B5.3 moteur : escalade → actions simulées = transfert complet de l'ancien (cycle A qualifier + tag Prise de main + commentaire TRANSFERT SAV + motif)", () => {
+  const lignes = comparaison.lignesComparaison(
+    [observation("547249072", "repli neutre", "2026-10-22T15:40:01.000Z", { escalade: true, raison_escalade: "récidive des gardes après régénération" })],
+    { "547249072": contexteDe(filReel) }
+  );
+  const actions = lignes[0].actions_simulees.join(" | ");
+  assert.ok(actions.indexOf("« A qualifier »") !== -1);
+  assert.ok(actions.indexOf("« Prise de main »") !== -1);
+  assert.ok(actions.indexOf("TRANSFERT SAV") !== -1);
+  assert.ok(actions.indexOf("motif du transfert : récidive des gardes après régénération") !== -1);
+});
+
+test("B5.3 moteur : sans escalade → aucun transfert, l'agent IA poursuit (cycle inchangé)", () => {
+  const lignes = comparaison.lignesComparaison(
+    [observation("547249072", "Merci pour ce détail.\n-Agent IA U'mob-")],
+    { "547249072": contexteDe(filReel) }
+  );
+  assert.strictEqual(lignes[0].actions_simulees.length, 1);
+  assert.ok(lignes[0].actions_simulees[0].indexOf("aucun transfert") !== -1);
+});
+
+test("B5.3 moteur : RESET → actions canoniques (0 Mistral, retrait du tag, mémoire purgée)", () => {
+  const lignes = comparaison.lignesComparaison(
+    [observation("547249072", "Mémoire de la conversation réinitialisée.", "2026-10-22T15:40:01.000Z", { type: "reset", appels_mistral: 0 })],
+    { "547249072": contexteDe(filReel) }
+  );
+  assert.strictEqual(lignes[0].type_observation, "reset");
+  const actions = lignes[0].actions_simulees.join(" | ");
+  assert.ok(actions.indexOf("canonique RESET") !== -1);
+  assert.ok(actions.indexOf("Prise de main") !== -1);
+});
+
+test("B5.3 moteur : rejet plaque → actions garde cas A, cycle inchangé, poursuite au 2e échec", () => {
+  const lignes = comparaison.lignesComparaison(
+    [observation("547249072", "Cette plaque ne correspond pas à notre parc. Quelle est la saisie exacte de la plaque ?", "2026-10-22T15:40:01.000Z", { type: "plaque", appels_mistral: 0 })],
+    { "547249072": contexteDe(filReel) }
+  );
+  assert.strictEqual(lignes[0].type_observation, "plaque");
+  const actions = lignes[0].actions_simulees.join(" | ");
+  assert.ok(actions.indexOf("garde cas A") !== -1);
+  assert.ok(actions.indexOf("cycle inchangé") !== -1);
+});
+
+test("B5.3 écran : cycle, tags et bloc « B4.2 (mode actif) ferait » rendus avec le transfert simulé complet", async () => {
+  reinitialise();
+  fiches["547249072"] = { fullName: "PIZZA SERVICES ETAMPES", lifecycle: "A qualifier", tags: ["Prise de main"] };
+  dbJournal.push(observation("547249072", "repli neutre", "2026-10-22T15:40:01.000Z", { escalade: true, raison_escalade: "Il manque : le numéro de téléphone de la personne à contacter sur place (nom + numéro)" }));
+  const r = await apiObservations(requete("?secret=secret-de-test-b5"), faireRes());
+  assert.strictEqual(r.statusCode, 200);
+  const html = r.corps;
+  assert.ok(html.indexOf("Cycle : A qualifier") !== -1);
+  assert.ok(html.indexOf("Tags : Prise de main") !== -1);
+  assert.ok(html.indexOf("B4.2 (mode actif) ferait") !== -1);
+  assert.ok(html.indexOf("TRANSFERT SAV") !== -1);
+  assert.ok(html.indexOf("motif du transfert : Il manque : le numéro de téléphone") !== -1);
+  fiches["547249072"] = { fullName: "PIZZA SERVICES ETAMPES", lifecycle: {}, tags: [] };
+});
