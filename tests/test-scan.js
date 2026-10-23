@@ -177,7 +177,7 @@ test("Bearer CRON_SECRET accepté (déclenchement cron externe)", async () => {
   reinitialise();
   const r = await apiScan(requete("", { authorization: "Bearer cron-de-test-scan" }), faireRes());
   assert.strictEqual(r.statusCode, 200);
-  assert.strictEqual(r.corps.version, "B6.4");
+  assert.strictEqual(r.corps.version, "B6.4.2");
 });
 
 // ============================ ATTENTE CLIENT ==================================
@@ -333,17 +333,40 @@ test("tag posé il y a < 2 h → conservé (journal scan_tag_conserve)", async (
 });
 
 // ============================ DIGEST ==========================================
-test("observation : prise de main non consolidée → digest PRÊT mais NON envoyé (journal digest_prevu)", async () => {
+test("B6.4.2 — observation : digest ENVOYÉ AUSSI (notification pure, AUCUNE écriture respond.io)", async () => {
+  reinitialise();
+  process.env.RESEND_API_KEY = "re_test";
+  process.env.EMAIL_FROM = "sav@umob.fr";
+  process.env.ALERT_EMAIL = "service.technique@umob.fr";
+  dbDossiers["c1"] = { contact_id: "c1", etat: {}, maj_a: "2026-10-22T10:00:00Z" };
+  fiches["c1"] = { fullName: "Client Un", lifecycle: { name: "A qualifier" }, tags: ["Prise de main"] };
+  historiques["c1"] = [];
+  const r = await apiScan(requete("secret=secret-de-test-scan&maintenant=" + MAINTENANT + "&heure=10"), faireRes());
+  assert.strictEqual(r.corps.mode, "observation", "le scan reste en observation");
+  assert.strictEqual(r.corps.digest.prises, 1);
+  assert.strictEqual(r.corps.digest.envoye, true);
+  assert.strictEqual(appelsResend.length, 1);
+  assert.strictEqual(appelsResend[0].to[0], "service.technique@umob.fr", "destinataire ALERT_EMAIL");
+  assert.strictEqual(dbDossiers["c1"].etat.digest_consolide, true, "prise consolidée après envoi");
+  assert.ok(journalEtape("digest_envoye").length === 1);
+  assert.strictEqual(journalEtape("digest_prevu").length, 0, "plus de digest_prevu en B6.4.2");
+  // INVARIANT inchangé : le digest en observation ne débloque AUCUNE écriture respond.io
+  const ecritures = appelsFetch.filter(function (a) {
+    return a.url.indexOf("api.respond.io") !== -1 && a.method !== "GET";
+  });
+  assert.strictEqual(ecritures.length, 0, "aucune écriture respond.io en observation");
+});
+
+test("B6.4.2 — digest sans RESEND_API_KEY (non configuré) → journal digest_non_envoye, dossiers NON consolidés", async () => {
   reinitialise();
   dbDossiers["c1"] = { contact_id: "c1", etat: {}, maj_a: "2026-10-22T10:00:00Z" };
   fiches["c1"] = { fullName: "Client Un", lifecycle: { name: "A qualifier" }, tags: ["Prise de main"] };
   historiques["c1"] = [];
   const r = await apiScan(requete("secret=secret-de-test-scan&maintenant=" + MAINTENANT + "&heure=10"), faireRes());
-  assert.strictEqual(r.corps.digest.prises, 1);
   assert.strictEqual(r.corps.digest.envoye, false);
-  assert.ok(r.corps.digest.raison.indexOf("NON envoyé (mode observation)") !== -1);
-  assert.ok(journalEtape("digest_prevu").length === 1);
-  assert.strictEqual(appelsResend.length, 0);
+  assert.ok(r.corps.digest.raison.indexOf("RESEND_API_KEY") !== -1, "la raison cite la config manquante");
+  assert.ok(journalEtape("digest_non_envoye").length === 1);
+  assert.ok(!dbDossiers["c1"].etat.digest_consolide, "NON consolidé — repassera au prochain scan (jamais perdu)");
 });
 
 test("actif ARMÉ : digest ENVOYÉ via Resend + dossiers marqués digest_consolide", async () => {

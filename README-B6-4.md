@@ -189,3 +189,41 @@ issu d'un échappement interprété. `node --test tests/test-page-servie.js`.
 **Périmètre vérifié** : seul `/api/test` était touché (seule page en template
 literal avec `<script>`) ; l'écran B5 (api/observations.js, construit par
 concaténation, sans script) et les routes JSON sont sains.
+
+---
+
+## B6.4.2 — le digest email activé en mode observation (décision Corentin 23/10)
+
+**Décision Corentin** (23/10, après pose de `RESEND_API_KEY`, `EMAIL_FROM` et
+`ALERT_EMAIL=service.technique@umob.fr` dans Vercel) : le digest des prises de
+main part **DANS LES DEUX MODES**, sans attendre le feu vert du mode actif.
+
+**Pourquoi c'est sûr** : le digest est une **notification pure** — un email à
+l'équipe (`ALERT_EMAIL`, défaut corentin.surand@umob.fr), zéro écriture chez
+respond.io, zéro cycle, zéro tag. Le verrou `arme`
+(MODE_AGENT=actif + B42_EXECUTION=1) ne verrouit toujours QUE les écritures
+respond.io du scan (purges, cycles, fermetures, tags) — inchangé.
+
+**Comportement** (`api/scan.js`, VERSION B6.4.2) :
+- prises non consolidées + fenêtre 9h-18h + ≥ 45 min → **envoi réel**
+  (lib/email.js → Resend), journal `digest_envoye`, chaque dossier marqué
+  `digest_consolide` ;
+- `RESEND_API_KEY`/`EMAIL_FROM` absents ou Refus Resend → journal
+  `digest_non_envoye` avec la raison, dossiers NON consolidés → **jamais
+  perdus**, le digest repasse au scan suivant ;
+- hors fenêtre → `digest_differe` ; < 45 min → `digest_attente` (inchangés).
+
+**⚠️ EMAIL_FROM** doit être une adresse à domaine **vérifié chez Resend**
+(sinon refus 403 visible dans `digest.raison`). Pour un test immédiat sans
+vérifier `umob.fr` : `onboarding@resend.dev` — mais Resend ne livre alors que
+vers l'adresse du compte Resend ; pour livrer `service.technique@umob.fr`, le
+domaine `umob.fr` doit être vérifié (DNS SPF/DKIM dans le dashboard Resend).
+
+**Test immédiat** : `/api/scan?secret=<WEBHOOK_SECRET>&heure=10` (le paramètre
+`heure` force l'heure locale Paris pour tomber dans la fenêtre 9h-18h ; le
+paramètre `contact=` cible un dossier).
+
+**Tests** : tests/test-scan.js — le test observation attend désormais un ENVOI
+RÉEL (destinataire ALERT_EMAIL, consolidation, invariant AUCUNE écriture
+respond.io) + nouveau test « sans RESEND_API_KEY → digest_non_envoye, jamais
+perdu ». **487/487 tests (19 suites)**.

@@ -24,9 +24,11 @@
 //      etape='digest_envoye') → UN email consolidé (Resend).
 //
 // MODE OBSERVATION (défaut) : chaque décision est JOURNALISÉE (scan_* /
-// digest_*), AUCUNE écriture respond.io, aucun email. Mode actif ARMÉ
-// (MODE_AGENT=actif + B42_EXECUTION=1 — feu vert de Corentin) : exécution
-// via l'adaptateur respond.io.
+// digest_*), AUCUNE écriture respond.io. B6.4.2 (décision Corentin 23/10) :
+// le DIGEST EMAIL part DANS LES DEUX MODES — c'est une notification PURE
+// (zéro écriture respond.io), `arme` ne verrouille QUE les écritures
+// respond.io. Mode actif ARMÉ (MODE_AGENT=actif + B42_EXECUTION=1 — feu
+// vert de Corentin) : exécution via l'adaptateur respond.io.
 //
 //   GET|POST /api/scan?secret=<WEBHOOK_SECRET>  (ou Bearer CRON_SECRET)
 //   - contact : OPTIONNEL — scanne UNIQUEMENT ce contact (tests ciblés)
@@ -37,7 +39,7 @@
 // heure /api/scan. AUCUN cron ajouté dans vercel.json.
 // ============================================================================
 
-var VERSION = "B6.4";
+var VERSION = "B6.4.2";
 var SCHEMA = "agent_sav";
 
 var contexte = require("../lib/contexte.js");
@@ -387,28 +389,26 @@ module.exports = async function handler(req, res) {
         var corps = digestLib.corpsDigest(prises.map(function (p) {
           return { contactId: p.contactId, nom: p.nom, raison: "" };
         }));
-        if (arme) {
-          var envoi = await emailLib.envoyerEmail("Agent SAV U'mob — prises de main en cours (" + prises.length + ")", corps);
-          digest.envoye = envoi.envoye;
-          digest.raison = envoi.envoye ? "digest envoyé" : ("digest NON envoyé : " + envoi.raison);
-          if (envoi.envoye) {
-            await journaliser(null, "digest_envoye", "digest des prises de main envoyé (" + prises.length + " dossier(s))", { prises: prises });
-            for (var p = 0; p < prises.length; p++) {
-              try {
-                var lignesD2 = await supabaseGet("dossiers", "select=etat&contact_id=eq." + encodeURIComponent(prises[p].contactId) + "&limit=1");
-                if (lignesD2.length) {
-                  var e2 = (lignesD2[0].etat && typeof lignesD2[0].etat === "object") ? lignesD2[0].etat : {};
-                  e2.digest_consolide = true;
-                  await supabaseUpsert("dossiers", { contact_id: prises[p].contactId, etat: e2, maj_a: new Date().toISOString() }, "contact_id");
-                }
-              } catch (e) { /* best effort */ }
-            }
-          } else {
-            await journaliser(null, "digest_non_envoye", digest.raison, { prises: prises.length });
+        // B6.4.2 — le digest part DANS LES DEUX MODES (décision Corentin
+        // 23/10) : notification PURE (zéro écriture respond.io, zéro cycle,
+        // zéro tag) — `arme` ne verrouille QUE les écritures respond.io.
+        var envoi = await emailLib.envoyerEmail("Agent SAV U'mob — prises de main en cours (" + prises.length + ")", corps);
+        digest.envoye = envoi.envoye;
+        digest.raison = envoi.envoye ? "digest envoyé" : ("digest NON envoyé : " + envoi.raison);
+        if (envoi.envoye) {
+          await journaliser(null, "digest_envoye", "digest des prises de main envoyé (" + prises.length + " dossier(s))", { prises: prises });
+          for (var p = 0; p < prises.length; p++) {
+            try {
+              var lignesD2 = await supabaseGet("dossiers", "select=etat&contact_id=eq." + encodeURIComponent(prises[p].contactId) + "&limit=1");
+              if (lignesD2.length) {
+                var e2 = (lignesD2[0].etat && typeof lignesD2[0].etat === "object") ? lignesD2[0].etat : {};
+                e2.digest_consolide = true;
+                await supabaseUpsert("dossiers", { contact_id: prises[p].contactId, etat: e2, maj_a: new Date().toISOString() }, "contact_id");
+              }
+            } catch (e) { /* best effort */ }
           }
         } else {
-          digest.raison = "digest prêt (" + prises.length + " prise(s)) — NON envoyé (mode observation)";
-          await journaliser(null, "digest_prevu", digest.raison, { prises: prises });
+          await journaliser(null, "digest_non_envoye", digest.raison, { prises: prises.length });
         }
       } else {
         digest.raison = decDig.differe ? ("digest différé : " + decDig.raison) : ("digest inutile : " + decDig.raison);
