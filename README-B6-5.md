@@ -62,4 +62,55 @@ renvoyé → renvoyé → ignorer), plaque collègue validée + persistée à l'
 400 ni message ni commentaire, interface servie. Invariant zéro écriture Supabase +
 zéro respond.io vérifié sur chaque test.
 
-**Total : 497/497 tests verts sur 19 suites** (487 + 10).
+**Total B6.5 : 497/497 tests verts sur 19 suites** (487 + 10).
+
+---
+
+# B6.5.1 — RELAIS CLIENT : « @Agent IA demande au client… »
+
+**Incident Corentin (23/10, capture console) : « pourquoi l'agent ne fait rien avec mon
+commentaire ! »** — la consigne `@Agent IA demande au client l'adresse pour l'intervention`
+tombait dans `info` (journalisée, aucune action) : la classification n'avait PAS de motif
+« consigne adressée au client ». L'ancien agent avait la même limite. CORRECTIF : un
+NOUVEAU motif de consigne — le RELAIS CLIENT.
+
+## Ce que ça fait
+
+| Ce que tu écris | Ce que l'agent fait |
+|---|---|
+| `@Agent IA demande au client l'adresse pour l'intervention` | **Rédige le message AU CLIENT** (Mistral réel, texte libre) qui transmet ta demande — en mode actif ARMÉ, ce message serait ENVOYÉ au client (action `envoyer_message`). |
+| `@Agent IA dis au client que le technicien passe` | Pareil : transmission de l'information AU CLIENT. |
+| `@Agent IA demande-lui son adresse` / `dis-lui…` / `informe le client…` / `transmets au client…` | Pareil (client implicite ou nommé). |
+
+## Qualité et garde-fous
+
+- Le message AU CLIENT passe les **MÊMES GARDES** que la chaîne normale (signature,
+  question fermée, invention) : faute → **UNE régénération** avec les rappels (borne
+  2 appels Mistral), récidive → **transmission LITTÉRALE** de ta consigne
+  (« Message de l'équipe SAV : « … » » + signature) : zéro invention par construction.
+- Le relais **BYPASSE le silence de prise de main** : un collègue qui donne l'ordre de
+  parler au client, c'est la main rendue à l'agent.
+- **Priorités inchangées** : question interne (?) > refs Praxedo (EVE…) > attente
+  (« dès que le client répond ») > RELAIS > reprise > info. Une consigne de relais qui
+  CITE une ref Praxedo reste un ARMEMENT (B6.4).
+- **Faux positifs écartés** : « le client a demandé… » (participe passé + auxiliaire),
+  « la demande au client » (nom + article), « dis au technicien », les reprises.
+- Après l'envoi (mode actif), le scan horaire posera « Attente client » si le client
+  ne répond pas sous 2 h (comportement existant, inchangé).
+
+## Fichiers
+
+`lib/consignes.js` (`consigneRelaisClient` + champ `relais_client` d'`analyser`),
+`lib/cerveau.js` (`SYSTEME_RELAIS` + `construireMessagesRelais`, prompt court 711 car.),
+`lib/process.js` (tour relais dans le tour consigne : gardes + régénération + repli
+littéral), `api/test.js` (VERSION B6.5.1, type `relais_client`, carte console
+« message AU CLIENT »).
+
+## Tests
+
++13 : test-consignes 33→37 (motifs, faux positifs, analyser), test-cerveau 34→37
+(SYSTEME_RELAIS + prompt), test-process 64→69 (relais conforme, bypass prise de
+main, régénération bornée, repli littéral, priorité armement), test-console 30→31
+(version B6.5.1 + relais bout en bout).
+
+**Total : 510/510 tests verts sur 19 suites** (497 + 13).

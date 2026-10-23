@@ -226,3 +226,56 @@ test("B6.3 une consigne NE RETIRE PAS le tag (v2.20.106) — le module n'expose 
   assert.strictEqual(a.pour_agent, true);
   assert.strictEqual(a.attend_reponse, false);
 });
+
+// ------------------------------------------------- B6.5.1 RELAIS CLIENT ----
+test("B6.5.1 consigneRelaisClient : les ordres de transmission AU CLIENT", () => {
+  assert.strictEqual(consignes.consigneRelaisClient("demande au client l'adresse pour l'intervention"), true);
+  assert.strictEqual(consignes.consigneRelaisClient("dis au client que le technicien passe demain"), true);
+  assert.strictEqual(consignes.consigneRelaisClient("demande-lui son adresse d'intervention"), true);
+  assert.strictEqual(consignes.consigneRelaisClient("informe le client du retard sur la pièce"), true);
+  assert.strictEqual(consignes.consigneRelaisClient("précise au client que le dossier est bloqué"), true);
+  assert.strictEqual(consignes.consigneRelaisClient("transmets au client nos excuses"), true);
+  assert.strictEqual(consignes.consigneRelaisClient("demande son adresse au client"), true);
+  assert.strictEqual(consignes.consigneRelaisClient("redemande au client la plaque exacte"), true);
+  assert.strictEqual(consignes.consigneRelaisClient("confirme au client le rendez-vous"), true);
+  assert.strictEqual(consignes.consigneRelaisClient("dis-lui que c'est en cours"), true);
+});
+
+test("B6.5.1 consigneRelaisClient : PAS de faux positif (constats, noms, autres cibles)", () => {
+  assert.strictEqual(consignes.consigneRelaisClient("le client a demandé l'adresse"), false, "participe passé");
+  assert.strictEqual(consignes.consigneRelaisClient("le client demande une facture"), false, "le client est SUJET, pas destinataire");
+  assert.strictEqual(consignes.consigneRelaisClient("dis au technicien de passer"), false, "pas le client");
+  assert.strictEqual(consignes.consigneRelaisClient("poursuis la qualification"), false, "reprise, pas relais");
+  assert.strictEqual(consignes.consigneRelaisClient("test 2"), false);
+  assert.strictEqual(consignes.consigneRelaisClient("l'intervention EVE12345 est lancée"), false, "armement");
+  assert.strictEqual(consignes.consigneRelaisClient("j'ai fait une demande au client hier"), false, "prétérit");
+  assert.strictEqual(consignes.consigneRelaisClient("la demande au client sera traitée"), false, "nom, article");
+  assert.strictEqual(consignes.consigneRelaisClient("on a proposé au client un geste commercial"), false, "participe sans accent + auxiliaire");
+  assert.strictEqual(consignes.consigneRelaisClient("on a confirmé au client le passage"), false);
+  assert.strictEqual(consignes.consigneRelaisClient("dis-moi où on en est"), false, "question au collègue, pas au client");
+});
+
+test("B6.5.1 analyser : le champ relais_client suit la mention @Agent IA", () => {
+  const a = consignes.analyser({ texte: "@Agent IA demande au client l'adresse pour l'intervention" });
+  assert.strictEqual(a.pour_agent, true);
+  assert.strictEqual(a.relais_client, true);
+  assert.strictEqual(a.question_interne, false, "pas une question interne");
+  assert.strictEqual(a.reprise, false);
+  assert.strictEqual(a.attend_reponse, false);
+  assert.strictEqual(a.consigne, "demande au client l'adresse pour l'intervention");
+  // sans mention → rien
+  const b = consignes.analyser({ texte: "demande au client l'adresse" });
+  assert.strictEqual(b.pour_agent, false);
+  assert.strictEqual(b.relais_client, false);
+});
+
+test("B6.5.1 priorités : l'attente « dès que le client répond » et le relais peuvent coexister — l'analyse reste HONNÊTE", () => {
+  // « dès que le client répond, demande-lui l'adresse » : le tour consigne
+  // traite l'ATTENTE EN PREMIER (silence, v2.20.119) — les deux drapeaux
+  // peuvent être vrais, l'ORDRE du tour tranche.
+  const a = consignes.analyser({ texte: "@Agent IA dès que le client répond, demande-lui l'adresse" });
+  assert.strictEqual(a.attend_reponse, true);
+  // la consigne de Corentin du 23/10, reproduite à l'identique
+  const c = consignes.analyser({ texte: "@Agent IA demande au client l'adresse pour l'intervention" });
+  assert.strictEqual(c.relais_client, true);
+});

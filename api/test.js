@@ -41,7 +41,7 @@
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B6.5";
+var VERSION = "B6.5.1";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");
@@ -415,7 +415,7 @@ async function traiterCommentaire(corps) {
 
   // Le type du tour : lu dans le journal (mêmes étapes que la prod).
   var etapesConsigne = ["consigne_dedup", "consigne_question", "consigne_armement",
-    "consigne_attente_client", "consigne_reprise", "consigne_info"];
+    "consigne_attente_client", "consigne_relais_client", "consigne_reprise", "consigne_info"];
   var type = "info";
   for (var i = 0; i < resultat.journal.length; i++) {
     if (etapesConsigne.indexOf(resultat.journal[i].etape) !== -1) {
@@ -424,6 +424,7 @@ async function traiterCommentaire(corps) {
         consigne_question: "question_interne",
         consigne_armement: "armement",
         consigne_attente_client: "attente_client",
+        consigne_relais_client: "relais_client",
         consigne_reprise: "reprise",
         consigne_info: "info"
       }[resultat.journal[i].etape];
@@ -462,7 +463,8 @@ async function traiterCommentaire(corps) {
       references: analyse.references,
       plaques: analyse.plaques,
       reprise: analyse.reprise,
-      attend_reponse: analyse.attend_reponse
+      attend_reponse: analyse.attend_reponse,
+      relais_client: analyse.relais_client === true
     },
     actions_b42: actionsB42.map(function (ac) {
       return { action: ac.action, cycle: ac.cycle || null, tag: ac.tag || null, texte: String(ac.texte || "").substring(0, 600) };
@@ -547,7 +549,7 @@ button.reset{background:#c5221f}
 <input id="com" placeholder="@Agent IA question : où en est ce dossier ?" autocomplete="off">
 <button id="btn-commenter">Commenter</button>
 </div>
-<div class="meta">« ? … » ou « Question : … » → l'agent répond À TOI en commentaire ; référence Praxedo (EVE…) → armement du suivi ; « poursuis / reprends » → il répond au CLIENT ; sans mention @Agent IA → ignoré (filtre webhook).</div>
+<div class="meta">« ? … » ou « Question : … » → l'agent répond À TOI en commentaire ; référence Praxedo (EVE…) → armement du suivi ; « demande au client… / dis-lui… » → il transmet la demande AU CLIENT ; « poursuis / reprends » → il répond au dernier message client ; sans mention @Agent IA → ignoré (filtre webhook).</div>
 </div>
 
 <script>
@@ -693,6 +695,7 @@ function carteCommentaire(entree, j) {
     (analyse.question_interne ? " &middot; question interne" : "") +
     (analyse.reprise ? " &middot; reprise" : "") +
     (analyse.attend_reponse ? " &middot; attente client" : "") +
+    (analyse.relais_client ? " &middot; relais client" : "") +
     ((analyse.references || []).length ? " &middot; refs : " + ech(analyse.references.join(", ")) : "") +
     ((analyse.plaques || []).length ? " &middot; plaques : " + ech(analyse.plaques.join(", ")) : "");
   var actions = (j.actions_b42 || []).map(function (a) {
@@ -723,6 +726,10 @@ function carteCommentaire(entree, j) {
       '<div class="meta">En mode actif ARMÉ : cycle « En cours de réalisation » posé + ce commentaire posté.</div>';
   } else if (j.type === "attente_client") {
     corps = '<div class="resetok">Silence — l\\'agent attend la réponse du client, il ne relance jamais (v2.20.119).</div>';
+  } else if (j.type === "relais_client") {
+    corps = '<div class="bloc nouveau"><span class="etiquette">AGENT IA — message AU CLIENT (relais de ta demande, simulé, NON envoyé)</span><div>' +
+      ech(j.reponse || "(aucun message)") + "</div></div>" +
+      '<div class="meta">Relais B6.5.1 : en mode actif ARMÉ, ce message serait ENVOYÉ au client ; le scan posera « Attente client » après 2 h si le client ne répond pas.</div>';
   } else if (j.type === "reprise") {
     corps = j.reponse
       ? '<div class="bloc nouveau"><span class="etiquette">AGENT IA — réponse au CLIENT (reprise, simulée, NON envoyée)</span><div>' + ech(j.reponse) + "</div></div>" +

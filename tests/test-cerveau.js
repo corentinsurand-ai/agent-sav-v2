@@ -426,3 +426,42 @@ test('B6.4 appelMistral sans option : response_format json_object conservé (ré
   const corps = JSON.parse(appelsFetch[0].options.body);
   assert.deepStrictEqual(corps.response_format, { type: 'json_object' });
 });
+
+// ============================================================================
+// B6.5.1 — LE TOUR RELAIS CLIENT (prompt séparé, texte brut)
+// ============================================================================
+test('B6.5.1 SYSTEME_RELAIS : transmission au client, zéro invention, signature, question OUVERTE', () => {
+  const s = cerveau.SYSTEME_RELAIS;
+  assert.ok(s.indexOf("TRANSMETTRE") !== -1, "rôle : transmettre une demande au client");
+  assert.ok(s.indexOf("n'invente") !== -1, "zéro invention");
+  assert.ok(s.indexOf("OUVERTE") !== -1, "question ouverte exigée");
+  assert.ok(s.indexOf("-Agent IA U'mob-") !== -1, "signature exigée");
+  assert.ok(s.indexOf("TEXTE BRUT") !== -1, "pas de JSON");
+  assert.ok(s.length < 1200, "prompt court (borne projet) : " + s.length);
+});
+
+test('B6.5.1 construireMessagesRelais : dossier + conversation + demande de l\'équipe rendus', () => {
+  const msgs = cerveau.construireMessagesRelais({
+    consigne: "demande au client l'adresse pour l'intervention",
+    dossier: "Cycle : — — Plaque : GH367WG — Intervention Praxedo : — — Attente client : rien en attente",
+    nom: "JMBS (COSMO SUSHI)",
+    messages: [
+      { sortant: false, texte: "bonjour", ts: 1000 },
+      { sortant: true, texte: "Bonjour, comment puis-je vous aider ?", ts: 2000 }
+    ]
+  });
+  assert.strictEqual(msgs.length, 2);
+  assert.strictEqual(msgs[0].role, 'system');
+  assert.strictEqual(msgs[0].content, cerveau.SYSTEME_RELAIS);
+  assert.strictEqual(msgs[1].role, 'user');
+  assert.ok(msgs[1].content.indexOf("l'adresse pour l'intervention") !== -1, "la demande est rendue");
+  assert.ok(msgs[1].content.indexOf("GH367WG") !== -1, "le dossier 4 points est rendu");
+  assert.ok(msgs[1].content.indexOf("JMBS (COSMO SUSHI)") !== -1, "le contact est rendu");
+  assert.ok(msgs[1].content.indexOf("CLIENT") !== -1, "la conversation est rendue");
+});
+
+test('B6.5.1 construireMessagesRelais : entrée vide → jamais de crash', () => {
+  const msgs = cerveau.construireMessagesRelais({});
+  assert.strictEqual(msgs.length, 2);
+  assert.ok(msgs[1].content.indexOf("inconnu") !== -1);
+});

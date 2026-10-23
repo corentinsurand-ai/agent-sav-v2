@@ -432,13 +432,13 @@ test("B6.1 — la page embarque l'affichage des actions B4.2 (libellés + aperç
 // ============================================================================
 // B6.5 — la console embarque la version B6.5
 // ============================================================================
-test("B6.5 — la console répond en version B6.5", async () => {
+test("B6.5.1 — la console répond en version B6.5.1", async () => {
   reinitialise();
   const res = faireRes();
   await apiTest(requete("secret=secret-de-test-b54",
     { message: "bonjour", memoire: [] }, "POST"), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, "B6.5");
+  assert.strictEqual(res.corps.version, "B6.5.1");
 });
 
 // ============================================================================
@@ -491,6 +491,33 @@ test("B6.5 — question interne → réponse au collègue en commentaire, 1 Mist
   assert.strictEqual(res.corps.actions_b42.length, 1);
   assert.strictEqual(res.corps.actions_b42[0].action, "commentaire");
   assert.ok(res.corps.journal.some((x) => x.etape === "consigne_question"));
+  // persistant renvoyé : dédup armée pour le tour suivant
+  assert.ok(res.corps.persistant.consigne_vue && res.corps.persistant.consigne_vue.cle);
+  verifierZeroEcriture();
+});
+
+test("B6.5.1 — relais client « demande au client l'adresse » → message AU CLIENT, 1 Mistral, jamais un commentaire", async () => {
+  reinitialise();
+  reponseConforme = "Bonjour, l'équipe SAV a besoin de l'adresse d'intervention pour votre scooter. Quelle est l'adresse complète où le technicien doit se présenter ?\n-Agent IA U'mob-";
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    {
+      commentaire: "@Agent IA demande au client l'adresse pour l'intervention",
+      memoire: [{ sortant: false, texte: "bonjour mon scooter ne démarre plus", ts: 1000 }],
+      commentaires: [], persistant: { suivi_refs: [], consigne_vue: null }
+    }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.type, "relais_client");
+  assert.strictEqual(res.corps.statut, "consigne");
+  assert.strictEqual(res.corps.appels_mistral, 1);
+  assert.strictEqual(appelsMistral, 1);
+  assert.ok(res.corps.reponse.indexOf("adresse") !== -1, "le message est POUR LE CLIENT");
+  assert.ok(res.corps.reponse.indexOf("-Agent IA U'mob-") !== -1, "signature présente");
+  assert.strictEqual(res.corps.reponse_commentaire, "", "aucun commentaire interne sur un relais");
+  assert.strictEqual(res.corps.actions_b42.length, 1);
+  assert.strictEqual(res.corps.actions_b42[0].action, "envoyer_message");
+  assert.strictEqual(res.corps.analyse.relais_client, true);
+  assert.ok(res.corps.journal.some((x) => x.etape === "consigne_relais_client"));
   // persistant renvoyé : dédup armée pour le tour suivant
   assert.ok(res.corps.persistant.consigne_vue && res.corps.persistant.consigne_vue.cle);
   verifierZeroEcriture();

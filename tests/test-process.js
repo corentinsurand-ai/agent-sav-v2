@@ -1490,3 +1490,103 @@ test("B6.4 api : les champs PERSISTANTS du dossier (suivi_refs, consigne_vue) su
   assert.deepStrictEqual(etatSauve.consigne_vue, { cle: "x", ts: 1 });
   assert.strictEqual(etatSauve.tag_pdm_ts, 123);
 });
+
+// ============================================================================
+// B6.5.1 — TOUR RELAIS CLIENT : « @Agent IA demande au client l'adresse » →
+// l'agent rédige le message AU CLIENT (gardes qualité, borne 2 appels,
+// transmission littérale en secours). Une consigne qui cite une ref Praxedo
+// reste un ARMEMENT (priorité B6.4).
+// ============================================================================
+
+test("B6.5.1 relais client conforme : message AU CLIENT, 1 appel Mistral LIBRE, action envoyer_message", async () => {
+  const appelsR = [];
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA demande au client l'adresse pour l'intervention" },
+    mistral: async (m, o) => {
+      appelsR.push({ m: m, o: o });
+      return "Bonjour, l'équipe SAV a besoin de l'adresse d'intervention pour votre scooter. Quelle est l'adresse complète où le technicien peut intervenir ?\n-Agent IA U'mob-";
+    }
+  });
+  assert.strictEqual(res.statut, "consigne");
+  assert.strictEqual(res.type, "relais_client");
+  assert.strictEqual(res.appels, 1);
+  assert.ok(res.reponse.indexOf("adresse") !== -1, "le message AU CLIENT porte la demande");
+  assert.ok(res.reponse.indexOf("-Agent IA U'mob-") !== -1, "signature présente");
+  assert.strictEqual(res.actions_b42.length, 1);
+  assert.strictEqual(res.actions_b42[0].action, "envoyer_message");
+  assert.ok(res.journal.some((j) => j.etape === "consigne_relais_client"));
+  assert.ok(res.journal.some((j) => j.etape === "observation" && j.texte.indexOf("NON ENVOYÉ") !== -1));
+  // le prompt : SYSTEME RELAIS + la consigne, appel TEXTE LIBRE
+  assert.strictEqual(appelsR.length, 1);
+  assert.strictEqual(appelsR[0].o.texteLibre, true);
+  assert.ok(appelsR[0].m[0].content.indexOf("TRANSMETTRE") !== -1);
+  assert.ok(appelsR[0].m[1].content.indexOf("l'adresse pour l'intervention") !== -1);
+});
+
+test("B6.5.1 relais client BYPASSE le silence de prise de main (le collègue donne l'ordre)", async () => {
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL, { nom: "X", cycle: "", tags: ["Prise de main"] }),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA demande-lui son adresse d'intervention" },
+    mistral: async () => "Bonjour, où le technicien doit-il intervenir ? Quelle est l'adresse exacte ?\n-Agent IA U'mob-"
+  });
+  assert.strictEqual(res.statut, "consigne", "pas de silence : le relais est un ordre du collègue");
+  assert.strictEqual(res.type, "relais_client");
+  assert.strictEqual(res.appels, 1);
+  assert.ok(res.reponse.indexOf("adresse") !== -1);
+});
+
+test("B6.5.1 relais client : question FERMÉE → garde → UNE régénération avec rappels, conforme au 2e appel", async () => {
+  const appelsR = [];
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA dis au client que le technicien passe" },
+    mistral: async (m, o) => {
+      appelsR.push({ m: m, o: o });
+      if (appelsR.length === 1) return "Bonjour, pouvez-vous me confirmer le passage du technicien ?\n-Agent IA U'mob-";
+      return "Bonjour, l'équipe SAV m'informe qu'un technicien passera sur place. À quelle adresse exacte doit-il se présenter ?\n-Agent IA U'mob-";
+    }
+  });
+  assert.strictEqual(res.type, "relais_client");
+  assert.strictEqual(res.appels, 2, "régénération bornée à 2 appels");
+  assert.ok(res.journal.some((j) => j.etape === "relais_gardes"), "la garde est journalisée");
+  assert.ok(res.reponse.indexOf("pouvez-vous") === -1, "la question fermée a disparu");
+  assert.ok(appelsR[1].m[1].content.indexOf("CORRECTIONS EXIGÉES") !== -1, "rappels réinjectés");
+});
+
+test("B6.5.1 relais client : récidive de garde → transmission LITTÉRALE de la consigne (zéro invention)", async () => {
+  let appels = 0;
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA demande au client l'adresse pour l'intervention" },
+    mistral: async () => { appels++; return "Bonjour, pouvez-vous me donner votre adresse ?\n-Agent IA U'mob-"; }
+  });
+  assert.strictEqual(res.appels, 2, "borne 2 appels, jamais de 3e");
+  assert.strictEqual(res.type, "relais_client");
+  assert.ok(res.reponse.indexOf("Message de l'équipe SAV") !== -1, "transmission littérale");
+  assert.ok(res.reponse.indexOf("l'adresse pour l'intervention") !== -1, "la consigne est transmise telle quelle");
+  assert.ok(res.reponse.indexOf("-Agent IA U'mob-") !== -1, "signature quand même");
+  assert.ok(res.journal.some((j) => j.etape === "relais_gardes" && j.texte.indexOf("LITTÉRALE") !== -1));
+});
+
+test("B6.5.1 priorité B6.4 : une consigne de relais qui CITE une ref Praxedo reste un ARMEMENT", async () => {
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA dis au client que l'intervention EVE05189 est lancée" },
+    mistral: async () => { throw new Error("le tour armement n'appelle jamais Mistral"); }
+  });
+  assert.strictEqual(res.type, "armement");
+  assert.strictEqual(res.appels, 0);
+  assert.ok(res.journal.some((j) => j.etape === "consigne_armement"));
+  assert.deepStrictEqual(res.etat.suivi_refs, ["EVE05189"]);
+});
