@@ -88,3 +88,26 @@ alter table agent_sav.clients enable row level security;
 grant usage on schema agent_sav to service_role;
 grant all on all tables in schema agent_sav to service_role;
 grant all on all sequences in schema agent_sav to service_role;
+
+-- 7. NOTATIONS (B6.6) — la boucle d'amélioration de la console de test : les
+--    notes 1-5 de Corentin sur les réponses de l'agent, AVEC LE TYPE DE RÈGLE
+--    concerné (les gardes + familles du cahier des charges) et un commentaire.
+--    Chaque ligne = un message client + une réponse d'agent notés. Vibe lit
+--    cette table (clé service) pour en tirer des leçons et faire progresser
+--    l'agent ; GET /api/test?secret=…&notations=1 expose la liste + résumé.
+create table if not exists agent_sav.notations (
+  id bigint generated always as identity primary key,
+  conversation_id text not null,
+  note int not null check (note between 1 and 5),
+  type_regle text not null,
+  commentaire text not null default '',
+  tour text not null default '',
+  type_tour text not null default '',
+  message_client text not null default '',
+  reponse_agent text not null default '',
+  cree_a timestamptz not null default now()
+);
+create index if not exists idx_notations_regle on agent_sav.notations (type_regle, cree_a desc);
+alter table agent_sav.notations enable row level security;
+grant all on agent_sav.notations to service_role;
+grant usage, select on all sequences in schema agent_sav to service_role;

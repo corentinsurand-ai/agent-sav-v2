@@ -1,12 +1,12 @@
 // ============================================================================
 // Agent SAV U'mob v2 — B5.4 : tests de la console de test /api/test (node --test)
 // Exécution : node --test tests/test-console.js
-// (~11 tests — zéro dépendance : Supabase et Mistral SIMULÉS)
+// (37 tests — zéro dépendance : Supabase et Mistral SIMULÉS)
 //
 // Ce qui est vérifié : auth (secret), méthodes, configuration, la chaîne
 // RÉELLE branchée (rejet plaque hors parc canonique, RESET canonique, Mistral
 // appelé exactement quand il doit l'être), la fiche client par téléphone,
-// et l'INVARIANT ABSOLU du bac à sable : ZÉRO écriture Supabase (uniquement
+// et l.INVARIANT ABSOLU du bac à sable : ZÉRO écriture Supabase (uniquement
 // des GET) et ZÉRO accès respond.io.
 // ============================================================================
 
@@ -27,7 +27,8 @@ const processLib = require("../lib/process.js");
 const db = {
   clients: [
     { telephone: "33620203963", plaque: "GG798NL", enseigne: "PIZZA SERVICES ETAMPES", statut_risque: null }
-  ]
+  ],
+  notations: [] // B6.6 — LA table que le bac à sable a le droit d'écrire
 };
 let appelsFetch = [];   // tous les appels réseau simulés
 let appelsMistral = 0;  // chaque appel au modèle compte
@@ -47,6 +48,7 @@ function reinitialise() {
   appelsFetch = [];
   appelsMistral = 0;
   reponseConforme = reponseConformeParDefaut;
+  db.notations = []; // B6.6 — chaque test repart d'une table vide
 }
 
 function paramsDe(url) {
@@ -81,6 +83,17 @@ globalThis.fetch = async function (url, options) {
       }
       if (params["limit"]) out = out.slice(0, parseInt(params["limit"], 10));
       return { status: 200, ok: true, text: async () => JSON.stringify(out) };
+    }
+    // B6.6 — notations : GET (lecture) + POST (LA SEULE écriture du bac à sable)
+    if (table === "notations") {
+      if ((options.method || "GET") === "POST") {
+        const ligne = JSON.parse(options.body || "{}");
+        ligne.cree_a = new Date().toISOString();
+        db.notations.unshift(ligne);
+        return { status: 201, ok: true, text: async () => "" }; // Prefer: return=minimal
+      }
+      const limit = parseInt(params["limit"] || "200", 10);
+      return { status: 200, ok: true, text: async () => JSON.stringify(db.notations.slice(0, limit)) };
     }
     return { status: 404, ok: false, text: async () => "table inconnue " + table };
   }
@@ -430,15 +443,15 @@ test("B6.1 — la page embarque l'affichage des actions B4.2 (libellés + aperç
 });
 
 // ============================================================================
-// B6.5 — la console embarque la version B6.5
+// B6.5 — la console embarque la version
 // ============================================================================
-test("B6.5.1 — la console répond en version B6.5.1", async () => {
+test("B6.6 — la console répond en version B6.6", async () => {
   reinitialise();
   const res = faireRes();
   await apiTest(requete("secret=secret-de-test-b54",
     { message: "bonjour", memoire: [] }, "POST"), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, "B6.5.1");
+  assert.strictEqual(res.corps.version, "B6.6");
 });
 
 // ============================================================================
@@ -671,4 +684,125 @@ test("B6.5 — la page sert l'interface commentaire (champ + bouton + rendus)", 
   assert.ok(html.indexOf("Commentaire interne") !== -1);
   assert.ok(html.indexOf("carteCommentaire") !== -1);
   assert.ok(html.indexOf("envoyerCommentaire") !== -1);
+});
+
+// ============================================================================
+// B6.6 — NOTATIONS 1-5 PAR TYPE DE RÈGLE (la boucle d'amélioration)
+// ============================================================================
+
+// INVARIANT B6.6 : le bac à sable n'écrit chez Supabase QUE dans
+// agent_sav.notations (exactement UNE écriture POST) et n'accède JAMAIS à
+// respond.io. Toute autre écriture = régression.
+function verifierZeroEcritureSaufNotations() {
+  const ecritures = appelsFetch.filter((a) => a.method !== "GET" &&
+    String(a.url).indexOf("supabase.co") !== -1);
+  assert.strictEqual(ecritures.length, 1,
+    "exactement UNE écriture Supabase attendue : " + JSON.stringify(ecritures));
+  assert.ok(String(ecritures[0].url).indexOf("/rest/v1/notations") !== -1,
+    "l'écriture doit viser agent_sav.notations : " + ecritures[0].url);
+  assert.strictEqual(ecritures[0].method, "POST");
+  const respondio = appelsFetch.filter((a) => String(a.url).indexOf("respond.io") !== -1);
+  assert.strictEqual(respondio.length, 0, "accès respond.io détecté");
+}
+
+test("B6.6 — POST {noter} valide → 201, ligne déposée dans agent_sav.notations (SEULE écriture)", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    {
+      noter: {
+        conversation_id: "conv-test-1",
+        note: 4,
+        type_regle: "ton",
+        commentaire: "un peu guindé",
+        tour: "t3",
+        type_tour: "cerveau",
+        message_client: "bonjour mon scooter ne démarre pas",
+        reponse_agent: "Merci pour votre message."
+      }
+    }, "POST"), res);
+  assert.strictEqual(res.statusCode, 201);
+  assert.strictEqual(res.corps.ok, true);
+  assert.strictEqual(res.corps.notation.note, 4);
+  assert.strictEqual(res.corps.notation.type_regle, "ton");
+  assert.strictEqual(res.corps.notation.conversation_id, "conv-test-1");
+  assert.strictEqual(res.corps.notation.commentaire, "un peu guindé");
+  assert.strictEqual(db.notations.length, 1, "la ligne doit atterrir dans la table");
+  assert.strictEqual(db.notations[0].type_regle, "ton");
+  verifierZeroEcritureSaufNotations();
+});
+
+test("B6.6 — notation refusée : note hors 1-5 (0, 6, abc, 3.5) → 400, ZÉRO écriture", async () => {
+  for (const note of [0, 6, "abc", 3.5]) {
+    reinitialise();
+    const res = faireRes();
+    await apiTest(requete("secret=secret-de-test-b54",
+      { noter: { conversation_id: "conv-test-1", note: note, type_regle: "ton" } }, "POST"), res);
+    assert.strictEqual(res.statusCode, 400, "note " + JSON.stringify(note) + " doit être refusée");
+    assert.strictEqual(res.corps.ok, false);
+    assert.ok(String(res.corps.erreur).indexOf("note") !== -1);
+    assert.strictEqual(db.notations.length, 0, "rien ne doit atterrir dans la table");
+    verifierZeroEcriture();
+  }
+});
+
+test("B6.6 — notation refusée : type_regle inconnu → 400, ZÉRO écriture", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { noter: { conversation_id: "conv-test-1", note: 3, type_regle: "regle_inventee" } }, "POST"), res);
+  assert.strictEqual(res.statusCode, 400);
+  assert.ok(String(res.corps.erreur).indexOf("type_regle") !== -1);
+  assert.strictEqual(db.notations.length, 0);
+  verifierZeroEcriture();
+});
+
+test("B6.6 — notation refusée : conversation_id manquant → 400, ZÉRO écriture", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { noter: { note: 3, type_regle: "ton" } }, "POST"), res);
+  assert.strictEqual(res.statusCode, 400);
+  assert.ok(String(res.corps.erreur).indexOf("conversation_id") !== -1);
+  assert.strictEqual(db.notations.length, 0);
+  verifierZeroEcriture();
+});
+
+test("B6.6 — GET ?notations=1 → liste + résumé par règle (moyennes arrondies)", async () => {
+  reinitialise();
+  // trois notes seedées : ton 4 puis 2 (moyenne 3), invention 5
+  db.notations = [
+    { conversation_id: "c1", note: 4, type_regle: "ton", commentaire: "", tour: "", type_tour: "", message_client: "", reponse_agent: "", cree_a: "2026-10-23T08:00:00Z" },
+    { conversation_id: "c1", note: 2, type_regle: "ton", commentaire: "", tour: "", type_tour: "", message_client: "", reponse_agent: "", cree_a: "2026-10-23T08:01:00Z" },
+    { conversation_id: "c2", note: 5, type_regle: "invention", commentaire: "", tour: "", type_tour: "", message_client: "", reponse_agent: "", cree_a: "2026-10-23T08:02:00Z" }
+  ];
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54&notations=1"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.ok, true);
+  assert.strictEqual(res.corps.notations.length, 3);
+  assert.strictEqual(res.corps.resume.total, 3);
+  assert.strictEqual(res.corps.resume.moyenne, 3.67); // (4+2+5)/3 = 3,666… → 3.67
+  assert.strictEqual(res.corps.resume.par_regle.ton.nb, 2);
+  assert.strictEqual(res.corps.resume.par_regle.ton.moyenne, 3);
+  assert.strictEqual(res.corps.resume.par_regle.ton.libelle, "Ton / politesse");
+  assert.strictEqual(res.corps.resume.par_regle.invention.nb, 1);
+  assert.strictEqual(res.corps.resume.par_regle.invention.moyenne, 5);
+  verifierZeroEcriture();
+});
+
+test("B6.6 — la page sert le menu conversations + le widget de notation", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54"), res);
+  assert.strictEqual(res.statusCode, 200);
+  const html = String(res.html);
+  ["menu-conv", "btn-conv-new", "Nouvelle conversation", "brancherNoter",
+   "optionsRegles", "fermerEtNouvelle"].forEach(function (marqueur) {
+    assert.ok(html.indexOf(marqueur) !== -1, "la page servie doit contenir " + marqueur);
+  });
+  // les 15 types de règle sont injectés par le serveur (source unique TYPES_REGLES)
+  ["Ton / politesse", "Plaque redemandée", "Consignes (question interne, relais, armement)", "Autre"].forEach(function (libelle) {
+    assert.ok(html.indexOf(libelle) !== -1, "la page servie doit contenir le libellé « " + libelle + " »");
+  });
 });

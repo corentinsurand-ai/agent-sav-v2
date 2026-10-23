@@ -19,16 +19,17 @@
 
 const test = require("node:test");
 const assert = require("node:assert");
-const fs = require("node:fs");
-const path = require("node:path");
 
-// La page telle que Vercel la construit : on évalue la template literal de
-// api/test.js EXACTEMENT comme le fait Node au chargement du module.
+// La page telle que Vercel la construit : B6.6 — le module exporte
+// désormais sa page ÉVALUÉE (module.exports.PAGE_HTML), la chaîne EXACTE
+// que le GET renvoie. Plus fidèle et plus robuste que l'ancien re-eval de
+// la template à la main : l'interpolation ${LIBELLES_REGLES_JSON} (B6.6)
+// vit DANS le module et était invisible à l'ancien harnais.
 function pageServie() {
-  const src = fs.readFileSync(path.join(__dirname, "..", "api", "test.js"), "utf8");
-  const m = src.match(/var PAGE_HTML = `([\s\S]*?)`;\n/);
-  assert.ok(m, "PAGE_HTML (template literal) introuvable dans api/test.js");
-  return eval("`" + m[1] + "`"); // mêmes règles d'échappement que le module réel
+  const mod = require("../api/test.js");
+  assert.ok(typeof mod.PAGE_HTML === "string" && mod.PAGE_HTML.length > 0,
+    "api/test.js doit exposer sa page servie via module.exports.PAGE_HTML");
+  return mod.PAGE_HTML;
 }
 
 function scriptServi() {
