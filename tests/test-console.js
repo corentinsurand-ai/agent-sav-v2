@@ -28,10 +28,12 @@ const db = {
   clients: [
     { telephone: "33620203963", plaque: "GG798NL", enseigne: "PIZZA SERVICES ETAMPES", statut_risque: null }
   ],
-  notations: [] // B6.6 — LA table que le bac à sable a le droit d'écrire
+  notations: [], // B6.6 — LA table que le bac à sable a le droit d'écrire
+  lecons: []     // B6.7 — la 2e table d'apprentissage
 };
 let appelsFetch = [];   // tous les appels réseau simulés
 let appelsMistral = 0;  // chaque appel au modèle compte
+let corpsMistral = [];  // B6.7 — le CORPS de chaque appel Mistral (le prompt envoyé)
 
 // mutable : certains tests (cycle_prevu « Attente client ») substituent une
 // réponse du modèle qui pose une question au client.
@@ -47,8 +49,10 @@ const reponseConformeParDefaut = reponseConforme;
 function reinitialise() {
   appelsFetch = [];
   appelsMistral = 0;
+  corpsMistral = [];
   reponseConforme = reponseConformeParDefaut;
   db.notations = []; // B6.6 — chaque test repart d'une table vide
+  db.lecons = [];    // B6.7
 }
 
 function paramsDe(url) {
@@ -66,6 +70,7 @@ globalThis.fetch = async function (url, options) {
   // ---- Mistral --------------------------------------------------------------
   if (url.indexOf("api.mistral.ai") !== -1) {
     appelsMistral++;
+    corpsMistral.push(String(options.body || "")); // B6.7 — capture du prompt
     return { status: 200, ok: true, text: async () => JSON.stringify({ choices: [{ message: { content: reponseConforme } }] }) };
   }
 
@@ -94,6 +99,27 @@ globalThis.fetch = async function (url, options) {
       }
       const limit = parseInt(params["limit"] || "200", 10);
       return { status: 200, ok: true, text: async () => JSON.stringify(db.notations.slice(0, limit)) };
+    }
+    // B6.7 — leçons : GET (lecture) + POST (création) + PATCH (renfort, statut)
+    if (table === "lecons") {
+      const methode = options.method || "GET";
+      if (methode === "POST") {
+        const ligne = JSON.parse(options.body || "{}");
+        ligne.id = "lecon-" + (db.lecons.length + 1);
+        db.lecons.unshift(ligne);
+        return { status: 201, ok: true, text: async () => "" };
+      }
+      if (methode === "PATCH") {
+        const idEq = params["id"] || "";
+        const id = idEq.slice(0, 3) === "eq." ? idEq.slice(3) : idEq;
+        const champs = JSON.parse(options.body || "{}");
+        const cible = db.lecons.find((l) => String(l.id) === id);
+        if (!cible) return { status: 404, ok: false, text: async () => "introuvable" };
+        Object.assign(cible, champs);
+        return { status: 204, ok: true, text: async () => "" };
+      }
+      const limit = parseInt(params["limit"] || "100", 10);
+      return { status: 200, ok: true, text: async () => JSON.stringify(db.lecons.slice(0, limit)) };
     }
     return { status: 404, ok: false, text: async () => "table inconnue " + table };
   }
@@ -445,13 +471,13 @@ test("B6.1 — la page embarque l'affichage des actions B4.2 (libellés + aperç
 // ============================================================================
 // B6.5 — la console embarque la version
 // ============================================================================
-test("B6.6 — la console répond en version B6.6", async () => {
+test("B6.7 — la console répond en version B6.7", async () => {
   reinitialise();
   const res = faireRes();
   await apiTest(requete("secret=secret-de-test-b54",
     { message: "bonjour", memoire: [] }, "POST"), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, "B6.6");
+  assert.strictEqual(res.corps.version, "B6.7");
 });
 
 // ============================================================================
@@ -690,17 +716,21 @@ test("B6.5 — la page sert l'interface commentaire (champ + bouton + rendus)", 
 // B6.6 — NOTATIONS 1-5 PAR TYPE DE RÈGLE (la boucle d'amélioration)
 // ============================================================================
 
-// INVARIANT B6.6 : le bac à sable n'écrit chez Supabase QUE dans
-// agent_sav.notations (exactement UNE écriture POST) et n'accède JAMAIS à
+// INVARIANT B6.6/B6.7 : le bac à sable n'écrit chez Supabase QUE dans les
+// tables d'apprentissage agent_sav.notations et agent_sav.lecons (POST insert
+// notation, POST insert leçon, PATCH renfort/statut) et n'accède JAMAIS à
 // respond.io. Toute autre écriture = régression.
-function verifierZeroEcritureSaufNotations() {
+function verifierZeroEcritureSaufApprentissage(nbAttendu) {
   const ecritures = appelsFetch.filter((a) => a.method !== "GET" &&
     String(a.url).indexOf("supabase.co") !== -1);
-  assert.strictEqual(ecritures.length, 1,
-    "exactement UNE écriture Supabase attendue : " + JSON.stringify(ecritures));
-  assert.ok(String(ecritures[0].url).indexOf("/rest/v1/notations") !== -1,
-    "l'écriture doit viser agent_sav.notations : " + ecritures[0].url);
-  assert.strictEqual(ecritures[0].method, "POST");
+  const attendu = nbAttendu || 1;
+  assert.strictEqual(ecritures.length, attendu,
+    attendu + " écriture(s) Supabase attendue(s) : " + JSON.stringify(ecritures));
+  for (const e of ecritures) {
+    assert.ok(String(e.url).indexOf("/rest/v1/notations") !== -1 ||
+      String(e.url).indexOf("/rest/v1/lecons") !== -1,
+      "l'écriture doit viser agent_sav.notations ou agent_sav.lecons : " + e.url);
+  }
   const respondio = appelsFetch.filter((a) => String(a.url).indexOf("respond.io") !== -1);
   assert.strictEqual(respondio.length, 0, "accès respond.io détecté");
 }
@@ -729,7 +759,7 @@ test("B6.6 — POST {noter} valide → 201, ligne déposée dans agent_sav.notat
   assert.strictEqual(res.corps.notation.commentaire, "un peu guindé");
   assert.strictEqual(db.notations.length, 1, "la ligne doit atterrir dans la table");
   assert.strictEqual(db.notations[0].type_regle, "ton");
-  verifierZeroEcritureSaufNotations();
+  verifierZeroEcritureSaufApprentissage(1);
 });
 
 test("B6.6 — notation refusée : note hors 1-5 (0, 6, abc, 3.5) → 400, ZÉRO écriture", async () => {
@@ -804,5 +834,219 @@ test("B6.6 — la page sert le menu conversations + le widget de notation", asyn
   // les 15 types de règle sont injectés par le serveur (source unique TYPES_REGLES)
   ["Ton / politesse", "Plaque redemandée", "Consignes (question interne, relais, armement)", "Autre"].forEach(function (libelle) {
     assert.ok(html.indexOf(libelle) !== -1, "la page servie doit contenir le libellé « " + libelle + " »");
+  });
+});
+
+// ============================================================================
+// B6.7 — LEÇONS DE TERRAIN : injection ciblée par déclencheurs
+// ============================================================================
+
+test("B6.7 — POST {lecon} valide → 201, ligne dans agent_sav.lecons, occurrences seedées par les notations passées", async () => {
+  reinitialise();
+  // deux notations PASSÉES dont le commentaire cite « crevaison » → seed 2
+  db.notations = [
+    { conversation_id: "c1", note: 3, type_regle: "vocabulaire_voiture", commentaire: "tu dois demander lors d'une crevaison si avant ou arrière", tour: "", type_tour: "", message_client: "", reponse_agent: "", cree_a: "2026-10-23T08:00:00Z" },
+    { conversation_id: "c2", note: 2, type_regle: "vocabulaire_voiture", commentaire: "crevaison : avant ou arrière ? demander !", tour: "", type_tour: "", message_client: "", reponse_agent: "", cree_a: "2026-10-23T08:05:00Z" },
+    { conversation_id: "c3", note: 5, type_regle: "ton", commentaire: "parfait", tour: "", type_tour: "", message_client: "", reponse_agent: "", cree_a: "2026-10-23T08:06:00Z" }
+  ];
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { lecon: { regle: "Crevaison : demander si le pneu est AVANT ou ARRIÈRE", declencheurs: "crevaison, pneu, crevé", portee: "generale" } }, "POST"), res);
+  assert.strictEqual(res.statusCode, 201);
+  assert.strictEqual(res.corps.ok, true);
+  assert.strictEqual(res.corps.lecon.regle, "Crevaison : demander si le pneu est AVANT ou ARRIÈRE");
+  assert.strictEqual(res.corps.lecon.declencheurs, "crevaison, pneu, crevé");
+  assert.strictEqual(res.corps.lecon.portee, "generale");
+  assert.strictEqual(res.corps.lecon.occurrences, 2, "le seed compte les notations passées citant un déclencheur");
+  assert.strictEqual(res.corps.lecon.statut, "active");
+  assert.strictEqual(db.lecons.length, 1, "la ligne doit atterrir dans la table");
+  assert.strictEqual(db.lecons[0].occurrences, 2);
+  verifierZeroEcritureSaufApprentissage(1);
+});
+
+test("B6.7 — leçon refusée : regle manquante → 400, ZÉRO écriture", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { lecon: { declencheurs: "crevaison", portee: "generale" } }, "POST"), res);
+  assert.strictEqual(res.statusCode, 400);
+  assert.ok(String(res.corps.erreur).indexOf("regle") !== -1);
+  assert.strictEqual(db.lecons.length, 0);
+  verifierZeroEcriture();
+});
+
+test("B6.7 — leçon refusée : portee invalide → 400, ZÉRO écriture", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { lecon: { regle: "toujours signer", portee: "univers" } }, "POST"), res);
+  assert.strictEqual(res.statusCode, 400);
+  assert.ok(String(res.corps.erreur).indexOf("portee") !== -1);
+  assert.strictEqual(db.lecons.length, 0);
+  verifierZeroEcriture();
+});
+
+test("B6.7 — leçon refusée : portee client sans contact_id → 400, ZÉRO écriture", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { lecon: { regle: "ce client préfère être appelé", portee: "client" } }, "POST"), res);
+  assert.strictEqual(res.statusCode, 400);
+  assert.ok(String(res.corps.erreur).indexOf("contact_id") !== -1);
+  assert.strictEqual(db.lecons.length, 0);
+  verifierZeroEcriture();
+});
+
+test("B6.7 — POST {noter} dont le commentaire cite un déclencheur → 201 + RENFORCEMENT (PATCH occurrences+1)", async () => {
+  reinitialise();
+  db.lecons = [{
+    id: "lecon-1",
+    regle: "Crevaison : demander si le pneu est AVANT ou ARRIÈRE",
+    declencheurs: "crevaison, pneu, crevé",
+    portee: "generale",
+    contact_id: null,
+    occurrences: 1,
+    statut: "active"
+  }];
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { noter: { conversation_id: "conv-x", note: 3, type_regle: "vocabulaire_voiture", commentaire: "tu dois demander lors d'une crevaison si avant ou arrière" } }, "POST"), res);
+  assert.strictEqual(res.statusCode, 201);
+  assert.strictEqual(res.corps.ok, true);
+  assert.strictEqual(res.corps.lecons_renforcees.length, 1, "la leçon crevaison doit être renforcée");
+  assert.strictEqual(res.corps.lecons_renforcees[0].id, "lecon-1");
+  assert.strictEqual(res.corps.lecons_renforcees[0].occurrences, 2, "1 + 1 renfort");
+  assert.strictEqual(db.lecons[0].occurrences, 2, "le PATCH a bien incrémenté la ligne");
+  assert.strictEqual(db.notations.length, 1, "la note est déposée AUSSI");
+  // écritures : POST notations + PATCH lecons — et RIEN d'autre
+  verifierZeroEcritureSaufApprentissage(2);
+});
+
+test("B6.7 — POST {noter} sans lien avec une leçon → 201, ZÉRO renfort (pas de PATCH gratuit)", async () => {
+  reinitialise();
+  db.lecons = [{
+    id: "lecon-1", regle: "Crevaison : demander avant ou arrière", declencheurs: "crevaison",
+    portee: "generale", contact_id: null, occurrences: 1, statut: "active"
+  }];
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { noter: { conversation_id: "conv-x", note: 5, type_regle: "ton", commentaire: "parfait, rien à dire" } }, "POST"), res);
+  assert.strictEqual(res.statusCode, 201);
+  assert.strictEqual(res.corps.lecons_renforcees.length, 0);
+  assert.strictEqual(db.lecons[0].occurrences, 1, "occurrences inchangées");
+  verifierZeroEcritureSaufApprentissage(1); // juste le POST notations
+});
+
+test("B6.7 — GET ?lecons=1 → la liste des leçons (tous statuts)", async () => {
+  reinitialise();
+  db.lecons = [
+    { id: "lecon-2", regle: "Crevaison : avant ou arrière", declencheurs: "crevaison", portee: "generale", contact_id: null, occurrences: 2, statut: "active", creee_a: "2026-10-23T09:00:00Z", maj_a: "2026-10-23T09:00:00Z" },
+    { id: "lecon-1", regle: "Toujours proposer un prêt de scooter", declencheurs: "", portee: "generale", contact_id: null, occurrences: 1, statut: "annulee", creee_a: "2026-10-22T09:00:00Z", maj_a: "2026-10-22T09:00:00Z" }
+  ];
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54&lecons=1"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.ok, true);
+  assert.strictEqual(res.corps.lecons.length, 2);
+  assert.strictEqual(res.corps.lecons[0].regle, "Crevaison : avant ou arrière");
+  assert.strictEqual(res.corps.lecons[1].statut, "annulee", "tous statuts listés");
+  verifierZeroEcriture();
+});
+
+test("B6.7 — {lecon_action} statut valide → 200 (annulee) / statut invalide → 400", async () => {
+  // valide
+  reinitialise();
+  db.lecons = [{ id: "lecon-1", regle: "Crevaison : avant ou arrière", declencheurs: "crevaison", portee: "generale", contact_id: null, occurrences: 1, statut: "active", maj_a: "" }];
+  let res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { lecon_action: { id: "lecon-1", statut: "validee" } }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.ok, true);
+  assert.strictEqual(res.corps.lecon_action.statut, "validee");
+  assert.strictEqual(db.lecons[0].statut, "validee", "le PATCH a changé le statut");
+  verifierZeroEcritureSaufApprentissage(1);
+  // invalide
+  reinitialise();
+  db.lecons = [{ id: "lecon-1", regle: "x", declencheurs: "", portee: "generale", contact_id: null, occurrences: 1, statut: "active", maj_a: "" }];
+  res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { lecon_action: { id: "lecon-1", statut: "archivee" } }, "POST"), res);
+  assert.strictEqual(res.statusCode, 400);
+  assert.ok(String(res.corps.erreur).indexOf("statut") !== -1);
+  assert.strictEqual(db.lecons[0].statut, "active", "rien ne change");
+  verifierZeroEcriture();
+});
+
+test("B6.7 — échange « j'ai une crevaison » avec leçon seedée → leçon INJECTÉE dans le prompt du cerveau", async () => {
+  reinitialise();
+  db.lecons = [{
+    id: "lecon-1",
+    regle: "Crevaison : demander si le pneu est AVANT ou ARRIÈRE",
+    declencheurs: "crevaison, pneu, crevé",
+    portee: "generale",
+    contact_id: null,
+    occurrences: 1,
+    statut: "active"
+  }];
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { message: "bonjour j'ai une crevaison sur mon scooter", memoire: [] }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.ok, true);
+  assert.strictEqual(res.corps.lecons_appliquees.length, 1);
+  assert.ok(res.corps.lecons_appliquees[0].indexOf("AVANT ou ARRIÈRE") !== -1);
+  assert.strictEqual(appelsMistral, 1);
+  assert.strictEqual(corpsMistral.length, 1);
+  assert.ok(corpsMistral[0].indexOf("AVANT ou ARRIÈRE") !== -1, "la leçon est dans le prompt envoyé à Mistral");
+  assert.ok(corpsMistral[0].indexOf("=== LE") !== -1, "le crochet LEÇONS est présent dans le prompt");
+  verifierZeroEcriture(); // un échange n'écrit JAMAIS chez Supabase
+});
+
+test("B6.7 — échange SANS le mot-clé → leçon ciblée absente du prompt (injection ciblée, pas permanente)", async () => {
+  reinitialise();
+  db.lecons = [{
+    id: "lecon-1",
+    regle: "Crevaison : demander si le pneu est AVANT ou ARRIÈRE",
+    declencheurs: "crevaison, pneu, crevé",
+    portee: "generale",
+    contact_id: null,
+    occurrences: 1,
+    statut: "active"
+  }];
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { message: "bonjour mon scooter ne démarre pas", memoire: [] }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.lecons_appliquees.length, 0, "pas de crevaison → pas de leçon");
+  assert.strictEqual(corpsMistral.length, 1);
+  assert.ok(corpsMistral[0].indexOf("AVANT ou ARRIÈRE") === -1, "la leçon ne doit PAS polluer le prompt");
+  verifierZeroEcriture();
+});
+
+test("B6.7 — leçon SANS déclencheurs → appliquée à CHAQUE tour (comportement B6.3 inchangé)", async () => {
+  reinitialise();
+  db.lecons = [{
+    id: "lecon-2", regle: "Toujours proposer un scooter de prêt si immobilisation", declencheurs: "",
+    portee: "generale", contact_id: null, occurrences: 1, statut: "active"
+  }];
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { message: "bonjour", memoire: [] }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.lecons_appliquees.length, 1);
+  assert.ok(corpsMistral[0].indexOf("scooter de prêt") !== -1);
+  verifierZeroEcriture();
+});
+
+test("B6.7 — la page sert la carte Leçons de terrain (liste, création, statuts)", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54"), res);
+  assert.strictEqual(res.statusCode, 200);
+  const html = String(res.html);
+  ["Leçons de terrain", "liste-lecons", "btn-lecon-new", "lecon-texte",
+   "lecon-declencheurs", "lecon-portee", "chargerLecons", "ajouterLecon",
+   "actionLecon", "rendreLecons"].forEach(function (marqueur) {
+    assert.ok(html.indexOf(marqueur) !== -1, "la page servie doit contenir " + marqueur);
   });
 });

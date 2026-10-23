@@ -49,6 +49,7 @@ var processLib = require("../lib/process.js");
 var actionsLib = require("../lib/actions.js"); // B6.1 — exécution B4.2 (armée)
 var praxedoLib = require("../lib/praxedo.js"); // B6.4 — vérification des refs
 var renommageLib = require("../lib/renommage.js"); // B6.4 — renommage (OFF par défaut)
+var leconsLib = require("../lib/lecons.js");   // B6.7 — leçons de terrain (ciblage déclencheurs)
 
 function env(nom) { return process.env[nom] || ""; }
 
@@ -247,14 +248,19 @@ function nomCanal(channelId) {
   return "";
 }
 
-// Leçons actives pour ce dossier (cahier des charges §6.3) : ciblées client
-// OU générales, jamais empilées (max 5).
-async function chercherLecons(contactId) {
+// B6.7 — Leçons applicables à CE dossier (cahier des charges §6) : ciblées client
+// OU générales, actives OU validées, et surtout INJECTION CIBLÉE par déclencheurs
+// (une leçon n'entre dans le prompt QUE si son sujet est dans la conversation —
+// « crevaison » citée → la leçon crevaison entre) ; jamais empilées (max 3,
+// par occurrences décroissantes). Best effort : en cas d'erreur → aucune leçon,
+// le traitement poursuit.
+async function chercherLecons(contactId, ctx) {
   try {
-    var params = "select=regle&statut=eq.active&or=(contact_id.eq." + encodeURIComponent(contactId) +
-      ",contact_id.is.null)&order=maj_a.desc&limit=5";
+    var params = "select=regle,declencheurs,portee,contact_id,statut,occurrences&statut=in.(active,validee)" +
+      "&or=(contact_id.eq." + encodeURIComponent(contactId) + ",contact_id.is.null)&order=maj_a.desc&limit=50";
     var lignes = await supabaseGet("lecons", params);
-    return lignes.map(function (l) { return String(l.regle || ""); }).filter(Boolean);
+    var texte = leconsLib.texteDeConversation((ctx && ctx.messages) || []);
+    return leconsLib.leconsApplicables(lignes, texte, contactId);
   } catch (e) {
     return []; // best-effort
   }
@@ -315,7 +321,7 @@ async function traiterContact(contactId, idMessage, mode, declencheur, consigneT
   }
 
   var client = await chercherClient(contactId);
-  var lecons = await chercherLecons(contactId);
+  var lecons = await chercherLecons(contactId, ctx); // B6.7 — ciblage par déclencheurs
 
   // B6.3 — repli PAR LA PLAQUE : pas trouvé par téléphone → la plaque citée
   // dans le dernier message entrant identifie la fiche (journalisée).

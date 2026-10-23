@@ -30,7 +30,16 @@
 //   POST /api/test?secret=…  body {noter: {conversation_id, note (1-5),
 //        type_regle, commentaire, tour, type_tour, message_client,
 //        reponse_agent}} — B6.6 : dépose UNE notation dans
-//        agent_sav.notations (SEULE écriture du bac à sable).
+//        agent_sav.notations (SEULE écriture du bac à sable) et RENFORCE les
+//        leçons dont un déclencheur est cité dans le commentaire (B6.7).
+//   GET  /api/test?secret=…&lecons=1 — B6.7 : les leçons de terrain (JSON).
+//   POST /api/test?secret=…  body {lecon: {regle, declencheurs, portee
+//        (generale|client), contact_id}} — B6.7 : AJOUTE une leçon dans
+//        agent_sav.lecons (déclencheurs = mots-clés de ciblage, vides =
+//        chaque tour ; occurrences initialisées d'après les notations passées).
+//   POST /api/test?secret=…  body {lecon_action: {id, statut
+//        (active|validee|annulee|promue)}} — B6.7 : change le statut d'une
+//        leçon (annuler / valider / marquer promue en règle dure).
 //   POST /api/test?secret=…  body {telephone, commentaire, memoire,
 //        commentaires, persistant} — B6.5 : COMMENTAIRE INTERNE @Agent IA,
 //   exactement comme un collègue l'écrirait dans respond.io :
@@ -51,7 +60,7 @@
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B6.6";
+var VERSION = "B6.7";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");
@@ -60,6 +69,7 @@ var processLib = require("../lib/process.js");
 var comparaison = require("../lib/comparaison.js");
 var consignesLib = require("../lib/consignes.js"); // B6.5 — filtre mention + analyse
 var praxedoLib = require("../lib/praxedo.js");     // B6.5 — vérification des refs (middleware)
+var leconsLib = require("../lib/lecons.js"); // B6.7 — leçons de terrain (injection ciblée)
 
 function env(nom) { return process.env[nom] || ""; }
 
@@ -84,8 +94,8 @@ async function supabaseGet(table, params) {
   return corps ? JSON.parse(corps) : [];
 }
 
-// B6.6 — SEULE écriture du bac à sable : une notation. Style api/webhook.js
-// (Content-Profile agent_sav sur l'insert, Prefer return=minimal).
+// B6.6/B6.7 — SEULES écritures du bac à sable : notations + leçons. Style
+// api/webhook.js (Content-Profile agent_sav, Prefer return=minimal).
 async function supabaseInsert(table, ligne) {
   var res = await fetch(urlSupabase(table), {
     method: "POST",
@@ -97,6 +107,27 @@ async function supabaseInsert(table, ligne) {
       "Prefer": "return=minimal"
     },
     body: JSON.stringify(ligne)
+  });
+  if (!res.ok) {
+    var corps = "";
+    try { corps = await res.text(); } catch (e) {}
+    throw new Error("Supabase " + res.status + " — " + corps.substring(0, 300));
+  }
+}
+
+// B6.7 — mise à jour ciblée (PATCH id=eq.<id>) : renfort d'occurrences,
+// changement de statut.
+async function supabaseUpdate(table, id, champs) {
+  var res = await fetch(urlSupabase(table, "id=eq." + encodeURIComponent(id)), {
+    method: "PATCH",
+    headers: {
+      "apikey": env("SUPABASE_SERVICE_KEY"),
+      "Authorization": "Bearer " + env("SUPABASE_SERVICE_KEY"),
+      "Content-Type": "application/json",
+      "Content-Profile": SCHEMA,
+      "Prefer": "return=minimal"
+    },
+    body: JSON.stringify(champs)
   });
   if (!res.ok) {
     var corps = "";
@@ -194,6 +225,112 @@ async function lireNotations() {
     };
   }
   return { notations: lignes, resume: resume };
+}
+
+// ----------------------------------------------------------------------------
+// B6.7 — LEÇONS DE TERRAIN : la table existe depuis B1 ; la console les crée,
+// les renforce via les notations, et les INJECTE dans le prompt du cerveau par
+// déclencheurs (lib/lecons.js — jamais empilées, max 3 par tour).
+// ----------------------------------------------------------------------------
+
+// Les leçons (tous statuts — la carte console affiche aussi les annulées /
+// promues pour mémoire). Erreur de colonne (section 8 non exécutée) → message
+// explicite : c'est le SEUL setup manuel de B6.7.
+async function lireLecons() {
+  var lignes = await supabaseGet("lecons",
+    "select=id,regle,declencheurs,portee,contact_id,occurrences,statut,creee_a,maj_a&order=maj_a.desc&limit=100");
+  return lignes;
+}
+
+function erreurLecons(e) {
+  var msg = String((e && e.message) || e);
+  if (msg.indexOf("PGRST204") !== -1 || msg.indexOf("declencheurs") !== -1 || msg.indexOf("42703") !== -1) {
+    return "colonne declencheurs absente — exécute la section 8 de supabase/schema.sql dans le SQL Editor (cf. README-B6-7.md)";
+  }
+  return msg;
+}
+
+// Ajouter une leçon. occurrences = max(1, nb de NOTATIONS PASSÉES dont le
+// commentaire cite un déclencheur) — la note qui a motivé la leçon compte
+// déjà, on ne la double pas.
+async function creerLecon(o) {
+  var x = o || {};
+  var regle = String(x.regle || "").trim().substring(0, 2000);
+  if (!regle) return { ok: false, erreur: "regle manquante (le texte de la leçon)" };
+  var declencheurs = String(x.declencheurs || "").trim().substring(0, 200);
+  var portee = String(x.portee || "generale").trim();
+  if (portee !== "generale" && portee !== "client") {
+    return { ok: false, erreur: "portee invalide : generale ou client" };
+  }
+  var contactId = String(x.contact_id || "").trim().substring(0, 100);
+  if (portee === "client" && !contactId) {
+    return { ok: false, erreur: "contact_id manquant (le téléphone du client pour une leçon ciblée)" };
+  }
+  var occurrences = 1;
+  try {
+    var nots = await lireNotations();
+    var leconVirtuelle = { declencheurs: declencheurs };
+    var n = 0;
+    for (var i = 0; i < nots.notations.length; i++) {
+      if (leconsLib.commentaireCiteLecon(leconVirtuelle, nots.notations[i].commentaire)) n++;
+    }
+    if (n > occurrences) occurrences = n;
+  } catch (e) { /* best effort : sans notations lisible, occurrences = 1 */ }
+  var ligne = {
+    regle: regle,
+    declencheurs: declencheurs,
+    portee: portee,
+    contact_id: portee === "client" ? contactId : null,
+    occurrences: occurrences,
+    statut: "active"
+  };
+  try {
+    await supabaseInsert("lecons", ligne);
+  } catch (e) {
+    return { ok: false, erreur: erreurLecons(e) };
+  }
+  ligne.occurrences = occurrences;
+  return { ok: true, lecon: ligne };
+}
+
+// Une notation vient d'être déposée : chaque leçon active/validée dont un
+// déclencheur est cité dans le COMMENTAIRE gagne une occurrence (le terrain
+// re-confirme la leçon — à ≥ 2 occurrences elle est candidate promotion en
+// règle dure, décision de Corentin).
+async function renforcerLecons(notation) {
+  var renforcees = [];
+  try {
+    var lecons = await lireLecons();
+    for (var i = 0; i < lecons.length; i++) {
+      var l = lecons[i];
+      if (String(l.statut) !== "active" && String(l.statut) !== "validee") continue;
+      if (!leconsLib.commentaireCiteLecon(l, notation.commentaire)) continue;
+      var nb = (Number(l.occurrences) || 0) + 1;
+      await supabaseUpdate("lecons", l.id, { occurrences: nb, maj_a: new Date().toISOString() });
+      renforcees.push({ id: l.id, regle: l.regle, occurrences: nb });
+    }
+  } catch (e) {
+    return renforcees; // best effort : le renfort ne fait jamais échouer la note
+  }
+  return renforcees;
+}
+
+var STATUTS_LECONS = ["active", "validee", "annulee", "promue"];
+
+async function changerStatutLecon(o) {
+  var x = o || {};
+  var id = String(x.id || "").trim();
+  if (!id) return { ok: false, erreur: "id de la leçon manquant" };
+  var statut = String(x.statut || "").trim();
+  if (STATUTS_LECONS.indexOf(statut) === -1) {
+    return { ok: false, erreur: "statut invalide : " + statut + " (attendu " + STATUTS_LECONS.join(" | ") + ")" };
+  }
+  try {
+    await supabaseUpdate("lecons", id, { statut: statut, maj_a: new Date().toISOString() });
+  } catch (e) {
+    return { ok: false, erreur: String((e && e.message) || e) };
+  }
+  return { ok: true, id: id, statut: statut };
 }
 
 function libelleDeRegle(id) {
@@ -394,11 +531,21 @@ async function traiterEchange(corps) {
     avertissements: []
   };
 
+  // B6.7 — LEÇONS DE TERRAIN : injection ciblée par déclencheurs (la
+  // conversation complète sert de texte de matching). Best effort : sans
+  // table lisible, zéro leçon, l'échange poursuit.
+  var leconsAppliquees = [];
+  try {
+    var toutesLecons = await lireLecons();
+    leconsAppliquees = leconsLib.leconsApplicables(toutesLecons,
+      leconsLib.texteDeConversation(messages), telN || "");
+  } catch (e) { leconsAppliquees = []; }
+
   var resultat = await processLib.traiterMessage({
     contactId: "test",
     ctx: ctx,
     client: client,
-    lecons: [],           // bac à sable : aucune leçon active
+    lecons: leconsAppliquees, // B6.7 — ciblées par déclencheurs, max 3
     mode: "observation",  // même en B4.2, le bac à sable n'enverra jamais
     parc: plaqueDansParc,
     mistral: async function (m) {
@@ -457,6 +604,7 @@ async function traiterEchange(corps) {
     plaques_verifiees: plaquesVerifiees,
     client: clientCompact(client),
     etat: etatCompact(resultat.etat),
+    lecons_appliquees: leconsAppliquees, // B6.7 — les leçons de terrain entrées dans le prompt de CE tour
     persistant: persistantDe(corps), // B6.5 — echo : le navigateur les renvoie au tour suivant
     journal: resultat.journal.map(function (j) { return { etape: j.etape, texte: j.texte }; })
   };
@@ -522,11 +670,20 @@ async function traiterCommentaire(corps) {
     avertissements: []
   };
 
+  // B6.7 — leçons ciblées AUSSI sur les tours consigne (matching sur le
+  // commentaire + le fil mémoire).
+  var leconsAppliqueesCom = [];
+  try {
+    var toutesLeconsCom = await lireLecons();
+    leconsAppliqueesCom = leconsLib.leconsApplicables(toutesLeconsCom,
+      commentaire + " " + leconsLib.texteDeConversation(messages), telN || "");
+  } catch (e) { leconsAppliqueesCom = []; }
+
   var resultat = await processLib.traiterMessage({
     contactId: "test",
     ctx: ctx,
     client: client,
-    lecons: [],
+    lecons: leconsAppliqueesCom, // B6.7 — ciblées par déclencheurs, max 3
     mode: "observation",
     parc: plaqueDansParc,
     declencheur: "consigne",
@@ -598,6 +755,7 @@ async function traiterCommentaire(corps) {
     }),
     client: clientCompact(client),
     etat: etatCompact(etatFinal),
+    lecons_appliquees: leconsAppliqueesCom, // B6.7
     persistant: {
       suivi_refs: Array.isArray(etatFinal.suivi_refs) ? etatFinal.suivi_refs.map(String).slice(0, 20) : persistant.suivi_refs,
       consigne_vue: (etatFinal.consigne_vue && etatFinal.consigne_vue.cle) ? etatFinal.consigne_vue : persistant.consigne_vue
@@ -675,6 +833,22 @@ select{padding:8px;border:1px solid #ccc;border-radius:8px;font-size:13px;flex:1
 <button id="btn-conv-new">Nouvelle conversation</button>
 </div>
 <div class="meta">Chaque conversation est un fil indépendant (mémoire, commentaires, dossier persistant). « RESET » ferme la conversation en cours et en ouvre une nouvelle ; les conversations fermées restent consultables ici.</div>
+</div>
+
+<div class="carte">
+<span class="etiquette">Leçons de terrain (B6.7) — ce que l'équipe apprend à l'agent</span>
+<div id="liste-lecons" class="meta">chargement des leçons…</div>
+<div class="rang">
+<input id="lecon-texte" placeholder="La leçon, ex : Crevaison : demander si le pneu est AVANT ou ARRIÈRE" style="flex:1" autocomplete="off">
+</div>
+<div class="rang">
+<input id="lecon-declencheurs" placeholder="Déclencheurs : crevaison, pneu, crevé (vide = chaque tour)" style="flex:1" autocomplete="off">
+<select id="lecon-portee"><option value="generale">générale</option><option value="client">ce client</option></select>
+<input id="lecon-contact" placeholder="Téléphone si « ce client »" autocomplete="off">
+<button id="btn-lecon-new">Ajouter la leçon</button>
+</div>
+<div id="lecon-err" class="meta"></div>
+<div class="meta">Une leçon avec déclencheurs n'entre dans le prompt QUE si son sujet est dans la conversation (max 3 par tour). Noter une réponse dont le commentaire cite un déclencheur RENFORCE la leçon — à ≥ 2 occurrences, elle est candidate pour devenir une règle dure (décision de validation, brique suivante).</div>
 </div>
 
 <div id="conversation"></div>
@@ -833,6 +1007,9 @@ function carteEchange(entree, reponse) {
   var resetNote = reponse.statut === "reset"
     ? '<div class="resetok">Mémoire purgée — le prochain message repart de zéro (comme en prod, le tag partirait).</div>'
     : "";
+  var leconsTxt = (reponse.lecons_appliquees && reponse.lecons_appliquees.length)
+    ? (reponse.lecons_appliquees.map(function (l) { return "&bull; " + ech(l); })).join("<br>")
+    : "";
   var escalade = reponse.escalade
     ? '<div class="resetok">Escalade demandée : ' + ech(reponse.raison_escalade) + "</div>"
     : "";
@@ -846,6 +1023,7 @@ function carteEchange(entree, reponse) {
     '<div class="meta">statut : <b>' + ech(reponse.statut) + "</b> &middot; type : " + ech(reponse.type) +
     " &middot; appels Mistral : " + ech(reponse.appels_mistral) + client + "</div>" +
     '<div class="meta">📍 Cycle que B4.2 poserait : ' + cycleTxt + "</div>" +
+    (leconsTxt ? '<div class="meta">🧠 Leçons de terrain appliquées à ce tour :<br>' + leconsTxt + "</div>" : "") +
     '<div class="bloc plaques"><span class="etiquette">Vérification parc (affichage)</span><div>' + plaques + "</div></div>" +
     '<div class="actions"><span class="etiquette">B4.2 (mode actif) ferait</span><div>' + actions + "</div></div>" +
     '<div class="journal"><span class="etiquette">Journal</span><div>' + journal + "</div></div>" +
@@ -966,8 +1144,12 @@ function carteCommentaire(entree, j) {
     ? "etape " + e.etape + " &middot; plaque : " + ech((e.plaques || []).join(", ") || "aucune") +
       " &middot; panne : " + ech(e.panne || "—")
     : "";
+  var leconsTxtCom = (j.lecons_appliquees && j.lecons_appliquees.length)
+    ? (j.lecons_appliquees.map(function (l) { return "&bull; " + ech(l); })).join("<br>")
+    : "";
   return '<div class="carte">' + tete +
     '<div class="meta">' + analyseTxt + "</div>" + corps +
+    (leconsTxtCom ? '<div class="meta">🧠 Leçons de terrain appliquées à ce tour :<br>' + leconsTxtCom + "</div>" : "") +
     '<div class="meta">statut : <b>' + ech(j.statut) + "</b> &middot; type : " + ech(j.type) +
     " &middot; appels Mistral : " + ech(j.appels_mistral) + "</div>" +
     '<div class="actions"><span class="etiquette">B4.2 (mode actif) ferait</span><div>' + actions + "</div></div>" +
@@ -1034,6 +1216,10 @@ function brancherNoter(idw) {
     el.innerHTML = '<div class="note-ok">&#9989; notée ' + w.etat.note + "/5 · règle : " +
       ech(w.etat.libelle) +
       (w.etat.commentaire ? " · « " + ech(w.etat.commentaire) + " »" : "") +
+      (w.etat.renforcees && w.etat.renforcees.length
+        ? " · &#128258; leçon renforcée : " +
+          w.etat.renforcees.map(function (rf) { return ech(rf.regle) + " (" + rf.occurrences + " occurrences)"; }).join(", ")
+        : "") +
       " — enregistrée (agent_sav.notations) pour faire progresser l'agent.</div>";
     return;
   }
@@ -1080,8 +1266,9 @@ function brancherNoter(idw) {
         $(idw + "-btn").disabled = false;
         return;
       }
-      w.etat = { note: note, libelle: libelleRegle(regle), commentaire: comm };
+      w.etat = { note: note, libelle: libelleRegle(regle), commentaire: comm, renforcees: (j.lecons_renforcees || []) };
       brancherNoter(idw);
+      if ((j.lecons_renforcees || []).length) chargerLecons();
     } catch (e2) {
       $(idw + "-err").textContent = "erreur : " + e2 + " — réessaie";
       $(idw + "-btn").disabled = false;
@@ -1090,6 +1277,100 @@ function brancherNoter(idw) {
 }
 
 $("btn-fiche").onclick = chargerFiche;
+
+// B6.7 — LES LEÇONS DE TERRAIN : l'équipe apprend à l'agent. La liste vit
+// dans agent_sav.lecons ; l'agent les reçoit dans son prompt quand la
+// conversation cite un déclencheur (max 3 par tour).
+async function chargerLecons() {
+  try {
+    var r = await fetch("/api/test?secret=" + encodeURIComponent(SECRET) + "&lecons=1");
+    var j = await r.json();
+    if (!j.ok) { $("liste-lecons").innerHTML = "&#9888; " + ech(j.erreur || ("erreur " + r.status)); return; }
+    rendreLecons(j.lecons || []);
+  } catch (e) {
+    $("liste-lecons").innerHTML = "&#9888; " + ech(e);
+  }
+}
+
+function rendreLecons(lecons) {
+  if (!lecons.length) {
+    $("liste-lecons").innerHTML = "Aucune leçon pour l'instant — ajoute la première ci-dessous (ex : crevaison → demander pneu avant ou arrière).";
+    return;
+  }
+  var html = "";
+  for (var i = 0; i < lecons.length; i++) {
+    var l = lecons[i];
+    html += '<div class="meta">&#129504; ' + ech(l.regle) +
+      " &middot; <b>" + ech(l.occurrences) + " occurrence" + (Number(l.occurrences) > 1 ? "s" : "") + "</b>" +
+      (l.declencheurs ? " &middot; si : " + ech(l.declencheurs) : " &middot; chaque tour") +
+      " &middot; " + ech(l.portee) + (l.portee === "client" && l.contact_id ? " (" + ech(l.contact_id) + ")" : "") +
+      " &middot; " + ech(l.statut) +
+      (Number(l.occurrences) >= 2 && l.statut === "active"
+        ? " &middot; <b>&#8805; 2 occurrences : candidate pour devenir une règle dure</b>"
+        : "") +
+      (l.statut === "active" || l.statut === "validee"
+        ? ' &middot; <button type="button" class="btn-lecon-act" data-id="' + ech(l.id) + '" data-statut="validee">valider</button>' +
+          '<button type="button" class="btn-lecon-act" data-id="' + ech(l.id) + '" data-statut="annulee">annuler</button>' +
+          '<button type="button" class="btn-lecon-act" data-id="' + ech(l.id) + '" data-statut="promue">promue</button>'
+        : "") +
+      "</div>";
+  }
+  $("liste-lecons").innerHTML = html;
+  var boutons = document.querySelectorAll(".btn-lecon-act");
+  for (var b = 0; b < boutons.length; b++) {
+    boutons[b].onclick = function () {
+      actionLecon(this.getAttribute("data-id"), this.getAttribute("data-statut"));
+    };
+  }
+}
+
+async function ajouterLecon() {
+  $("lecon-err").textContent = "";
+  var regle = $("lecon-texte").value.trim();
+  var declencheurs = $("lecon-declencheurs").value.trim();
+  var portee = $("lecon-portee").value;
+  var contact = $("lecon-contact").value.trim();
+  if (!regle) { $("lecon-err").textContent = "écris d'abord la leçon (une phrase, un impératif)."; return; }
+  if (portee === "client" && !contact) { $("lecon-err").textContent = "pour une leçon ciblée, renseigne le téléphone du client."; return; }
+  $("btn-lecon-new").disabled = true;
+  try {
+    var r = await fetch("/api/test?secret=" + encodeURIComponent(SECRET), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lecon: { regle: regle, declencheurs: declencheurs, portee: portee, contact_id: contact } })
+    });
+    var j = await r.json();
+    if (!j.ok) {
+      $("lecon-err").textContent = "erreur " + r.status + " : " + (j.erreur || "?") + " (ta leçon n'est pas perdue : réessaie)";
+      return;
+    }
+    $("lecon-texte").value = "";
+    $("lecon-declencheurs").value = "";
+    chargerLecons();
+  } catch (e) {
+    $("lecon-err").textContent = "erreur : " + ech(e);
+  } finally {
+    $("btn-lecon-new").disabled = false;
+  }
+}
+
+async function actionLecon(id, statut) {
+  $("lecon-err").textContent = "";
+  try {
+    var r = await fetch("/api/test?secret=" + encodeURIComponent(SECRET), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lecon_action: { id: id, statut: statut } })
+    });
+    var j = await r.json();
+    if (!j.ok) { $("lecon-err").textContent = "erreur " + r.status + " : " + (j.erreur || "?"); return; }
+    chargerLecons();
+  } catch (e) {
+    $("lecon-err").textContent = "erreur : " + ech(e);
+  }
+}
+
+$("btn-lecon-new").onclick = ajouterLecon;
 $("btn-envoyer").onclick = function () {
   var t = $("msg").value.trim();
   if (!t) return;
@@ -1118,6 +1399,7 @@ $("menu-conv").onchange = function () {
 };
 $("btn-conv-new").onclick = function () { nouvelleConversation(); };
 nouvelleConversation();   // B6.6 — la première conversation
+chargerLecons();           // B6.7 — les leçons de terrain
 $("com").addEventListener("keydown", function (e) {
   if (e.key === "Enter") {
     var t = $("com").value.trim();
@@ -1164,6 +1446,15 @@ module.exports = async function handler(req, res) {
           resume: nots.resume
         });
       }
+      // B6.7 — les leçons de terrain (liste complète, tous statuts)
+      if (paramDe(req, "lecons")) {
+        try {
+          var lecs = await lireLecons();
+          return res.status(200).json({ ok: true, brique: "B5.4", version: VERSION, lecons: lecs });
+        } catch (e) {
+          return res.status(500).json({ ok: false, erreur: erreurLecons(e) });
+        }
+      }
       var tel = paramDe(req, "telephone");
       if (tel) {
         var telN = etatLib.normaliserTelephone(tel);
@@ -1180,12 +1471,28 @@ module.exports = async function handler(req, res) {
     if (!corps || typeof corps !== "object") {
       return res.status(400).json({ ok: false, erreur: "corps JSON attendu : {telephone, message | commentaire, memoire}" });
     }
-    // B6.6 — NOTATION : la seule écriture du bac à sable (validée AVANT le
-    // reste : un POST {noter} n'a ni message ni commentaire).
+    // B6.6 — NOTATION : écriture notations + RENFORCEMENT des leçons dont un
+    // déclencheur est cité dans le commentaire (B6.7). Validée AVANT le
+    // reste : un POST {noter} n'a ni message ni commentaire.
     if (corps.noter && typeof corps.noter === "object") {
       var dep = await deposerNotation(corps.noter);
       if (!dep.ok) return res.status(400).json({ ok: false, erreur: dep.erreur });
-      return res.status(201).json({ ok: true, brique: "B5.4", version: VERSION, notation: dep.notation });
+      var renforcees = await renforcerLecons(dep.notation);
+      return res.status(201).json({ ok: true, brique: "B5.4", version: VERSION, notation: dep.notation, lecons_renforcees: renforcees });
+    }
+
+    // B6.7 — AJOUT D'UNE LEÇON DE TERRAIN (2e écriture du bac à sable)
+    if (corps.lecon && typeof corps.lecon === "object") {
+      var nouv = await creerLecon(corps.lecon);
+      if (!nouv.ok) return res.status(400).json({ ok: false, erreur: nouv.erreur });
+      return res.status(201).json({ ok: true, brique: "B5.4", version: VERSION, lecon: nouv.lecon });
+    }
+
+    // B6.7 — STATUT D'UNE LEÇON (annuler / valider / marquer promue)
+    if (corps.lecon_action && typeof corps.lecon_action === "object") {
+      var chg = await changerStatutLecon(corps.lecon_action);
+      if (!chg.ok) return res.status(400).json({ ok: false, erreur: chg.erreur });
+      return res.status(200).json({ ok: true, brique: "B5.4", version: VERSION, lecon_action: chg });
     }
 
     var messageT = String(corps.message || "").trim();

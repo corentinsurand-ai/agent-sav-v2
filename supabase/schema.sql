@@ -111,3 +111,11 @@ create index if not exists idx_notations_regle on agent_sav.notations (type_regl
 alter table agent_sav.notations enable row level security;
 grant all on agent_sav.notations to service_role;
 grant usage, select on all sequences in schema agent_sav to service_role;
+
+-- 8. LEÇONS — DÉCLENCHEURS (B6.7) : la table agent_sav.lecons existe depuis B1
+--    (portee client/generale, regle, occurrences, statut active|validee|annulee|promue).
+--    B6.7 ajoute la ciblage : DECLencheurs = les mots-clés qui
+--    rendent la leçon APPLICABLE à la situation en cours (« crevaison, pneu, crevé »).
+--    Une leçon SANS déclencheurs reste applicable à CHAQUE tour (comportement B6.3).
+--    À exécuter dans le SQL Editor après la section 7.
+alter table agent_sav.lecons add column if not exists declencheurs text not null default '';
