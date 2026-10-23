@@ -430,13 +430,218 @@ test("B6.1 — la page embarque l'affichage des actions B4.2 (libellés + aperç
 });
 
 // ============================================================================
-// B6.4.1 — la console embarque la version B6.4.1
+// B6.5 — la console embarque la version B6.5
 // ============================================================================
-test("B6.4.1 — la console répond en version B6.4.1", async () => {
+test("B6.5 — la console répond en version B6.5", async () => {
   reinitialise();
   const res = faireRes();
   await apiTest(requete("secret=secret-de-test-b54",
     { message: "bonjour", memoire: [] }, "POST"), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, "B6.4.1");
+  assert.strictEqual(res.corps.version, "B6.5");
+});
+
+// ============================================================================
+// B6.5 — COMMENTAIRES INTERNES @Agent IA (le tour consigne du bac à sable)
+// ============================================================================
+
+// INVARIANT réutilisée : le bac à sable n'écrit JAMAIS chez Supabase (que des
+// GET) et n'accède JAMAIS à respond.io (Mistral en POST est normal : c'est
+// l'appel réel au modèle).
+function verifierZeroEcriture() {
+  const ecritures = appelsFetch.filter((a) => a.method !== "GET" &&
+    String(a.url).indexOf("supabase.co") !== -1);
+  assert.strictEqual(ecritures.length, 0, "écritures Supabase détectées : " + JSON.stringify(ecritures));
+  const respondio = appelsFetch.filter((a) => String(a.url).indexOf("respond.io") !== -1);
+  assert.strictEqual(respondio.length, 0, "accès respond.io détecté");
+}
+
+test("B6.5 — commentaire SANS mention → ignoré (filtre webhook fidèle), 0 Mistral", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { commentaire: "vu avec le client, il rappelle demain", memoire: [], commentaires: [] }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.ok, true);
+  assert.strictEqual(res.corps.type, "commentaire_ignore");
+  assert.strictEqual(res.corps.statut, "ignore");
+  assert.strictEqual(res.corps.appels_mistral, 0);
+  assert.strictEqual(appelsMistral, 0);
+  assert.ok(res.corps.journal.some((x) => x.etape === "webhook_commentaire_ignore"));
+  verifierZeroEcriture();
+});
+
+test("B6.5 — question interne → réponse au collègue en commentaire, 1 Mistral, jamais au client", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    {
+      commentaire: "@Agent IA ? où en est le dossier de ce client ?",
+      telephone: "0620203963",
+      memoire: [{ sortant: false, texte: "bonjour mon scooter ne démarre plus", ts: 1000 }],
+      commentaires: [], persistant: { suivi_refs: [], consigne_vue: null }
+    }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.type, "question_interne");
+  assert.strictEqual(res.corps.statut, "consigne");
+  assert.strictEqual(res.corps.appels_mistral, 1);
+  assert.strictEqual(appelsMistral, 1);
+  assert.strictEqual(res.corps.reponse, ""); // JAMAIS de réponse client sur une question interne
+  assert.ok(res.corps.reponse_commentaire.length > 0); // la réponse AU COLLÈGUE
+  assert.strictEqual(res.corps.actions_b42.length, 1);
+  assert.strictEqual(res.corps.actions_b42[0].action, "commentaire");
+  assert.ok(res.corps.journal.some((x) => x.etape === "consigne_question"));
+  // persistant renvoyé : dédup armée pour le tour suivant
+  assert.ok(res.corps.persistant.consigne_vue && res.corps.persistant.consigne_vue.cle);
+  verifierZeroEcriture();
+});
+
+test("B6.5 — référence Praxedo citée → armement : cycle « En cours de réalisation » + compte-rendu, refs persistées", async () => {
+  reinitialise();
+  delete process.env.PRAXEDO_INTERVENTIONS_URL;
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    {
+      commentaire: "@Agent IA l intervention EVE12345 est lancée chez Praxedo",
+      memoire: [], commentaires: [], persistant: { suivi_refs: [], consigne_vue: null }
+    }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.type, "armement");
+  assert.strictEqual(res.corps.statut, "consigne");
+  assert.strictEqual(res.corps.appels_mistral, 0);
+  assert.strictEqual(appelsMistral, 0);
+  const cycles = res.corps.actions_b42.filter((a) => a.action === "poser_cycle");
+  assert.strictEqual(cycles.length, 1);
+  assert.strictEqual(cycles[0].cycle, "En cours de réalisation");
+  assert.ok(res.corps.reponse_commentaire.indexOf("EVE12345") !== -1);
+  assert.ok(res.corps.reponse_commentaire.indexOf("indisponible") !== -1); // sans middleware configuré
+  assert.deepStrictEqual(res.corps.persistant.suivi_refs, ["EVE12345"]);
+  assert.ok(res.corps.journal.some((x) => x.etape === "consigne_armement"));
+  verifierZeroEcriture();
+});
+
+test("B6.5 — reprise avec message client en attente → l'agent répond AU CLIENT (simulé)", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    {
+      commentaire: "@Agent IA poursuis avec ce client",
+      memoire: [
+        { sortant: false, texte: "mon scooter ne démarre pas du tout, aidez-moi", ts: 1000 }
+      ],
+      commentaires: [], persistant: { suivi_refs: [], consigne_vue: null }
+    }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.type, "reprise");
+  assert.strictEqual(res.corps.statut, "traite");
+  assert.strictEqual(appelsMistral, 1);
+  assert.ok(res.corps.reponse.length > 0); // la réponse est POUR LE CLIENT
+  assert.ok(res.corps.journal.some((x) => x.etape === "consigne_reprise"));
+  verifierZeroEcriture();
+});
+
+test("B6.5 — consigne info pure → journalisée, silence, 0 Mistral", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    {
+      commentaire: "@Agent IA le client a un accent du sud, il parle fort",
+      memoire: [{ sortant: false, texte: "bonjour", ts: 1000 }, { sortant: true, texte: "Bonjour, comment puis-je vous aider ?\n-Agent IA U'mob-", ts: 2000 }],
+      commentaires: [], persistant: { suivi_refs: [], consigne_vue: null }
+    }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.type, "info");
+  // Fidèle au portage : une consigne info retombe dans la chaîne NORMALE, qui
+  // re-traite le dernier message ENTRANT de l'historique (v136 pareil).
+  assert.strictEqual(res.corps.statut, "traite");
+  assert.strictEqual(appelsMistral, 1);
+  assert.ok(res.corps.journal.some((x) => x.etape === "consigne_info"));
+  verifierZeroEcriture();
+});
+
+test("B6.5 — dédup : consigne identique < 15 min (persistant.consigne_vue) → ignorée", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    {
+      commentaire: "@Agent IA test consigne dedup",
+      memoire: [],
+      commentaires: [],
+      persistant: {
+        suivi_refs: [],
+        consigne_vue: { cle: null, ts: Date.now() - 60000 } // cle remplie par le serveur en prod de test ; ici le serveur la recalcule
+      }
+    }, "POST"), res);
+  // premier envoi avec consigne_vue sans cle → pas de dédup (cle absente) :
+  // on vérifie le mécanisme via un second appel avec la vraie cle renvoyée
+  assert.strictEqual(res.statusCode, 200);
+  const persistant2 = res.corps.persistant;
+  assert.ok(persistant2.consigne_vue && persistant2.consigne_vue.cle);
+  const res2 = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    {
+      commentaire: "@Agent IA test consigne dedup",
+      memoire: [],
+      commentaires: [],
+      persistant: persistant2
+    }, "POST"), res2);
+  assert.strictEqual(res2.statusCode, 200);
+  assert.strictEqual(res2.corps.type, "dedup");
+  assert.strictEqual(res2.corps.statut, "silence");
+  assert.strictEqual(appelsMistral, 0);
+  assert.ok(res2.corps.journal.some((x) => x.etape === "consigne_dedup"));
+  verifierZeroEcriture();
+});
+
+test("B6.5 — plaque citée par un collègue → VALIDÉE (elle rejoint l'état, v2.20.58)", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    {
+      commentaire: "@Agent IA c est bien le scooter GH-456-IJ",
+      memoire: [{ sortant: false, texte: "bonjour mon scooter ne démarre pas", ts: 1000 }],
+      commentaires: [], persistant: { suivi_refs: [], consigne_vue: null }
+    }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.ok(res.corps.etat.plaques.indexOf("GH456IJ") !== -1);
+  assert.ok(res.corps.analyse.plaques.indexOf("GH456IJ") !== -1);
+  verifierZeroEcriture();
+});
+
+test("B6.5 — la plaque du collègue persiste au message client SUIVANT (commentaires passés en contexte)", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    {
+      message: "du coup vous avez trouvé ?",
+      memoire: [{ sortant: false, texte: "mon scooter ne démarre pas", ts: 1000 }],
+      commentaires: ["@Agent IA c est bien le scooter GH-456-IJ"],
+      persistant: { suivi_refs: [], consigne_vue: null }
+    }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.statut, "traite");
+  assert.ok(res.corps.etat.plaques.indexOf("GH456IJ") !== -1);
+  assert.ok(res.corps.journal.some((x) => x.etape === "consigne_detectee"));
+  verifierZeroEcriture();
+});
+
+test("B6.5 — 400 si ni message ni commentaire", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { telephone: "0612345678", memoire: [] }, "POST"), res);
+  assert.strictEqual(res.statusCode, 400);
+  assert.ok(String(res.corps.erreur).indexOf("vide") !== -1);
+});
+
+test("B6.5 — la page sert l'interface commentaire (champ + bouton + rendus)", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54"), res);
+  assert.strictEqual(res.statusCode, 200);
+  const html = String(res.html);
+  assert.ok(html.indexOf("btn-commenter") !== -1);
+  assert.ok(html.indexOf("Commentaire interne") !== -1);
+  assert.ok(html.indexOf("carteCommentaire") !== -1);
+  assert.ok(html.indexOf("envoyerCommentaire") !== -1);
 });

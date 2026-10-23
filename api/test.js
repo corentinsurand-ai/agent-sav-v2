@@ -21,19 +21,35 @@
 //           actions_b42 (B6.1 : écritures B4.2 STRUCTURÉES — envoyer, cycle,
 //           tags, commentaire TRANSFERT SAV), actions_simulees,
 //           plaques_verifiees, client, etat, journal}
+//   POST /api/test?secret=…  body {telephone, commentaire, memoire,
+//        commentaires, persistant} — B6.5 : COMMENTAIRE INTERNE @Agent IA,
+//   exactement comme un collègue l'écrirait dans respond.io :
+//   - sans mention @Agent IA → IGNORÉ (filtre webhook fidèle) ;
+//   - question (« ? … » / « Question : … ») → réponse au collègue EN
+//     COMMENTAIRE (Mistral réel, texte libre) — affichée, jamais postée ;
+//   - référence Praxedo citée → ARMEMENT (cycle « En cours de réalisation »
+//     + compte-rendu de vérification) ;
+//   - reprise → l'agent reprend sur le dernier message client (réponse au
+//     CLIENT simulée) ;
+//   - attente client → silence ; info → journalisée ; dédup 15 min active.
+//   Les champs {commentaires, persistant} (renvoyés à chaque échange) portent
+//   la mémoire des consignes côté navigateur : plaque du collègue VALIDÉE,
+//   suivi_refs armé, dédup — comme le dossier Supabase le fait en prod.
 //
 // Réponses : 200 HTML/JSON ; 400 corps invalide ; 401 secret invalide ;
 // 405 méthode ; 500 configuration manquante (SUPABASE_URL,
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B6.4.1";
+var VERSION = "B6.5";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");
 var mistral = require("../lib/mistral.js");
 var processLib = require("../lib/process.js");
 var comparaison = require("../lib/comparaison.js");
+var consignesLib = require("../lib/consignes.js"); // B6.5 — filtre mention + analyse
+var praxedoLib = require("../lib/praxedo.js");     // B6.5 — vérification des refs (middleware)
 
 function env(nom) { return process.env[nom] || ""; }
 
@@ -159,6 +175,49 @@ function etatCompact(etat) {
   };
 }
 
+// B6.5 — VÉRIFICATEUR PRAXEDO : copie EXACTE de api/process.js. Contrôle une
+// référence citée par un collègue contre le middleware « Praxedo
+// Interventions » (GET ?reference=REF). Sans PRAXEDO_INTERVENTIONS_URL :
+// null → le compte-rendu dira « indisponible » (jamais une absence).
+async function verifierPraxedo(reference) {
+  if (!env("PRAXEDO_INTERVENTIONS_URL")) return null;
+  try {
+    var res = await fetch(env("PRAXEDO_INTERVENTIONS_URL") + "?reference=" + encodeURIComponent(reference), {
+      method: "GET"
+    });
+    var corps = "";
+    try { corps = await res.text(); } catch (e) { corps = ""; }
+    return praxedoLib.verifierReference({ code: reference, statutHttp: res.status, corps: corps });
+  } catch (e) {
+    return "erreur"; // indispo réseau ≠ référence introuvable
+  }
+}
+
+// B6.5 — mémoire des COMMENTAIRES du navigateur : une liste de textes (les
+// commentaires précédents du collègue, comme l'historique respond.io les
+// porterait) — la plaque citée par un collègue y est VALIDÉE à chaque tour
+// (lib/process.js 1bis, v2.20.58). 30 commentaires max, 500 car. chacun.
+function normaliserCommentaires(liste) {
+  var out = [];
+  if (!Array.isArray(liste)) return out;
+  for (var i = 0; i < liste.length && out.length < 30; i++) {
+    var t = String((liste[i] || {}).texte || liste[i] || "").trim().substring(0, 500);
+    if (t) out.push({ texte: t }); // objet normalisé B2.1 — lib/process.js 1bis lit {texte}
+  }
+  return out;
+}
+
+// B6.5 — champs persistants du dossier, version bac à sable : renvoyés par
+// la réponse à CHAQUE échange, le navigateur les renvoie au suivant (même
+// rôle que agent_sav.dossiers en prod : suivi_refs, consigne_vue).
+function persistantDe(corps) {
+  var p = (corps && corps.persistant && typeof corps.persistant === "object") ? corps.persistant : {};
+  return {
+    suivi_refs: Array.isArray(p.suivi_refs) ? p.suivi_refs.map(String).slice(0, 20) : [],
+    consigne_vue: (p.consigne_vue && p.consigne_vue.cle) ? { cle: String(p.consigne_vue.cle), ts: Number(p.consigne_vue.ts) || 0 } : null
+  };
+}
+
 // La fiche client, version COMPACTE (les plaques « / »-séparées du miroir
 // deviennent une liste lisible).
 function clientCompact(ligne) {
@@ -204,7 +263,7 @@ async function traiterEchange(corps) {
   var ctx = {
     contact: { nom: (client && client.enseigne) ? client.enseigne : "Contact de test", cycle: "", tags: [] },
     messages: messages,
-    commentaires: [],
+    commentaires: normaliserCommentaires(corps.commentaires), // B6.5 — consignes passées : plaque du collègue VALIDÉE (1bis)
     avertissements: []
   };
 
@@ -271,6 +330,149 @@ async function traiterEchange(corps) {
     plaques_verifiees: plaquesVerifiees,
     client: clientCompact(client),
     etat: etatCompact(resultat.etat),
+    persistant: persistantDe(corps), // B6.5 — echo : le navigateur les renvoie au tour suivant
+    journal: resultat.journal.map(function (j) { return { etape: j.etape, texte: j.texte }; })
+  };
+}
+
+// ----------------------------------------------------------------------------
+// B6.5 — Le traitement d'UN COMMENTAIRE INTERNE de test : « comme un collègue
+// dans respond.io ». Le filtre mention du webhook (sans @Agent IA → IGNORÉ),
+// puis le VRAI tour consigne de lib/process.js (declencheur='consigne') :
+// question → réponse au collègue (Mistral réel, texte libre) ; référence
+// Praxedo → armement + compte-rendu ; reprise → réponse au client simulée ;
+// attente client → silence ; info → journalisée ; dédup 15 min (persistant).
+// Zéro écriture, aucun POST Supabase/respond.io.
+// ----------------------------------------------------------------------------
+async function traiterCommentaire(corps) {
+  var telephone = String(corps.telephone || "").trim();
+  var commentaire = String(corps.commentaire || "").trim().substring(0, 2000);
+  var persistant = persistantDe(corps);
+
+  // Filtre FIDÈLE au webhook (api/webhook.js) : un commentaire SANS mention
+  // @Agent IA n'est même pas enfilé en prod — ici il est ignoré pareil.
+  if (!consignesLib.mentionneAgent(commentaire)) {
+    return {
+      ok: true,
+      brique: "B5.4",
+      version: VERSION,
+      tour: "commentaire",
+      statut: "ignore",
+      type: "commentaire_ignore",
+      reponse: "",
+      reponse_commentaire: "",
+      escalade: false,
+      raison_escalade: "",
+      appels_mistral: 0,
+      analyse: null,
+      actions_b42: [],
+      client: null,
+      etat: null,
+      persistant: persistant,
+      journal: [
+        { etape: "webhook_commentaire_ignore", texte: "Commentaire SANS mention @Agent IA — ignoré (filtre webhook, jamais enfilé)" }
+      ]
+    };
+  }
+
+  var analyse = consignesLib.analyser({ texte: commentaire });
+
+  var client = null;
+  if (telephone) {
+    var telN = etatLib.normaliserTelephone(telephone);
+    if (telN) client = await chercherClientTelephone(telN);
+  }
+
+  // Le contexte : le fil du navigateur, SANS nouveau message client (fidèle à
+  // la prod : la consigne est enfilée par le webhook, elle ne fait PAS partie
+  // de l'historique respond.io) + les commentaires précédents (plaque du
+  // collègue validée en 1bis).
+  var messages = normaliserMemoire(Array.isArray(corps.memoire) ? corps.memoire : []);
+  var ctx = {
+    contact: { nom: (client && client.enseigne) ? client.enseigne : "Contact de test", cycle: "", tags: [] },
+    messages: messages,
+    commentaires: normaliserCommentaires(corps.commentaires),
+    avertissements: []
+  };
+
+  var resultat = await processLib.traiterMessage({
+    contactId: "test",
+    ctx: ctx,
+    client: client,
+    lecons: [],
+    mode: "observation",
+    parc: plaqueDansParc,
+    declencheur: "consigne",
+    consigne: { texte: commentaire },
+    suiviRefsPrecedents: persistant.suivi_refs,
+    consigneVue: persistant.consigne_vue,
+    praxedo: verifierPraxedo,
+    mistral: async function (m, options) {
+      var r = await mistral.appelMistral(m, options || {});
+      return r.texte;
+    }
+  });
+
+  // Le type du tour : lu dans le journal (mêmes étapes que la prod).
+  var etapesConsigne = ["consigne_dedup", "consigne_question", "consigne_armement",
+    "consigne_attente_client", "consigne_reprise", "consigne_info"];
+  var type = "info";
+  for (var i = 0; i < resultat.journal.length; i++) {
+    if (etapesConsigne.indexOf(resultat.journal[i].etape) !== -1) {
+      type = {
+        consigne_dedup: "dedup",
+        consigne_question: "question_interne",
+        consigne_armement: "armement",
+        consigne_attente_client: "attente_client",
+        consigne_reprise: "reprise",
+        consigne_info: "info"
+      }[resultat.journal[i].etape];
+      break;
+    }
+  }
+
+  // La réponse au collègue (question) ou le compte-rendu (armement) : le
+  // COMMENTAIRE que le mode actif ARMÉ posterait dans respond.io.
+  var reponseCommentaire = "";
+  var actionsB42 = resultat.actions_b42 || [];
+  for (var a = 0; a < actionsB42.length; a++) {
+    if (actionsB42[a].action === "commentaire" && actionsB42[a].texte) {
+      reponseCommentaire = String(actionsB42[a].texte).substring(0, 2000);
+      break;
+    }
+  }
+
+  var etatFinal = resultat.etat || {};
+  return {
+    ok: true,
+    brique: "B5.4",
+    version: VERSION,
+    tour: "consigne",
+    statut: resultat.statut,
+    type: type,
+    reponse: String(resultat.reponse || ""), // reprise : réponse au CLIENT simulée
+    reponse_commentaire: reponseCommentaire, // question/armement : commentaire à TOI
+    escalade: resultat.escalade === true,
+    raison_escalade: String(resultat.raison_escalade || ""),
+    appels_mistral: resultat.appels,
+    analyse: {
+      pour_agent: analyse.pour_agent,
+      question_interne: analyse.question_interne,
+      consigne: analyse.consigne,
+      references: analyse.references,
+      plaques: analyse.plaques,
+      reprise: analyse.reprise,
+      attend_reponse: analyse.attend_reponse
+    },
+    actions_b42: actionsB42.map(function (ac) {
+      return { action: ac.action, cycle: ac.cycle || null, tag: ac.tag || null, texte: String(ac.texte || "").substring(0, 600) };
+    }),
+    client: clientCompact(client),
+    etat: etatCompact(etatFinal),
+    persistant: {
+      suivi_refs: Array.isArray(etatFinal.suivi_refs) ? etatFinal.suivi_refs.map(String).slice(0, 20) : persistant.suivi_refs,
+      consigne_vue: (etatFinal.consigne_vue && etatFinal.consigne_vue.cle) ? etatFinal.consigne_vue : persistant.consigne_vue
+    },
     journal: resultat.journal.map(function (j) { return { etape: j.etape, texte: j.texte }; })
   };
 }
@@ -298,6 +500,8 @@ h1{font-size:20px;margin:0 0 4px}
 .client{background:#eef4ff;border:1px solid #cfe0ff}
 .nouveau{background:#eefaf0;border:1px solid #cdeccd}
 .plaques{background:#f9f4ff;border:1px solid #e4d5f7}
+.commentaire{background:#fff8e6;border:1px solid #f0dfa8}
+.reponsecoll{background:#eefaf0;border:1px solid #cdeccd}
 .etiquette{display:block;font-size:11px;font-weight:700;color:#777;margin-bottom:6px;text-transform:uppercase}
 .actions{background:#fff;border:1px dashed #b7d9c0;border-radius:8px;padding:8px;margin-top:8px;font-size:13px;color:#356;white-space:pre-wrap}
 .journal{background:#fff;border:1px dashed #d9c9b7;border-radius:8px;padding:8px;margin-top:8px;font-size:12px;color:#655;white-space:pre-wrap}
@@ -314,7 +518,7 @@ button.reset{background:#c5221f}
 </head>
 <body>
 <h1>Agent SAV v2 — Console de test</h1>
-<div class="sous">Bac à sable : chaîne RÉELLE (fiche client miroir, vérification parc, Mistral, gardes, RESET) mais ZÉRO écriture — rien n'est envoyé au client, rien n'est journalisé, aucun accès respond.io. La mémoire de la conversation vit dans CETTE page ; « RESET » la purge.</div>
+<div class="sous">Bac à sable : chaîne RÉELLE (fiche client miroir, vérification parc, Mistral, gardes, RESET, commentaires internes @Agent IA) mais ZÉRO écriture — rien n'est envoyé au client, rien n'est journalisé, aucun accès respond.io. La mémoire de la conversation vit dans CETTE page ; « RESET » la purge.</div>
 
 <div class="carte">
 <span class="etiquette">Fiche client (miroir agent_sav.clients — par téléphone)</span>
@@ -329,6 +533,7 @@ button.reset{background:#c5221f}
 <div class="vide" id="vide">Écrivez un message client ci-dessous — la réponse du NOUVEL agent s'affichera ici, avec son statut, ses appels Mistral, la vérification du parc et ce que B4.2 (mode actif) ferait.</div>
 
 <div class="carte">
+<span class="etiquette">Message client (simulé)</span>
 <div class="rang">
 <input id="msg" placeholder="Message client…" autocomplete="off">
 <button id="btn-envoyer">Envoyer</button>
@@ -336,10 +541,21 @@ button.reset{background:#c5221f}
 </div>
 </div>
 
+<div class="carte">
+<span class="etiquette">Commentaire interne — comme un collègue dans respond.io</span>
+<div class="rang">
+<input id="com" placeholder="@Agent IA question : où en est ce dossier ?" autocomplete="off">
+<button id="btn-commenter">Commenter</button>
+</div>
+<div class="meta">« ? … » ou « Question : … » → l'agent répond À TOI en commentaire ; référence Praxedo (EVE…) → armement du suivi ; « poursuis / reprends » → il répond au CLIENT ; sans mention @Agent IA → ignoré (filtre webhook).</div>
+</div>
+
 <script>
 var SECRET = "";
 try { SECRET = new URLSearchParams(window.location.search).get("secret") || ""; } catch (e) {}
 var memoire = [];   // [{sortant, texte, ts}] — renvoyée à CHAQUE échange
+var commentaires = [];   // B6.5 — commentaires internes passés (textes)
+var persistant = { suivi_refs: [], consigne_vue: null };   // B6.5 — dossier (suivi_refs, dédup)
 
 function $(id) { return document.getElementById(id); }
 function ech(s) {
@@ -437,7 +653,7 @@ async function envoyer(texte) {
     var r = await fetch("/api/test?secret=" + encodeURIComponent(SECRET), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ telephone: $("tel").value.trim(), message: texte, memoire: avant })
+      body: JSON.stringify({ telephone: $("tel").value.trim(), message: texte, memoire: avant, commentaires: commentaires, persistant: persistant })
     });
     var j = await r.json();
     var encours = $("en-cours");
@@ -449,8 +665,11 @@ async function envoyer(texte) {
       return;
     }
     $("conversation").insertAdjacentHTML("beforeend", carteEchange(texte, j));
+    if (j.persistant) persistant = j.persistant;
     if (j.statut === "reset") {
       memoire = [];   // purge — même comportement que la prod
+      commentaires = [];
+      persistant = { suivi_refs: [], consigne_vue: null };
     } else if (j.reponse) {
       memoire.push({ sortant: true, texte: j.reponse, ts: Date.now() });
     }
@@ -462,6 +681,105 @@ async function envoyer(texte) {
   } finally {
     $("btn-envoyer").disabled = false;
     $("btn-reset").disabled = false;
+  }
+}
+
+function carteCommentaire(entree, j) {
+  var analyse = j.analyse || {};
+  var journal = (j.journal || []).map(function (x) {
+    return "&bull; [" + ech(x.etape) + "] " + ech(x.texte);
+  }).join("<br>") || "(vide)";
+  var analyseTxt = "consigne : « " + ech(analyse.consigne || "(vide)") + " »" +
+    (analyse.question_interne ? " &middot; question interne" : "") +
+    (analyse.reprise ? " &middot; reprise" : "") +
+    (analyse.attend_reponse ? " &middot; attente client" : "") +
+    ((analyse.references || []).length ? " &middot; refs : " + ech(analyse.references.join(", ")) : "") +
+    ((analyse.plaques || []).length ? " &middot; plaques : " + ech(analyse.plaques.join(", ")) : "");
+  var actions = (j.actions_b42 || []).map(function (a) {
+    var libelles = {
+      envoyer_message: "envoyer la réponse au client",
+      poser_cycle: "poser le cycle",
+      ajouter_tag: "poser le tag",
+      retirer_tag: "retirer le tag",
+      commentaire: "commentaire interne (jamais visible du client)"
+    };
+    var t = libelles[a.action] || String(a.action || "?");
+    if (a.action === "poser_cycle") t += " « " + (a.cycle || "?") + " »";
+    if (a.action === "ajouter_tag" || a.action === "retirer_tag") t += " « " + (a.tag || "?") + " »";
+    if (a.action === "commentaire") t += " — aperçu : « " + String(a.texte || "").replace(/\\n+/g, " / ").substring(0, 260) + "… »";
+    return "&bull; " + ech(t);
+  }).join("<br>") || "(aucune)";
+  var tete = '<div class="bloc commentaire"><span class="etiquette">TOI — commentaire interne</span><div>' + ech(entree) + "</div></div>";
+  var corps = "";
+  if (j.type === "commentaire_ignore") {
+    corps = '<div class="erreur">IGNORÉ — sans mention @Agent IA : en prod, le webhook n\\'enfilerait même pas ce commentaire.</div>';
+  } else if (j.type === "question_interne") {
+    corps = '<div class="bloc reponsecoll"><span class="etiquette">AGENT IA — réponse à TOI (commentaire interne — jamais au client)</span><div>' +
+      ech(j.reponse_commentaire || "(aucune réponse)") + "</div></div>" +
+      '<div class="meta">En mode actif ARMÉ, ce commentaire serait POSTÉ dans respond.io ; en observation (comme ici), il est journalisé seulement.</div>';
+  } else if (j.type === "armement") {
+    corps = '<div class="bloc reponsecoll"><span class="etiquette">AGENT IA — compte-rendu interne (armement Praxedo)</span><div>' +
+      ech(j.reponse_commentaire || "(compte-rendu absent)") + "</div></div>" +
+      '<div class="meta">En mode actif ARMÉ : cycle « En cours de réalisation » posé + ce commentaire posté.</div>';
+  } else if (j.type === "attente_client") {
+    corps = '<div class="resetok">Silence — l\\'agent attend la réponse du client, il ne relance jamais (v2.20.119).</div>';
+  } else if (j.type === "reprise") {
+    corps = j.reponse
+      ? '<div class="bloc nouveau"><span class="etiquette">AGENT IA — réponse au CLIENT (reprise, simulée, NON envoyée)</span><div>' + ech(j.reponse) + "</div></div>" +
+        '<div class="meta">Reprise : le silence de prise de main est BYPASSÉ, l\\'agent répond au dernier message client.</div>'
+      : '<div class="resetok">Reprise demandée, mais aucun message client en attente — silence.</div>';
+  } else if (j.type === "dedup") {
+    corps = '<div class="resetok">Consigne répétée à moins de 15 min — IGNORÉE (dédup v2.20.99).</div>';
+  } else {
+    corps = '<div class="resetok">Consigne journalisée — aucune action automatique associée (info pure).</div>';
+  }
+  var e = j.etat || {};
+  var etatTxt = e.etape
+    ? "etape " + e.etape + " &middot; plaque : " + ech((e.plaques || []).join(", ") || "aucune") +
+      " &middot; panne : " + ech(e.panne || "—")
+    : "";
+  return '<div class="carte">' + tete +
+    '<div class="meta">' + analyseTxt + "</div>" + corps +
+    '<div class="meta">statut : <b>' + ech(j.statut) + "</b> &middot; type : " + ech(j.type) +
+    " &middot; appels Mistral : " + ech(j.appels_mistral) + "</div>" +
+    '<div class="actions"><span class="etiquette">B4.2 (mode actif) ferait</span><div>' + actions + "</div></div>" +
+    '<div class="journal"><span class="etiquette">Journal</span><div>' + journal + "</div></div>" +
+    (etatTxt ? '<div class="pied">etat : ' + etatTxt + "</div>" : "") +
+    "</div>";
+}
+
+async function envoyerCommentaire(texte) {
+  $("com").value = "";
+  $("btn-commenter").disabled = true;
+  $("vide").style.display = "none";
+  $("conversation").insertAdjacentHTML("beforeend",
+    '<div class="carte" id="en-cours-com">l\\'agent lit ton commentaire…</div>');
+  try {
+    var r = await fetch("/api/test?secret=" + encodeURIComponent(SECRET), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ telephone: $("tel").value.trim(), commentaire: texte, memoire: memoire.slice(), commentaires: commentaires.slice(), persistant: persistant })
+    });
+    var j = await r.json();
+    var encours = $("en-cours-com");
+    if (encours) encours.remove();
+    if (!j.ok) {
+      $("conversation").insertAdjacentHTML("beforeend",
+        '<div class="erreur">erreur ' + r.status + " : " + ech(j.erreur || "?") + "</div>");
+      return;
+    }
+    commentaires.push(texte);
+    if (j.persistant) persistant = j.persistant;
+    if (j.type === "reprise" && j.reponse) {
+      memoire.push({ sortant: true, texte: j.reponse, ts: Date.now() });
+    }
+    $("conversation").insertAdjacentHTML("beforeend", carteCommentaire(texte, j));
+  } catch (e) {
+    var encours2 = $("en-cours-com");
+    if (encours2) encours2.remove();
+    $("conversation").insertAdjacentHTML("beforeend", '<div class="erreur">erreur : ' + ech(e) + "</div>");
+  } finally {
+    $("btn-commenter").disabled = false;
   }
 }
 
@@ -477,6 +795,18 @@ $("msg").addEventListener("keydown", function (e) {
     var t = $("msg").value.trim();
     if (!t) return;
     envoyer(t);
+  }
+});
+$("btn-commenter").onclick = function () {
+  var t = $("com").value.trim();
+  if (!t) return;
+  envoyerCommentaire(t);
+};
+$("com").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") {
+    var t = $("com").value.trim();
+    if (!t) return;
+    envoyerCommentaire(t);
   }
 });
 </script>
@@ -522,10 +852,18 @@ module.exports = async function handler(req, res) {
       try { corps = JSON.parse(corps); } catch (e) { corps = null; }
     }
     if (!corps || typeof corps !== "object") {
-      return res.status(400).json({ ok: false, erreur: "corps JSON attendu : {telephone, message, memoire}" });
+      return res.status(400).json({ ok: false, erreur: "corps JSON attendu : {telephone, message | commentaire, memoire}" });
     }
-    if (!String(corps.message || "").trim()) {
-      return res.status(400).json({ ok: false, erreur: "message vide" });
+    var messageT = String(corps.message || "").trim();
+    var commentaireT = String(corps.commentaire || "").trim();
+    if (!messageT && !commentaireT) {
+      return res.status(400).json({ ok: false, erreur: "message (ou commentaire) vide" });
+    }
+
+    // B6.5 — commentaire interne @Agent IA : le tour consigne du bac à sable
+    if (commentaireT && !messageT) {
+      var resultatCommentaire = await traiterCommentaire(corps);
+      return res.status(200).json(resultatCommentaire);
     }
 
     var resultat = await traiterEchange(corps);
