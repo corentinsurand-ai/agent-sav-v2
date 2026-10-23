@@ -151,3 +151,41 @@ colle le mapping JSON dans la variable `CANAUX`.
   digest (envoyé / différé / < 45 min / filtre contact).
 
 Et les 12 autres suites inchangées et vertes. **482/482**.
+
+---
+
+## Correctif B6.4.1 — la console aux boutons morts (incident réel 23/10)
+
+**Signalement Corentin** : « j'arrive pas à chercher la fiche client, et après
+je peux plus envoyer de message, ça ne s'envoie pas » — capture : champ fiche
+au texte par défaut, « bonjour » resté dans le champ, aucun encadré d'erreur.
+
+**Cause racine (prouvée en rejouant la page servie)** : la page `/api/test`
+est construite dans une TEMPLATE LITERAL du fichier serveur. La ligne de
+l'aperçu du commentaire TRANSFERT SAV (entrée en B6.1) écrit
+`String(a.texte || "").replace(/\n+/g, " / ")` — à l'évaluation de la
+template, `\n` devient un VRAI saut de ligne : le navigateur reçoit un regex
+contenant un retour à la ligne brut, interdit en JavaScript
+(`SyntaxError: Invalid regular expression: missing /`). TOUT le bloc
+`<script>` est rejeté → les `onclick` (attachés à la fin du script)
+n'existent pas → Charger la fiche, Envoyer, RESET et Entrée inertes, sans
+aucun message d'erreur affichable. Le serveur, lui, était sain — les sondes
+401/200 restaient toutes vertes, et les 482 tests ne voyaient rien : ils
+testent le handler et cherchent des sous-chaînes, aucun ne faisait PARSER le
+JavaScript réellement servi.
+
+**Fix (1 ligne)** : `\\n` dans la source de la template → la page reçoit
+`\n` intact. Version console passée à B6.4.1.
+
+**Anti-régression — NOUVELLE suite `tests/test-page-servie.js` (4 tests)** :
+elle évalue la template literal EXACTEMENT comme le module réel (mêmes règles
+d'échappement), extrait le `<script>` de la page RÉELLEMENT SERVIE et (1) le
+fait parser (`new Function` — échoue sur toute erreur de syntaxe), (2)
+vérifie que le regex d'aperçu garde son `\n` littéral et qu'aucun regex servi
+ne contient de saut de ligne brut, (3) vérifie la cohérence HTML de la page
+servie, (4) balaie le script servi pour tout caractère de contrôle inattendu
+issu d'un échappement interprété. `node --test tests/test-page-servie.js`.
+
+**Périmètre vérifié** : seul `/api/test` était touché (seule page en template
+literal avec `<script>`) ; l'écran B5 (api/observations.js, construit par
+concaténation, sans script) et les routes JSON sont sains.

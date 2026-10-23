@@ -27,7 +27,7 @@
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B6.4";
+var VERSION = "B6.4.1";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");
@@ -386,7 +386,7 @@ function carteEchange(entree, reponse) {
         var t = libelles[a.action] || String(a.action || "?");
         if (a.action === "poser_cycle") t += " « " + (a.cycle || "?") + " »";
         if (a.action === "ajouter_tag" || a.action === "retirer_tag") t += " « " + (a.tag || "?") + " »";
-        if (a.action === "commentaire") t += " — aperçu : « " + String(a.texte || "").replace(/\n+/g, " / ").substring(0, 260) + "… »";
+        if (a.action === "commentaire") t += " — aperçu : « " + String(a.texte || "").replace(/\\n+/g, " / ").substring(0, 260) + "… »";
         return "&bull; " + ech(t);
       }).join("<br>")
     : (reponse.actions_simulees || []).map(function (a) { return "&bull; " + ech(a); }).join("<br>") || "(vide)";
