@@ -471,13 +471,13 @@ test("B6.1 — la page embarque l'affichage des actions B4.2 (libellés + aperç
 // ============================================================================
 // B6.5 — la console embarque la version
 // ============================================================================
-test("B6.7 — la console répond en version B6.7", async () => {
+test("B6.7.1 — la console répond en version B6.7.1", async () => {
   reinitialise();
   const res = faireRes();
   await apiTest(requete("secret=secret-de-test-b54",
     { message: "bonjour", memoire: [] }, "POST"), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, "B6.7");
+  assert.strictEqual(res.corps.version, "B6.7.1");
 });
 
 // ============================================================================
@@ -1049,4 +1049,23 @@ test("B6.7 — la page sert la carte Leçons de terrain (liste, création, statu
    "actionLecon", "rendreLecons"].forEach(function (marqueur) {
     assert.ok(html.indexOf(marqueur) !== -1, "la page servie doit contenir " + marqueur);
   });
+});
+
+test("B6.7.1 — la page sert le localStorage des conversations (sauvegarde, restauration, purge)", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54"), res);
+  assert.strictEqual(res.statusCode, 200);
+  const html = String(res.html);
+  ["localStorage", "CLE_STOCKAGE", "sauvegarderSession", "restaurerSession",
+   "effacerHistorique", "btn-conv-purge", "Effacer l'historique",
+   "survit au rechargement"].forEach(function (marqueur) {
+    assert.ok(html.indexOf(marqueur) !== -1, "la page servie doit contenir " + marqueur);
+  });
+  // la clé est VERSIONNÉE : un futur changement de format ne restaurera pas
+  // des données illisibles (retour console vierge)
+  assert.ok(html.indexOf("agent-sav-console-conversations-v1") !== -1,
+    "la clé de stockage doit être versionnée");
+  // restauration DÉFENSIVE : JSON corrompu → console vierge, jamais plantée
+  assert.ok(html.indexOf("catch") !== -1);
 });

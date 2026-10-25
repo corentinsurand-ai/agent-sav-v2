@@ -100,3 +100,27 @@ renfort/statut). Zéro respond.io, zéro autre table — vérifié test par test
   ciblée prouvée DANS le prompt Mistral (positif, négatif, sans
   déclencheurs).
 - Total : **539/539 tests verts sur 20 suites**.
+
+## 7. B6.7.1 — localStorage : l'historique des conversations survit au F5
+
+Avant B6.7.1, les fils de test ne vivaient que dans la mémoire du navigateur :
+un F5 perdait tout (principe du bac à sable : zéro écriture serveur). Désormais
+la console sauvegarde le modèle complet des conversations dans le
+**localStorage du navigateur** (clé versionnée
+`agent-sav-console-conversations-v1`) et le restaure au chargement :
+
+- **Ce qui survit** : toutes les conversations (ouvertes et fermées), leurs
+  cartes, leur mémoire, leurs commentaires, leurs champs persistants, leurs
+  notes déposées (le widget affiche « ✅ notée… » restauré), la conversation
+  courante et les compteurs.
+- **Ce qui reste volatil par nature** : rien — tout le modèle est sérialisé.
+- **Toujours zéro écriture côté serveur** : le localStorage vit dans CE
+  navigateur, sur CET appareil, uniquement (deux onglets restaurent la même
+  session ; un autre appareil/navigateur repart vierge).
+- **Défensif** : JSON corrompu, format changé (clé versionnée) ou navigation
+  privée (quota) → console vierge en silence, JAMAIS de page plantée.
+- **Purge** : bouton « 🧹 Effacer l'historique » dans la carte Conversations —
+  efface le localStorage et repart de zéro (aucune incidence sur
+  `agent_sav.notations` ni `agent_sav.lecons`, côté serveur).
+- Sauvegarde aux points de mutation : chaque re-render de conversation,
+  chaque note déposée (hook explicite dans `brancherNoter`).

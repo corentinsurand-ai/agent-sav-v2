@@ -60,7 +60,7 @@
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B6.7";
+var VERSION = "B6.7.1";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");
@@ -831,8 +831,9 @@ select{padding:8px;border:1px solid #ccc;border-radius:8px;font-size:13px;flex:1
 <div class="rang">
 <select id="menu-conv"></select>
 <button id="btn-conv-new">Nouvelle conversation</button>
+<button id="btn-conv-purge" title="Efface uniquement l'historique gardé par ce navigateur — aucune incidence sur les notes (agent_sav.notations) ni les leçons (agent_sav.lecons), côté serveur.">🧹 Effacer l'historique</button>
 </div>
-<div class="meta">Chaque conversation est un fil indépendant (mémoire, commentaires, dossier persistant). « RESET » ferme la conversation en cours et en ouvre une nouvelle ; les conversations fermées restent consultables ici.</div>
+<div class="meta">Chaque conversation est un fil indépendant (mémoire, commentaires, dossier persistant). « RESET » ferme la conversation en cours et en ouvre une nouvelle ; les conversations fermées restent consultables ici. L'historique de CE navigateur survit au rechargement de la page (F5) — « Effacer l'historique » repart de zéro ; les notes et les leçons, elles, vivent côté serveur et ne disparaissent jamais.</div>
 </div>
 
 <div class="carte">
@@ -939,6 +940,7 @@ function afficherConversation() {
     $("vide").style.display = "block";
   }
   for (var w in conv.widgets) brancherNoter(w);
+  sauvegarderSession(); // B6.7.1 — chaque re-render suit une mutation du modèle
 }
 
 function fermerEtNouvelle() {
@@ -949,6 +951,62 @@ function fermerEtNouvelle() {
 function ech(s) {
   return String(s === null || s === undefined ? "" : s)
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+// ----------------------------------------------------------------------------
+// B6.7.1 — LOCALSTORAGE : l'historique des conversations survit au F5.
+// Navigateur UNIQUEMENT (cet appareil, ce navigateur) : toujours ZÉRO écriture
+// côté serveur. La clé est versionnée : un futur changement de format repart
+// d'une console vierge au lieu de restaurer des données illisibles.
+// ----------------------------------------------------------------------------
+var CLE_STOCKAGE = "agent-sav-console-conversations-v1";
+
+function sauvegarderSession() {
+  try {
+    localStorage.setItem(CLE_STOCKAGE, JSON.stringify({
+      version: "B6.7.1",
+      compteurConv: compteurConv,
+      compteurWidgets: compteurWidgets,
+      convId: conv ? conv.id : null,
+      conversations: conversations
+    }));
+  } catch (e) { /* quota dépassé / navigation privée : best effort silencieux */ }
+}
+
+function restaurerSession() {
+  try {
+    var brut = localStorage.getItem(CLE_STOCKAGE);
+    if (!brut) return false;
+    var s = JSON.parse(brut);
+    if (!s || s.version !== "B6.7.1" || !Array.isArray(s.conversations) || !s.conversations.length) return false;
+    for (var i = 0; i < s.conversations.length; i++) {
+      var c = s.conversations[i];
+      if (!c || !c.id || !Array.isArray(c.cartes) || !Array.isArray(c.memoire)) return false;
+    }
+    conversations = s.conversations;
+    compteurConv = Number(s.compteurConv) || conversations.length;
+    compteurWidgets = Number(s.compteurWidgets) || 0;
+    conv = null;
+    for (var j = 0; j < conversations.length; j++) {
+      if (conversations[j].id === s.convId) { conv = conversations[j]; break; }
+    }
+    if (!conv) conv = conversations[conversations.length - 1];
+    majMenu();
+    afficherConversation();
+    return true;
+  } catch (e) {
+    return false; // stockage corrompu → console vierge, jamais plantée
+  }
+}
+
+function effacerHistorique() {
+  if (!window.confirm("Effacer tout l'historique gardé par ce navigateur ? Les notes et leçons déjà déposées côté serveur sont conservées.")) return;
+  try { localStorage.removeItem(CLE_STOCKAGE); } catch (e) {}
+  conversations = [];
+  conv = null;
+  compteurConv = 0;
+  compteurWidgets = 0;
+  nouvelleConversation();
 }
 
 function rendreFiche(c) {
@@ -1268,6 +1326,7 @@ function brancherNoter(idw) {
       }
       w.etat = { note: note, libelle: libelleRegle(regle), commentaire: comm, renforcees: (j.lecons_renforcees || []) };
       brancherNoter(idw);
+      sauvegarderSession(); // B6.7.1 — la note déposée survit au F5
       if ((j.lecons_renforcees || []).length) chargerLecons();
     } catch (e2) {
       $(idw + "-err").textContent = "erreur : " + e2 + " — réessaie";
@@ -1398,7 +1457,8 @@ $("menu-conv").onchange = function () {
   majMenu();
 };
 $("btn-conv-new").onclick = function () { nouvelleConversation(); };
-nouvelleConversation();   // B6.6 — la première conversation
+$("btn-conv-purge").onclick = effacerHistorique; // B6.7.1
+if (!restaurerSession()) nouvelleConversation(); // B6.6 — la première conversation ; B6.7.1 — ou le fil restauré de CE navigateur
 chargerLecons();           // B6.7 — les leçons de terrain
 $("com").addEventListener("keydown", function (e) {
   if (e.key === "Enter") {
