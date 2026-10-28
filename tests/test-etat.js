@@ -168,6 +168,35 @@ test('campagne_push : réponse du client juste après un push → signalé (inci
   assert.strictEqual(e.campagne_push, true);
 });
 
+// B6.7.4 — OPTION STRUCTURELLE : TOUT sortant écrit à la main par un humain
+// (drapeau humain, sans signature agent) est une PRISE DE CONTACT → la réponse
+// du client reçoit l'accueil campagne, quel que soit le vocabulaire.
+test('B6.7.4 campagne_push : sortant HUMAIN sans vocabulaire campagne → signalé quand même', () => {
+  const e = lib.reconstruireEtat([
+    { texte: 'Bonjour, avez-vous besoin d\'une maintenance ?', sortant: true, humain: true },
+    { texte: 'Oui peut-être', sortant: false }
+  ]);
+  assert.strictEqual(e.dernier_sortant_humain, true);
+  assert.strictEqual(e.campagne_push, true);
+});
+
+test('B6.7.4 campagne_push : sortant signé par l agent (humain=false) SANS vocabulaire → PAS un push', () => {
+  const e = lib.reconstruireEtat([
+    { texte: "Merci pour votre retour. Quelle est l'immatriculation du scooter ?\n-Agent IA U'mob-", sortant: true, humain: false },
+    { texte: 'GG-798-NL', sortant: false }
+  ]);
+  assert.strictEqual(e.dernier_sortant_humain, false);
+  assert.strictEqual(e.campagne_push, false);
+});
+
+test('B6.7.4 campagne_push : push TEMPLATE (non humain) avec vocabulaire → toujours signalé', () => {
+  const e = lib.reconstruireEtat([
+    { texte: 'Notre technicien tourne prochainement dans votre secteur.', sortant: true, humain: false },
+    { texte: 'Bonsoir, oui pourquoi pas', sortant: false }
+  ]);
+  assert.strictEqual(e.campagne_push, true);
+});
+
 test('campagne_push : l agent répond pour de vrai → le marqueur tombe', () => {
   const e = lib.reconstruireEtat([
     { texte: 'Notre technicien tourne prochainement dans votre secteur.', sortant: true },

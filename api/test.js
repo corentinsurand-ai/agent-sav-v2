@@ -60,7 +60,7 @@
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B6.7.3";
+var VERSION = "B6.7.4";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");
@@ -871,7 +871,7 @@ select{padding:8px;border:1px solid #ccc;border-radius:8px;font-size:13px;flex:1
 <input id="man" placeholder="Bonjour, notre technicien tourne prochainement dans votre secteur…" autocomplete="off">
 <button id="btn-manuel">Envoyer au client</button>
 </div>
-<div class="meta">S'inscrit dans la conversation SANS réveiller l'agent, comme un vrai message manuel respond.io (SANS signature Agent IA U'mob). Le message client suivant rejoue le comportement réel : réponse à une campagne → accueil + question ouverte sur le besoin, jamais de plaque demandée d'entrée (garde G12).</div>
+<div class="meta">S'inscrit dans la conversation SANS réveiller l'agent, comme un vrai message manuel respond.io (SANS signature Agent IA U'mob). B6.7.4 : TOUT message écrit à la main par un collègue, quel que soit le vocabulaire, est une prise de contact → le message client suivant reçoit l'accueil campagne (accusé réception + question ouverte sur le besoin, jamais de plaque demandée d'entrée, garde G12).</div>
 </div>
 
 <div class="carte">

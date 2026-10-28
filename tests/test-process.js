@@ -1210,6 +1210,23 @@ test("B6.3 canal : ABSENT → aucun bloc canal (ton simple, rétro-compat)", asy
   assert.ok(recu && recu[1].content.indexOf("CANAL :") === -1);
 });
 
+// B6.7.4 — OPTION STRUCTURELLE : un collègue écrit à la main au client
+// (sender source=user → humain=true), SANS vocabulaire campagne. La réponse
+// du client doit recevoir l'accueil CAMPAGNE PUSH (prise de contact).
+test("B6.7.4 prod : collègue à la main SANS vocabulaire campagne → le prompt porte CAMPAGNE PUSH", async () => {
+  let recu = null;
+  await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard([
+      msgNormalise({ ts: 1792683528000, texte: "Bonjour, avez-vous besoin d'une maintenance ?", sortant: true, humain: true }),
+      msgNormalise({ ts: 1792683529000, texte: "Oui peut-être, pourquoi pas" })
+    ]),
+    mistral: async (m) => { recu = m; return reponseConformeDefaut; }
+  });
+  assert.ok(recu && recu[1].content.indexOf("CAMPAGNE PUSH") !== -1,
+    "tout message humain sortant est une prise de contact → accueil campagne");
+});
+
 test("B6.3 consigne @Agent IA : détectée et JOURNALISÉE en lecture seule (aucune action)", async () => {
   const ctx = ctxStandard(filGG798NL);
   ctx.commentaires = [{ texte: "@Agent IA : arme l'intervention EVE123456 pour AB-123-CD", auteur: "Marine", ts: 1792683530000 }];

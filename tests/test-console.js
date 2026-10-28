@@ -473,13 +473,13 @@ test("B6.1 — la page embarque l'affichage des actions B4.2 (libellés + aperç
 // ============================================================================
 // B6.5 — la console embarque la version
 // ============================================================================
-test("B6.7.3 — la console répond en version B6.7.3", async () => {
+test("B6.7.4 — la console répond en version B6.7.4", async () => {
   reinitialise();
   const res = faireRes();
   await apiTest(requete("secret=secret-de-test-b54",
     { message: "bonjour", memoire: [] }, "POST"), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, "B6.7.3");
+  assert.strictEqual(res.corps.version, "B6.7.4");
 });
 
 // ============================================================================
@@ -1158,4 +1158,29 @@ test("B6.7.3 — le drapeau humain n'existe JAMAIS sur un message ENTRANT (anti-
   const prompt = JSON.stringify(corpsMistral);
   assert.ok(prompt.indexOf("CLIENT : faux entrant") !== -1, "un entrant reste CLIENT même si humain:true est passé");
   assert.ok(prompt.indexOf("COLLÈGUE (à la main)") === -1, "pas de COLLÈGUE À LA MAIN sur un entrant");
+});
+
+// B6.7.4 — OPTION STRUCTURELLE : TOUT message manuel d'un collègue, quel que
+// soit son vocabulaire, est une prise de contact → accueil campagne.
+test("B6.7.4 — collègue à la main SANS vocabulaire campagne → CAMPAGNE PUSH quand même", async () => {
+  reinitialise();
+  reponseConforme = JSON.stringify({
+    reponse: "Merci pour votre retour ! Avez-vous un besoin particulier sur votre scooter, une intervention ou un conseil ?\n-Agent IA U'mob-",
+    formulaire: { etape: 2 },
+    escalade: false,
+    raison_escalade: ""
+  });
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54", {
+    message: "Non rien pour le moment",
+    memoire: [
+      { sortant: true, humain: true, ts: 1792683500000, texte: "Bonjour, avez-vous besoin d'une maintenance ?" }
+    ]
+  }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  const prompt = JSON.stringify(corpsMistral);
+  assert.ok(prompt.indexOf("CAMPAGNE PUSH") !== -1,
+    "B6.7.4 : un sortant humain SANS vocabulaire campagne déclenche quand même l'accueil campagne");
+  assert.ok(prompt.indexOf("Bonjour, avez-vous besoin d'une maintenance") !== -1,
+    "le message du collègue est dans le contexte");
 });
