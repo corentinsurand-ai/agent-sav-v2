@@ -79,3 +79,24 @@ test("B6.4.1 — aucun autre échappement de template ne se retrouve brut dans l
   assert.deepStrictEqual(suspects, [],
     "caractères de contrôle inattendus aux positions : " + suspects.join(", "));
 });
+
+// ============================================================================
+// B6.10 — STATUTS DE LEÇON RÉVERSIBLES : chaque statut propose ses
+// transitions restantes (avant, promue/annulee = figées, plus aucun bouton).
+// ============================================================================
+test("B6.10 — la page servie rend les 4 statuts de leçon réversibles", () => {
+  const page = pageServie();
+  assert.ok(page.indexOf("function boutonsStatut") !== -1,
+    "rendreLecons doit déléguer à boutonsStatut (B6.10)");
+  // promue et annulee doivent PROPOSER des transitions (retour arrière)…
+  assert.ok(page.indexOf('"promue")\n    return boutonLecon(id, "validee"') !== -1
+    || page.indexOf('s === "promue"') !== -1,
+    "une leçon promue doit proposer un retour à validée");
+  assert.ok(page.indexOf('s === "annulee"') !== -1,
+    "une leçon annulée doit proposer valider/promue (réactivation)");
+  // …et l'ancienne condition figée (active|validee uniquement) doit avoir disparu
+  assert.ok(page.indexOf('l.statut === "active" || l.statut === "validee"') === -1,
+    "l'ancien bloc boutons réservé à active|validee ne doit plus exister");
+  assert.ok(page.indexOf("B6.10 — STATUTS RÉVERSIBLES") !== -1,
+    "le commentaire B6.10 doit figurer dans la page servie");
+});

@@ -60,7 +60,7 @@
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B6.9";
+var VERSION = "B6.10";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");
@@ -1398,11 +1398,7 @@ function rendreLecons(lecons) {
       (Number(l.occurrences) >= 2 && l.statut === "active"
         ? " &middot; <b>&#8805; 2 occurrences : candidate pour devenir une règle dure</b>"
         : "") +
-      (l.statut === "active" || l.statut === "validee"
-        ? ' &middot; <button type="button" class="btn-lecon-act" data-id="' + ech(l.id) + '" data-statut="validee">valider</button>' +
-          '<button type="button" class="btn-lecon-act" data-id="' + ech(l.id) + '" data-statut="annulee">annuler</button>' +
-          '<button type="button" class="btn-lecon-act" data-id="' + ech(l.id) + '" data-statut="promue">promue</button>'
-        : "") +
+      boutonsStatut(l) +
       "</div>";
   }
   $("liste-lecons").innerHTML = html;
@@ -1412,6 +1408,33 @@ function rendreLecons(lecons) {
       actionLecon(this.getAttribute("data-id"), this.getAttribute("data-statut"));
     };
   }
+}
+
+// B6.10 — STATUTS RÉVERSIBLES : chaque statut propose les transitions
+// restantes. Avant, seuls active|validee affichaient des boutons : une leçon
+// promue ou annulée devenait définitivement figée dans la console (le retour
+// arrière passait par le SQL Editor). Le serveur accepte toute transition.
+function boutonLecon(id, statut, libelle) {
+  return ' <button type="button" class="btn-lecon-act" data-id="' + id + '" data-statut="' + statut + '">' + libelle + '</button>';
+}
+
+function boutonsStatut(l) {
+  var id = ech(l.id);
+  var s = String(l.statut || "");
+  // B6.10 : le bouton du statut COURANT n'est jamais proposé.
+  if (s === "active") {
+    return boutonLecon(id, "validee", "valider") + boutonLecon(id, "annulee", "annuler") + boutonLecon(id, "promue", "promue");
+  }
+  if (s === "validee") {
+    return boutonLecon(id, "annulee", "annuler") + boutonLecon(id, "promue", "promue");
+  }
+  if (s === "promue") {
+    return boutonLecon(id, "validee", "retour à validée") + boutonLecon(id, "annulee", "annuler");
+  }
+  if (s === "annulee") {
+    return boutonLecon(id, "validee", "valider") + boutonLecon(id, "promue", "promue");
+  }
+  return "";
 }
 
 async function ajouterLecon() {
