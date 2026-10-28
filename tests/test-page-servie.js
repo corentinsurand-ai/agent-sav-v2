@@ -133,6 +133,10 @@ test("B6.12 — la page servie annonce les règles du code et permet de proposer
     "l'appel serveur { regle_proposition: ... } doit exister dans la page");
   assert.ok(page.indexOf("regles_concernees") !== -1,
     "le rendu des cartes doit lire reponse.regles_concernees");
+  assert.ok(page.indexOf("aucune règle du code ne joue à ce tour") !== -1,
+    "B6.13 — le bloc est TOUJOURS affiché, même sans règle concernée (repli visible)");
+  assert.ok(page.indexOf("(reglesTxt ?") === -1,
+    "B6.13 — l'ancien ternaire qui masquait le bloc doit avoir disparu");
   assert.ok(page.indexOf("ne change PAS le code") !== -1,
     "la page doit dire qu'une proposition ne change pas le code directement");
 });

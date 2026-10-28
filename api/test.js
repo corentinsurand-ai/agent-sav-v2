@@ -60,7 +60,7 @@
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B6.12";
+var VERSION = "B6.13";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");
@@ -1212,7 +1212,7 @@ function carteEchange(entree, reponse) {
     " &middot; appels Mistral : " + ech(reponse.appels_mistral) + client + "</div>" +
     '<div class="meta">📍 Cycle que B4.2 poserait : ' + cycleTxt + "</div>" +
     (leconsTxt ? '<div class="meta">🧠 Leçons de terrain appliquées à ce tour :<br>' + leconsTxt + "</div>" : "") +
-    (reglesTxt ? '<div class="meta">⚖️ Règles du code concernées à ce tour :<br>' + reglesTxt + '<br><span style="color:#777">Une proposition enregistrée ne change PAS le code : demande ensuite à l\\'agent IA de lire tes propositions et de les appliquer.</span></div>' : "") +
+    '<div class="meta">⚖️ Règles du code concernées à ce tour :<br>' + (reglesTxt || \"aucune (aucune règle du code ne joue à ce tour)\") + '<br><span style="color:#777">Une proposition enregistrée ne change PAS le code : demande ensuite à l\\'agent IA de lire tes propositions et de les appliquer.</span></div>' +
     '<div class="bloc plaques"><span class="etiquette">Vérification parc (affichage)</span><div>' + plaques + "</div></div>" +
     '<div class="actions"><span class="etiquette">B4.2 (mode actif) ferait</span><div>' + actions + "</div></div>" +
     '<div class="journal"><span class="etiquette">Journal</span><div>' + journal + "</div></div>" +
