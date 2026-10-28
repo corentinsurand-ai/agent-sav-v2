@@ -41,16 +41,17 @@ test('SYSTEME : les 9 règles dures + 6 étapes + ton + cas particuliers + JSON'
 // question) sont dans le CODE, pas seulement dans la table agent_sav.lecons.
 test('SYSTEME B6.8 : règle crevaison AVANT ou ARRIÈRE en dur', () => {
   const s = cerveau.SYSTEME;
-  assert.ok(s.indexOf('CREVAISON') !== -1 && s.indexOf('AVANT ou ARRIÈRE') !== -1,
-    'une crevaison signalée impose la question de la roue AVANT ou ARRIÈRE');
-  assert.ok(s.indexOf('jamais une crevaison « dans le vide »') !== -1);
+  assert.ok(s.indexOf('CREVAISON') !== -1 && /roue avant ou la roue arrière/i.test(s),
+    'une crevaison signalée impose la question de la roue avant ou arrière');
+  assert.ok(s.indexOf('« dans le vide »') !== -1);
 });
 
-test('SYSTEME B6.8 : règle adresse + numéro contact + jours de fermeture dans la MÊME question en dur', () => {
+test('SYSTEME B6.8 : règle adresse + numéro contact + jours de fermeture groupés, formulation OUVERTE imposée', () => {
   const s = cerveau.SYSTEME;
   assert.ok(s.indexOf("adresse d'intervention") !== -1);
-  assert.ok(s.indexOf('MÊME question') !== -1);
   assert.ok(s.indexOf('jours de fermeture') !== -1);
+  assert.ok(s.indexOf('« Pouvez-vous » / « Avez-vous »') !== -1,
+    'la règle impose la formulation ouverte pour éviter la garde question_fermee');
 });
 
 test('construireMessages : 2 messages (system + user), le formulaire est dans le contexte', () => {
