@@ -473,13 +473,13 @@ test("B6.1 — la page embarque l'affichage des actions B4.2 (libellés + aperç
 // ============================================================================
 // B6.5 — la console embarque la version
 // ============================================================================
-test("B6.7.5 — la console répond en version B6.7.5", async () => {
+test("B6.8 — la console répond en version B6.8", async () => {
   reinitialise();
   const res = faireRes();
   await apiTest(requete("secret=secret-de-test-b54",
     { message: "bonjour", memoire: [] }, "POST"), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, "B6.7.5");
+  assert.strictEqual(res.corps.version, "B6.8");
 });
 
 // ============================================================================
@@ -1023,7 +1023,10 @@ test("B6.7 — échange SANS le mot-clé → leçon ciblée absente du prompt (i
   assert.strictEqual(res.statusCode, 200);
   assert.strictEqual(res.corps.lecons_appliquees.length, 0, "pas de crevaison → pas de leçon");
   assert.strictEqual(corpsMistral.length, 1);
-  assert.ok(corpsMistral[0].indexOf("AVANT ou ARRIÈRE") === -1, "la leçon ne doit PAS polluer le prompt");
+  // B6.8 : « AVANT ou ARRIÈRE » figure désormais en dur dans le SYSTEME (règle
+  // permanente) — ce qu'on vérifie ici, c'est que le BLOC de leçons ciblées
+  // (« LEÇONS POUR CE DOSSIER ») n'est PAS injecté sans le mot-clé.
+  assert.ok(corpsMistral[0].indexOf("LEÇONS POUR CE DOSSIER") === -1, "le bloc de leçons ciblées ne doit PAS polluer le prompt");
   verifierZeroEcriture();
 });
 
