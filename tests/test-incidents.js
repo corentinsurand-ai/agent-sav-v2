@@ -77,12 +77,15 @@ test('S1 AGB : la faute de l\'ancien agent (qualification SAV standard + plaque)
     client: { telephone: '33612345678', plaque: 'AB123CD', enseigne: 'AGB RESTAURATION', statut_risque: '' }
   });
   // La faute réelle documentée : « C'est noté... Quelle est l'immatriculation ? »
-  // au lieu d'accuser réception du push + question ouverte sur le besoin
+  // au lieu d'accuser réception du push + question ouverte sur le besoin.
+  // B6.7.2 : la plaque flotte vit dans plaques_flotte (le scooter concerné
+  // n'est pas identifié) → ce n'est plus G4 qui attrape cette faute, mais
+  // G12 campagne_push_plaque — la garde PRÉCISE pour une réponse à un push.
   const faute = verifierCandidate(modeleConforme({
     reponse: "C'est noté. Quelle est l'immatriculation du scooter concerné, s'il vous plaît ?\n-Agent IA U'mob-"
   }), r.etat);
-  assert.strictEqual(faute.gardes.ok, false);                   // (c) la plaque est connue via le fichier clients
-  assert.ok(faute.codes.indexOf('plaque_redemandee') !== -1);
+  assert.strictEqual(faute.gardes.ok, false);                   // (c) la faute est TOUJOURS attrapée
+  assert.ok(faute.codes.indexOf('campagne_push_plaque') !== -1, "G12 : demande d'immatriculation sur une réponse à un push");
 });
 
 test('S1 AGB : la réponse conforme (accusé réception + besoin ouvert) PASSE', () => {
@@ -116,8 +119,13 @@ test('S2 cas B : photo + demande → la plaque de la flotte est CONNUE (synergie
     client: { telephone: '33612345678', plaque: 'AB123CD', enseigne: 'AGB RESTAURATION (CLAMART)', statut_risque: '' }
   });
   assert.strictEqual(r.etat.photos, true);                    // (a)
-  assert.deepStrictEqual(r.etat.plaques, ['AB123CD']);         // (a) retrouvable par fichier → JAMAIS redemandée
-  assert.ok(r.prompt.indexOf('AB-123-CD') !== -1);            // (b)
+  // B6.7.2 — la plaque flotte vit dans plaques_flotte : le scooter concerné
+  // n'est pas IDENTIFIÉ (une fiche ≠ le scooter du dossier), mais la flotte
+  // reste rendue au modèle : il peut PROPOSER l'immatriculation.
+  assert.deepStrictEqual(r.etat.plaques, []);
+  assert.deepStrictEqual(r.etat.plaques_flotte, ['AB123CD']);
+  assert.ok(r.prompt.indexOf('AB-123-CD') !== -1);            // (b) la flotte est dans le prompt
+  assert.ok(r.prompt.indexOf('propose cette immatriculation') !== -1, 'B6.7.2 : guidance « propose la plaque de la fiche »');
 });
 
 test('S2 cas B : la faute de l\'ancien agent (transfert forcé + plaque réclamée) est ATTRAPÉE', () => {
@@ -131,9 +139,12 @@ test('S2 cas B : la faute de l\'ancien agent (transfert forcé + plaque réclam�
   const faute = verifierCandidate(modeleConforme({
     reponse: "Pour finaliser votre demande, il me manque l'immatriculation. Pourriez-vous me communiquer la plaque du scooter ?\n-Agent IA U'mob-"
   }), r.etat);
+  // B6.7.2 : demander la plaque d'un scooter NON identifié n'est plus une
+  // faute (qualification légitime) — mais la formulation « Pourriez-vous »
+  // reste la faute attrapée ici (règle 2, question fermée).
   assert.strictEqual(faute.gardes.ok, false);                  // (c)
-  assert.ok(faute.codes.indexOf('plaque_redemandee') !== -1);
-  assert.ok(faute.codes.indexOf('question_fermee') !== -1);    // « Pourriez-vous » en prime
+  assert.ok(faute.codes.indexOf('question_fermee') !== -1, '« Pourriez-vous » → question fermée');
+  assert.ok(faute.codes.indexOf('plaque_redemandee') === -1, 'B6.7.2 : la plaque flotte n\'est pas « déjà connue » (scooter non identifié)');
 });
 
 test('S2 cas B : la réponse conforme (qualification SANS bloquer sur la plaque) PASSE', () => {

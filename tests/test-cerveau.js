@@ -305,7 +305,8 @@ test('intégration : fil réel → prompt → réponse simulée → parse → fu
   assert.strictEqual(etat.panne.indexOf('moteur silencieux') !== -1, true);
   assert.strictEqual(etat.etape, 3);
   assert.strictEqual(etat.telephone_contact, '33620203963'); // toujours celui du client
-  assert.deepStrictEqual(etat.plaques, ['GG798NL', 'GJ337WF']); // conversation + flotte
+  assert.deepStrictEqual(etat.plaques, ['GG798NL']); // B6.7.2 — citée en conversation = identifiée
+  assert.deepStrictEqual(etat.plaques_flotte, ['GJ337WF', 'GG798NL']); // flotte à part
   // 5. La réponse partira vers les gardes (B3.3), pas directement au client
   assert.ok(p.reponse.indexOf("Agent IA U'mob") !== -1);
 });
@@ -464,4 +465,34 @@ test('B6.5.1 construireMessagesRelais : entrée vide → jamais de crash', () =>
   const msgs = cerveau.construireMessagesRelais({});
   assert.strictEqual(msgs.length, 2);
   assert.ok(msgs[1].content.indexOf("inconnu") !== -1);
+});
+
+// ============================================================================
+// B6.7.2 — CLIENTS MULTI-SCOOTERS : le formulaire rendu au LLM distingue
+// flotte (fiche) et scooter identifié, et guide le rapprochement.
+// ============================================================================
+
+test('B6.7.2 rendreFormulaire : flotte SANS scooter identifié → « LEQUEL est concerné »', () => {
+  const etat = etatLib.etatVierge();
+  etatLib.appliquerClient(etat, { plaque: 'GP349AW / GP405AW / GP440AW', enseigne: "DOMINO'S PIZZA" });
+  const f = cerveau.rendreFormulaire(etat);
+  assert.ok(f.indexOf('Flotte du client') !== -1);
+  assert.ok(f.indexOf('LEQUEL est concerné') !== -1, 'le LLM est guidé vers la question « lequel »');
+  assert.ok(f.indexOf('Immatriculations connues : (aucune') !== -1, "la flotte n'est PLUS listée comme connue");
+});
+
+test('B6.7.2 rendreFormulaire : flotte mono-scooter SANS identification → proposition de l\'immatriculation', () => {
+  const etat = etatLib.etatVierge();
+  etatLib.appliquerClient(etat, { plaque: 'GG798NL', enseigne: 'PIZZA SERVICES' });
+  const f = cerveau.rendreFormulaire(etat);
+  assert.ok(f.indexOf('propose cette immatriculation') !== -1);
+});
+
+test('B6.7.2 rendreFormulaire : scooter identifié + flotte → guidance rapprochement « NOUVEAU problème »', () => {
+  const etat = etatLib.etatVierge();
+  etatLib.appliquerClient(etat, { plaque: 'GJ337WF / GG798NL', enseigne: "DOMINO'S PIZZA" });
+  etatLib.appliquerMessage(etat, { texte: 'le scooter GG-798-NL a un problème de guidon', sortant: false });
+  const f = cerveau.rendreFormulaire(etat);
+  assert.ok(f.indexOf('Scooter identifié pour ce dossier : GG-798-NL') !== -1);
+  assert.ok(f.indexOf('NOUVEAU problème') !== -1, 'guidance : même scooter ou un autre');
 });

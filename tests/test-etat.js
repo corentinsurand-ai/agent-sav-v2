@@ -208,7 +208,9 @@ test('appliquerClient : plaques flotte groupées + enseigne + statut risque (PIZ
     enseigne: 'PIZZA SERVICES (ETAMPES)',
     statut_risque: 'Impaye'
   });
-  assert.deepStrictEqual(e.plaques, ['GJ337WF', 'GG798NL']);
+  // B6.7.2 — la flotte vit dans plaques_flotte : le scooter concerné n'est PAS identifié
+  assert.deepStrictEqual(e.plaques, []);
+  assert.deepStrictEqual(e.plaques_flotte, ['GJ337WF', 'GG798NL']);
   assert.strictEqual(e.enseigne, 'PIZZA SERVICES (ETAMPES)');
   assert.strictEqual(e.statut_risque, 'Impaye');
 });
@@ -216,7 +218,17 @@ test('appliquerClient : plaques flotte groupées + enseigne + statut risque (PIZ
 test('appliquerClient : fusion sans doublon avec les plaques de la conversation', () => {
   const e = lib.reconstruireEtat([{ texte: 'GG-798-nl ne démarre plus', sortant: false }]);
   lib.appliquerClient(e, { plaque: 'GJ337WF / GG798NL' });
-  assert.deepStrictEqual(e.plaques, ['GG798NL', 'GJ337WF']);
+  // B6.7.2 — citée en conversation = IDENTIFIÉE (plaques) ; la flotte reste à part
+  assert.deepStrictEqual(e.plaques, ['GG798NL']);
+  assert.deepStrictEqual(e.plaques_flotte, ['GJ337WF', 'GG798NL']);
+});
+
+test('B6.7.2 — plaque FLOTTE citée dans la conversation → elle devient IDENTIFIÉE (plaques) tout en restant en flotte', () => {
+  const e = lib.etatVierge();
+  lib.appliquerClient(e, { plaque: 'GJ337WF / GG798NL' });
+  lib.appliquerMessage(e, { texte: 'le scooter GG-798-NL a un problème de guidon', sortant: false });
+  assert.deepStrictEqual(e.plaques, ['GG798NL']);   // identifiée → la redemande redevient IMPOSSIBLE (règle 1/4)
+  assert.deepStrictEqual(e.plaques_flotte, ['GJ337WF', 'GG798NL']);
 });
 
 // ============================================================================

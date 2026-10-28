@@ -26,7 +26,9 @@ const processLib = require("../lib/process.js");
 // ============================================================================
 const db = {
   clients: [
-    { telephone: "33620203963", plaque: "GG798NL", enseigne: "PIZZA SERVICES ETAMPES", statut_risque: null }
+    { telephone: "33620203963", plaque: "GG798NL", enseigne: "PIZZA SERVICES ETAMPES", statut_risque: null },
+    // B6.7.2 — client MULTI-SCOOTERS (incident console 28/10 : guidon, repli neutre injustifié)
+    { telephone: "33611223344", plaque: "GJ337WF / GG798NL", enseigne: "DOMINO'S PIZZA TEST", statut_risque: null }
   ],
   notations: [], // B6.6 — LA table que le bac à sable a le droit d'écrire
   lecons: []     // B6.7 — la 2e table d'apprentissage
@@ -471,13 +473,13 @@ test("B6.1 — la page embarque l'affichage des actions B4.2 (libellés + aperç
 // ============================================================================
 // B6.5 — la console embarque la version
 // ============================================================================
-test("B6.7.1 — la console répond en version B6.7.1", async () => {
+test("B6.7.2 — la console répond en version B6.7.2", async () => {
   reinitialise();
   const res = faireRes();
   await apiTest(requete("secret=secret-de-test-b54",
     { message: "bonjour", memoire: [] }, "POST"), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, "B6.7.1");
+  assert.strictEqual(res.corps.version, "B6.7.2");
 });
 
 // ============================================================================
@@ -1068,4 +1070,46 @@ test("B6.7.1 — la page sert le localStorage des conversations (sauvegarde, res
     "la clé de stockage doit être versionnée");
   // restauration DÉFENSIVE : JSON corrompu → console vierge, jamais plantée
   assert.ok(html.indexOf("catch") !== -1);
+});
+
+// ============================================================================
+// B6.7.2 — CLIENTS MULTI-SCOOTERS : rejeu de l'incident console du 28/10
+// (fiche flotte chargée, RESET fait, « problème de guidon » → repli neutre
+// injustifié). La flotte vit désormais dans etat.plaques_flotte : la question
+// « quel scooter ? » est une qualification, pas une redemande.
+// ============================================================================
+
+test("B6.7.2 — client flotte multi-scooters : question d'identification CONFORME (pas de faute, flotte dans plaques_flotte)", async () => {
+  reinitialise();
+  reponseConforme = JSON.stringify({
+    reponse: "Merci pour votre message. Pour intervenir rapidement : quelle est l'immatriculation du scooter concerné, s'il vous plaît ?\n-Agent IA U'mob-",
+    formulaire: { panne: "problème de guidon", etape: 2 },
+    escalade: false,
+    raison_escalade: ""
+  });
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { telephone: "0611223344", message: "j'ai un problème de guidon", memoire: [] }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.statut, "traite", "la question passe les gardes — plus de repli");
+  assert.strictEqual(res.corps.appels_mistral, 1, "aucune régénération");
+  assert.strictEqual(res.corps.escalade, false);
+  assert.deepStrictEqual(res.corps.etat.plaques, [], "aucun scooter identifié");
+  assert.deepStrictEqual(res.corps.etat.plaques_flotte, ["GJ337WF", "GG798NL"], "la flotte (fiche) est visible et séparée");
+  // le prompt du cerveau porte la guidance multi-scooters
+  const prompt = JSON.stringify(corpsMistral);
+  assert.ok(prompt.indexOf("Flotte du client") !== -1 && prompt.indexOf("LEQUEL") !== -1);
+});
+
+test("B6.7.2 — RESET conserve la fiche dans plaques_flotte et purge TOUTE la mémoire conversation", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { telephone: "0611223344", message: "RESET", memoire: [
+      { sortant: false, texte: "mon scooter GG-798-NL a un problème de guidon", ts: 1792683540000 }
+    ] }, "POST"), res);
+  assert.strictEqual(res.corps.statut, "reset");
+  assert.deepStrictEqual(res.corps.etat.plaques, [], "la plaque DITE EN CONVERSATION est purgée");
+  assert.strictEqual(res.corps.etat.panne, "");
+  assert.deepStrictEqual(res.corps.etat.plaques_flotte, ["GJ337WF", "GG798NL"], "la FICHE (flotte) survit au RESET — donnée client, pas conversation");
 });

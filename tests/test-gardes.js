@@ -396,3 +396,26 @@ test('G12 : le rappel est réinjectable au cerveau (texte de régénération pr�
   const f = r.fautes.find((x) => x.code === 'campagne_push_plaque');
   assert.ok(f && f.rappel.indexOf('CAMPAGNE PUSH') !== -1 && f.rappel.indexOf('OUVERTE') !== -1);
 });
+
+// ============================================================================
+// B6.7.2 — CLIENTS MULTI-SCOOTERS : la flotte (fiche) n'est pas un scooter
+// identifié — incident console Corentin 28/10 (repli neutre injustifié sur
+// « problème de guidon » d'un client Domino's à 11 scooters).
+// ============================================================================
+
+test('B6.7.2 G4 : client MULTI-SCOOTERS (flotte, scooter NON identifié) → demander l\'immatriculation n\'est PAS une faute', () => {
+  // AVANT B6.7.2 : les plaques flotte vivaient dans plaques → G4 tirait
+  // « déjà connue » sur la question légitime « lequel est concerné ? » →
+  // régénération → récidive → repli neutre + transfert systématique.
+  const etat = etatAvec({ plaques: [], plaques_flotte: ['GP349AW', 'GP405AW', 'GP440AW'] });
+  const r = gardes.verifier({ reponse: "Merci pour votre message. Lequel de vos scooters est concerné ? Quelle est l'immatriculation du scooter concerné, s'il vous plaît ?\n-Agent IA U'mob-", etat: etat });
+  assert.strictEqual(r.ok, true, 'la question d\'identification d\'un client flotte est une QUALIFICATION, pas une redemande');
+});
+
+test('B6.7.2 G4 : flotte + plaque IDENTIFIÉE en conversation → la redemande reste une faute (règle 1 inchangée)', () => {
+  const etat = etatAvec({ plaques: ['GG798NL'], plaques_flotte: ['GJ337WF', 'GG798NL'] });
+  const r = gardes.verifier({ reponse: "Quelle est l'immatriculation du scooter concerné, s'il vous plaît ?\n-Agent IA U'mob-", etat: etat });
+  assert.strictEqual(r.ok, false);
+  assert.ok(codes(r).indexOf('plaque_redemandee') !== -1);
+  assert.ok(r.fautes[0].rappel.indexOf('GG-798-NL') !== -1);
+});
