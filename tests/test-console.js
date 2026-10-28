@@ -111,6 +111,12 @@ globalThis.fetch = async function (url, options) {
         db.lecons.unshift(ligne);
         return { status: 201, ok: true, text: async () => "" };
       }
+      if (methode === "DELETE") { // B6.11 — suppression d'une leçon annulée
+        const idEqD = params["id"] || "";
+        const idD = idEqD.slice(0, 3) === "eq." ? idEqD.slice(3) : idEqD;
+        db.lecons = db.lecons.filter((l) => String(l.id) !== idD);
+        return { status: 204, ok: true, text: async () => "" };
+      }
       if (methode === "PATCH") {
         const idEq = params["id"] || "";
         const id = idEq.slice(0, 3) === "eq." ? idEq.slice(3) : idEq;
@@ -473,13 +479,13 @@ test("B6.1 — la page embarque l'affichage des actions B4.2 (libellés + aperç
 // ============================================================================
 // B6.5 — la console embarque la version
 // ============================================================================
-test("B6.10 — la console répond en version B6.10", async () => {
+test("B6.11 — la console répond en version B6.11", async () => {
   reinitialise();
   const res = faireRes();
   await apiTest(requete("secret=secret-de-test-b54",
     { message: "bonjour", memoire: [] }, "POST"), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, "B6.10");
+  assert.strictEqual(res.corps.version, "B6.11");
 });
 
 // ============================================================================
@@ -978,6 +984,41 @@ test("B6.7 — {lecon_action} statut valide → 200 (annulee) / statut invalide 
   assert.strictEqual(res.statusCode, 400);
   assert.ok(String(res.corps.erreur).indexOf("statut") !== -1);
   assert.strictEqual(db.lecons[0].statut, "active", "rien ne change");
+  verifierZeroEcriture();
+});
+
+test("B6.11 — {lecon_delete} : leçon ANNULÉE → 200 + ligne supprimée ; active → 400 refusée ; id manquant → 400", async () => {
+  // suppression légitime : la leçon est annulee
+  reinitialise();
+  db.lecons = [{ id: "lecon-1", regle: "obsolète", declencheurs: "", portee: "generale", contact_id: null, occurrences: 1, statut: "annulee", maj_a: "" }];
+  let res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { lecon_delete: { id: "lecon-1" } }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.ok, true);
+  assert.strictEqual(res.corps.lecon_delete.supprimee, true);
+  assert.strictEqual(db.lecons.length, 0, "la ligne doit disparaître de la table");
+  verifierZeroEcritureSaufApprentissage(1); // le DELETE, rien d'autre
+
+  // refus : la leçon est active (garde-fou : annuler d'abord)
+  reinitialise();
+  db.lecons = [{ id: "lecon-1", regle: "x", declencheurs: "", portee: "generale", contact_id: null, occurrences: 1, statut: "active", maj_a: "" }];
+  res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { lecon_delete: { id: "lecon-1" } }, "POST"), res);
+  assert.strictEqual(res.statusCode, 400);
+  assert.ok(String(res.corps.erreur).indexOf("ANNULÉE") !== -1,
+    "le message doit inviter à annuler d'abord");
+  assert.strictEqual(db.lecons.length, 1, "rien ne change");
+  verifierZeroEcriture();
+
+  // refus : id manquant
+  reinitialise();
+  res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { lecon_delete: {} }, "POST"), res);
+  assert.strictEqual(res.statusCode, 400);
+  assert.ok(String(res.corps.erreur).indexOf("id") !== -1);
   verifierZeroEcriture();
 });
 

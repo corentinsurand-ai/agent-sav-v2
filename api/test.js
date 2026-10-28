@@ -60,7 +60,7 @@
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B6.10";
+var VERSION = "B6.11";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");
@@ -165,6 +165,25 @@ function typeRegleValide(id) {
 // B6.6 — déposer une notation (validation stricte : la donnée doit être
 // PROPRE pour agréger par règle). Retour : {ok, notation} | lève une erreur
 // explicite si la table agent_sav.notations n'existe pas encore.
+// B6.11 — SUPPRESSION physique d'une ligne (leçons annulées uniquement).
+async function supabaseDelete(table, id) {
+  var res = await fetch(urlSupabase(table, "id=eq." + encodeURIComponent(id)), {
+    method: "DELETE",
+    headers: {
+      "apikey": env("SUPABASE_SERVICE_KEY"),
+      "Authorization": "Bearer " + env("SUPABASE_SERVICE_KEY"),
+      "Content-Profile": SCHEMA,
+      "Prefer": "return=minimal"
+    }
+  });
+  if (!res.ok) {
+    var corps = "";
+    try { corps = await res.text(); } catch (e) {}
+    throw new Error("Supabase " + res.status + " — " + corps.substring(0, 300));
+  }
+  return true;
+}
+
 async function deposerNotation(n) {
   var o = n || {};
   var note = Number(o.note);
@@ -331,6 +350,32 @@ async function changerStatutLecon(o) {
     return { ok: false, erreur: String((e && e.message) || e) };
   }
   return { ok: true, id: id, statut: statut };
+}
+
+// B6.11 — SUPPRIMER UNE LEÇON : autorisé UNIQUEMENT si le statut courant est
+// « annulee » (garde-fou : on ne peut pas détruire par un clic une leçon
+// active, validée ou promue — il faut l'annuler d'abord, délibérément).
+async function supprimerLecon(o) {
+  var x = o || {};
+  var id = String(x.id || "").trim();
+  if (!id) return { ok: false, erreur: "id de la leçon manquant" };
+  var cible = null;
+  try {
+    var lecs = await supabaseGet("lecons", "select=id,statut&id=eq." + encodeURIComponent(id));
+    cible = (lecs && lecs[0]) || null;
+  } catch (e) {
+    return { ok: false, erreur: erreurLecons(e) };
+  }
+  if (!cible) return { ok: false, erreur: "leçon introuvable" };
+  if (String(cible.statut) !== "annulee") {
+    return { ok: false, erreur: "seule une leçon ANNULÉE peut être supprimée — annule-la d'abord" };
+  }
+  try {
+    await supabaseDelete("lecons", id);
+  } catch (e) {
+    return { ok: false, erreur: String((e && e.message) || e) };
+  }
+  return { ok: true, id: id, supprimee: true };
 }
 
 function libelleDeRegle(id) {
@@ -1405,7 +1450,10 @@ function rendreLecons(lecons) {
   var boutons = document.querySelectorAll(".btn-lecon-act");
   for (var b = 0; b < boutons.length; b++) {
     boutons[b].onclick = function () {
-      actionLecon(this.getAttribute("data-id"), this.getAttribute("data-statut"));
+      var idb = this.getAttribute("data-id");
+      var stb = this.getAttribute("data-statut");
+      if (stb === "supprimer") { supprimerLeconUI(idb); return; }
+      actionLecon(idb, stb);
     };
   }
 }
@@ -1432,7 +1480,8 @@ function boutonsStatut(l) {
     return boutonLecon(id, "validee", "retour à validée") + boutonLecon(id, "annulee", "annuler");
   }
   if (s === "annulee") {
-    return boutonLecon(id, "validee", "valider") + boutonLecon(id, "promue", "promue");
+    return boutonLecon(id, "validee", "valider") + boutonLecon(id, "promue", "promue") +
+      boutonLecon(id, "supprimer", "supprimer");
   }
   return "";
 }
@@ -1464,6 +1513,24 @@ async function ajouterLecon() {
     $("lecon-err").textContent = "erreur : " + ech(e);
   } finally {
     $("btn-lecon-new").disabled = false;
+  }
+}
+
+// B6.11 — SUPPRIMER une leçon annulée : confirmation obligatoire puis DELETE.
+async function supprimerLeconUI(id) {
+  if (!window.confirm("Supprimer DEFINITIVEMENT cette leçon annulée ? La ligne disparaît de la table agent_sav.lecons.")) return;
+  $("lecon-err").textContent = "";
+  try {
+    var r = await fetch("/api/test?secret=" + encodeURIComponent(SECRET), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lecon_delete: { id: id } })
+    });
+    var j = await r.json();
+    if (!j.ok) { $("lecon-err").textContent = "erreur " + r.status + " : " + (j.erreur || "?"); return; }
+    chargerLecons();
+  } catch (e) {
+    $("lecon-err").textContent = "erreur : " + ech(e);
   }
 }
 
@@ -1609,6 +1676,13 @@ module.exports = async function handler(req, res) {
       var chg = await changerStatutLecon(corps.lecon_action);
       if (!chg.ok) return res.status(400).json({ ok: false, erreur: chg.erreur });
       return res.status(200).json({ ok: true, brique: "B5.4", version: VERSION, lecon_action: chg });
+    }
+
+    // B6.11 — SUPPRIMER une leçon annulée (définitif)
+    if (corps.lecon_delete && typeof corps.lecon_delete === "object") {
+      var sup = await supprimerLecon(corps.lecon_delete);
+      if (!sup.ok) return res.status(400).json({ ok: false, erreur: sup.erreur });
+      return res.status(200).json({ ok: true, brique: "B5.4", version: VERSION, lecon_delete: sup });
     }
 
     var messageT = String(corps.message || "").trim();

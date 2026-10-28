@@ -100,3 +100,20 @@ test("B6.10 — la page servie rend les 4 statuts de leçon réversibles", () =>
   assert.ok(page.indexOf("B6.10 — STATUTS RÉVERSIBLES") !== -1,
     "le commentaire B6.10 doit figurer dans la page servie");
 });
+
+
+// ============================================================================
+// B6.11 — SUPPRESSION DES LEÇONS ANNULÉES : bouton « supprimer » sur les
+// lignes annulee (avec confirmation) + route lecon_delete côté serveur.
+// ============================================================================
+test("B6.11 — la page servie permet de supprimer une leçon annulée", () => {
+  const page = pageServie();
+  assert.ok(page.indexOf('boutonLecon(id, "supprimer", "supprimer")') !== -1,
+    "les lignes annulee doivent proposer un bouton supprimer (via boutonLecon)");
+  assert.ok(page.indexOf("supprimerLeconUI") !== -1,
+    "le clic doit passer par supprimerLeconUI (confirmation + lecon_delete)");
+  assert.ok(page.indexOf("lecon_delete") !== -1,
+    "l'appel serveur { lecon_delete: { id } } doit exister dans la page");
+  assert.ok(page.indexOf("window.confirm") !== -1,
+    "une suppression définitive exige une confirmation");
+});
