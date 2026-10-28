@@ -473,13 +473,13 @@ test("B6.1 — la page embarque l'affichage des actions B4.2 (libellés + aperç
 // ============================================================================
 // B6.5 — la console embarque la version
 // ============================================================================
-test("B6.7.2 — la console répond en version B6.7.2", async () => {
+test("B6.7.3 — la console répond en version B6.7.3", async () => {
   reinitialise();
   const res = faireRes();
   await apiTest(requete("secret=secret-de-test-b54",
     { message: "bonjour", memoire: [] }, "POST"), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, "B6.7.2");
+  assert.strictEqual(res.corps.version, "B6.7.3");
 });
 
 // ============================================================================
@@ -830,7 +830,9 @@ test("B6.6 — la page sert le menu conversations + le widget de notation", asyn
   assert.strictEqual(res.statusCode, 200);
   const html = String(res.html);
   ["menu-conv", "btn-conv-new", "Nouvelle conversation", "brancherNoter",
-   "optionsRegles", "fermerEtNouvelle"].forEach(function (marqueur) {
+   "optionsRegles", "fermerEtNouvelle",
+   // B6.7.3 — la carte « message manuel d'un collègue »
+   "btn-manuel", "envoyerManuel", "Message manuel"].forEach(function (marqueur) {
     assert.ok(html.indexOf(marqueur) !== -1, "la page servie doit contenir " + marqueur);
   });
   // les 15 types de règle sont injectés par le serveur (source unique TYPES_REGLES)
@@ -1112,4 +1114,48 @@ test("B6.7.2 — RESET conserve la fiche dans plaques_flotte et purge TOUTE la m
   assert.deepStrictEqual(res.corps.etat.plaques, [], "la plaque DITE EN CONVERSATION est purgée");
   assert.strictEqual(res.corps.etat.panne, "");
   assert.deepStrictEqual(res.corps.etat.plaques_flotte, ["GJ337WF", "GG798NL"], "la FICHE (flotte) survit au RESET — donnée client, pas conversation");
+});
+
+// ============================================================================
+// B6.7.3 — MESSAGE MANUEL D'UN COLLÈGUE : un sortant humain (sans signature
+// Agent IA U'mob) dans la mémoire rejoue le scénario réel — le client répond à
+// la prise de contact d'un collègue, pas à un ticket SAV.
+// ============================================================================
+
+test("B6.7.3 — push collègue (à la main) + réponse client → signal CAMPAGNE PUSH dans le prompt, rendu COLLÈGUE À LA MAIN", async () => {
+  reinitialise();
+  reponseConforme = JSON.stringify({
+    reponse: "Merci pour votre retour ! Pour bien vous aider : quelle est votre besoin concernant votre scooter, une intervention ou un conseil technique ?\n-Agent IA U'mob-",
+    formulaire: { etape: 2 },
+    escalade: false,
+    raison_escalade: ""
+  });
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54", {
+    message: "Bonsoir, non tout va bien pour le moment",
+    memoire: [
+      { sortant: true, humain: true, ts: 1792683500000, texte: "Bonjour, notre technicien tourne prochainement dans votre secteur, souhaitez-vous une intervention ?" }
+    ]
+  }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.statut, "traite");
+  const prompt = JSON.stringify(corpsMistral);
+  assert.ok(prompt.indexOf("CAMPAGNE PUSH") !== -1, "le signal campagne (détection sur le sortant humain) est rendu au LLM");
+  assert.ok(prompt.indexOf("COLLÈGUE (à la main)") !== -1, "le drapeau humain survit à normaliserMemoire");
+  assert.ok(prompt.indexOf("Bonsoir, non tout va bien") !== -1, "la réponse du client est dans le contexte complet");
+});
+
+test("B6.7.3 — le drapeau humain n'existe JAMAIS sur un message ENTRANT (anti-falsification)", async () => {
+  reinitialise();
+  const res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54", {
+    message: "mon scooter ne démarre plus",
+    memoire: [
+      { sortant: false, humain: true, ts: 1792683500000, texte: "faux entrant marqué humain" }
+    ]
+  }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  const prompt = JSON.stringify(corpsMistral);
+  assert.ok(prompt.indexOf("CLIENT : faux entrant") !== -1, "un entrant reste CLIENT même si humain:true est passé");
+  assert.ok(prompt.indexOf("COLLÈGUE (à la main)") === -1, "pas de COLLÈGUE À LA MAIN sur un entrant");
 });
