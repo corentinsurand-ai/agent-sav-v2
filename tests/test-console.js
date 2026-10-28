@@ -479,13 +479,13 @@ test("B6.1 — la page embarque l'affichage des actions B4.2 (libellés + aperç
 // ============================================================================
 // B6.5 — la console embarque la version
 // ============================================================================
-test("B6.11 — la console répond en version B6.11", async () => {
+test("B6.12 — la console répond en version B6.12", async () => {
   reinitialise();
   const res = faireRes();
   await apiTest(requete("secret=secret-de-test-b54",
     { message: "bonjour", memoire: [] }, "POST"), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, "B6.11");
+  assert.strictEqual(res.corps.version, "B6.12");
 });
 
 // ============================================================================
@@ -841,7 +841,7 @@ test("B6.6 — la page sert le menu conversations + le widget de notation", asyn
    "btn-manuel", "envoyerManuel", "Message manuel"].forEach(function (marqueur) {
     assert.ok(html.indexOf(marqueur) !== -1, "la page servie doit contenir " + marqueur);
   });
-  // les 15 types de règle sont injectés par le serveur (source unique TYPES_REGLES)
+  // les 16 types de règle sont injectés par le serveur (source unique TYPES_REGLES)
   ["Ton / politesse", "Plaque redemandée", "Consignes (question interne, relais, armement)", "Autre"].forEach(function (libelle) {
     assert.ok(html.indexOf(libelle) !== -1, "la page servie doit contenir le libellé « " + libelle + " »");
   });
@@ -1019,6 +1019,85 @@ test("B6.11 — {lecon_delete} : leçon ANNULÉE → 200 + ligne supprimée ; ac
     { lecon_delete: {} }, "POST"), res);
   assert.strictEqual(res.statusCode, 400);
   assert.ok(String(res.corps.erreur).indexOf("id") !== -1);
+  verifierZeroEcriture();
+});
+
+// ============================================================================
+// B6.12 — RÈGLES DU CODE CONCERNÉES à ce tour + PROPOSITIONS de modification
+// ============================================================================
+test("B6.12 — chaque réponse annonce les règles DURES du code qui jouent à ce tour", async () => {
+  // règle 10 : crevaison
+  reinitialise();
+  let res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { message: "j'ai une crevaison", memoire: [] }, "POST"), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.ok(Array.isArray(res.corps.regles_concernees), "regles_concernees doit exister");
+  assert.ok(res.corps.regles_concernees.some((r) => r.id === "10"),
+    "la crevaison doit annoncer la règle 10");
+  assert.ok(res.corps.regles_concernees.every((r) => r.titre && r.fichier && r.brique),
+    "chaque règle annoncée porte titre + fichier + brique");
+
+  // règle 11 : intervention
+  reinitialise();
+  res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { message: "il faut intervenir sur mon scooter", memoire: [] }, "POST"), res);
+  assert.ok(res.corps.regles_concernees.some((r) => r.id === "11"),
+    "l'intervention doit annoncer la règle 11");
+
+  // campagne push : réponse client à un sortant humain
+  reinitialise();
+  res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54", {
+    message: "Oui svp",
+    memoire: [{ sortant: true, humain: true, ts: 1792683500000,
+      texte: "Bonjour, notre technicien tourne dans votre secteur la semaine prochaine, auriez-vous besoin d'une maintenance ?" }]
+  }, "POST"), res);
+  assert.ok(res.corps.regles_concernees.some((r) => r.id === "campagne_push"),
+    "une réponse à une campagne push doit annoncer la règle campagne_push");
+  assert.strictEqual(res.corps.etat.campagne_push, true, "le drapeau campagne est visible dans l'état");
+
+  // sans déclencheur : liste vide
+  reinitialise();
+  res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { message: "bonjour", memoire: [] }, "POST"), res);
+  assert.strictEqual(res.corps.regles_concernees.length, 0,
+    "un simple bonjour n'annonce aucune règle dure");
+});
+
+test("B6.12 — {regle_proposition} : valide → 201 + notation type modif_regle ; règle inconnue → 400 ; proposition vide → 400", async () => {
+  // proposition valide
+  reinitialise();
+  let res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { regle_proposition: { regle_id: "10", proposition: "demander aussi la taille du pneu", conversation_id: "conv-test" } }, "POST"), res);
+  assert.strictEqual(res.statusCode, 201);
+  assert.strictEqual(res.corps.ok, true);
+  assert.strictEqual(res.corps.regle_proposition.regle.id, "10");
+  assert.strictEqual(db.notations.length, 1, "la proposition est stockée comme notation");
+  assert.strictEqual(db.notations[0].type_regle, "modif_regle");
+  assert.ok(db.notations[0].commentaire.indexOf("PROPOSITION") !== -1);
+  assert.ok(db.notations[0].commentaire.indexOf("RÈGLE 10") !== -1);
+  verifierZeroEcritureSaufApprentissage(1); // le POST notations, rien d'autre
+
+  // règle inconnue → 400
+  reinitialise();
+  res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { regle_proposition: { regle_id: "99", proposition: "n'importe quoi" } }, "POST"), res);
+  assert.strictEqual(res.statusCode, 400);
+  assert.ok(String(res.corps.erreur).indexOf("inconnue") !== -1);
+  verifierZeroEcriture();
+
+  // proposition vide → 400
+  reinitialise();
+  res = faireRes();
+  await apiTest(requete("secret=secret-de-test-b54",
+    { regle_proposition: { regle_id: "10", proposition: "   " } }, "POST"), res);
+  assert.strictEqual(res.statusCode, 400);
+  assert.ok(String(res.corps.erreur).indexOf("vide") !== -1);
   verifierZeroEcriture();
 });
 

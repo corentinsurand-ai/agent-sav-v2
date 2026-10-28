@@ -117,3 +117,22 @@ test("B6.11 — la page servie permet de supprimer une leçon annulée", () => {
   assert.ok(page.indexOf("window.confirm") !== -1,
     "une suppression définitive exige une confirmation");
 });
+
+
+// ============================================================================
+// B6.12 — RÈGLES DU CODE CONCERNÉES : bloc sous chaque réponse + bouton
+// « modifier cette règle » + route regle_proposition côté serveur.
+// ============================================================================
+test("B6.12 — la page servie annonce les règles du code et permet de proposer une modification", () => {
+  const page = pageServie();
+  assert.ok(page.indexOf("Règles du code concernées") !== -1,
+    "le bloc règles concernées doit figurer dans chaque carte d'échange");
+  assert.ok(page.indexOf("proposerModifRegle") !== -1,
+    "le bouton modifier doit appeler proposerModifRegle");
+  assert.ok(page.indexOf("regle_proposition") !== -1,
+    "l'appel serveur { regle_proposition: ... } doit exister dans la page");
+  assert.ok(page.indexOf("regles_concernees") !== -1,
+    "le rendu des cartes doit lire reponse.regles_concernees");
+  assert.ok(page.indexOf("ne change PAS le code") !== -1,
+    "la page doit dire qu'une proposition ne change pas le code directement");
+});

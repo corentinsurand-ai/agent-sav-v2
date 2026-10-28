@@ -60,7 +60,7 @@
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B6.11";
+var VERSION = "B6.12";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");
@@ -155,7 +155,8 @@ var TYPES_REGLES = [
   { id: "cycle_vie", libelle: "Cycle de vie" },
   { id: "consigne", libelle: "Consignes (question interne, relais, armement)" },
   { id: "reponse_pertinence", libelle: "Réponse hors sujet / pertinence" },
-  { id: "autre", libelle: "Autre" }
+  { id: "autre", libelle: "Autre" },
+  { id: "modif_regle", libelle: "Proposition de modification de règle" } // B6.12
 ];
 function typeRegleValide(id) {
   for (var i = 0; i < TYPES_REGLES.length; i++) if (TYPES_REGLES[i].id === id) return true;
@@ -378,6 +379,71 @@ async function supprimerLecon(o) {
   return { ok: true, id: id, supprimee: true };
 }
 
+// ----------------------------------------------------------------------------
+// B6.12 — RÈGLES DURES DU CODE : catalogue pour l'affichage « règles du code
+// concernées à ce tour » sous chaque réponse + propositions de modification.
+// La détection est INFORMELLE (mots-clés du message + drapeau campagne) :
+// elle informe la console, l'autorité du comportement reste le prompt SYSTEME.
+// ----------------------------------------------------------------------------
+var REGLES_DURES = [
+  { id: "10", brique: "B6.8", titre: "Règle 10 - CREVAISON",
+    texte: "demander « roue avant ou arrière ? » + proposer des photos",
+    fichier: "lib/cerveau.js (prompt SYSTEME)",
+    motif: /crevaison|creve|crev[eé]|pneu/i },
+  { id: "11", brique: "B6.8", titre: "Règle 11 - INTERVENTION",
+    texte: "question OUVERTE groupée : adresse + numéro à contacter + jours de fermeture",
+    fichier: "lib/cerveau.js (prompt SYSTEME)",
+    motif: /intervention|intervenir/i },
+  { id: "campagne_push", brique: "B6.9", titre: "Campagne push - jamais « votre demande »",
+    texte: "remercier du retour + question ouverte sur le besoin (pas un ticket SAV)",
+    fichier: "lib/cerveau.js + lib/gardes.js (G12)",
+    motif: null }
+];
+
+function reglesConcernees(message, etat) {
+  var e = etat || {};
+  var t = String(message || "") + " " + String(e.panne || "");
+  var out = [];
+  for (var i = 0; i < REGLES_DURES.length; i++) {
+    var r = REGLES_DURES[i];
+    var joue = r.motif ? r.motif.test(t) : !!e.campagne_push;
+    if (joue) {
+      out.push({ id: r.id, titre: r.titre, texte: r.texte, fichier: r.fichier, brique: r.brique });
+    }
+  }
+  return out;
+}
+
+// B6.12 — PROPOSITION DE MODIFICATION D'UNE RÈGLE DU CODE : déposée comme
+// notation type « modif_regle » (table agent_sav.notations, aucune nouvelle
+// table SQL). L'agent IA lit ces propositions SUR DEMANDE de Corentin et
+// applique alors la modification au code (livraison complète).
+async function proposerModificationRegle(o) {
+  var x = o || {};
+  var id = String(x.regle_id || "").trim();
+  var proposition = String(x.proposition || "").trim().substring(0, 2000);
+  var connue = null;
+  for (var i = 0; i < REGLES_DURES.length; i++) if (REGLES_DURES[i].id === id) connue = REGLES_DURES[i];
+  if (!connue) return { ok: false, erreur: "règle inconnue : " + id };
+  if (!proposition) return { ok: false, erreur: "proposition vide - écris la nouvelle formulation de la règle" };
+  var ligne = {
+    conversation_id: String(x.conversation_id || "console").trim().substring(0, 100),
+    note: 1,
+    type_regle: "modif_regle",
+    commentaire: "RÈGLE " + id + " (" + connue.titre + ") - PROPOSITION : " + proposition,
+    tour: "B6.12",
+    type_tour: "proposition",
+    message_client: "",
+    reponse_agent: ""
+  };
+  try {
+    await supabaseInsert("notations", ligne);
+  } catch (e) {
+    return { ok: false, erreur: String((e && e.message) || e) + " - table agent_sav.notations absente ?" };
+  }
+  return { ok: true, regle: { id: id, titre: connue.titre, fichier: connue.fichier, brique: connue.brique }, proposition: proposition };
+}
+
 function libelleDeRegle(id) {
   for (var i = 0; i < TYPES_REGLES.length; i++) if (TYPES_REGLES[i].id === id) return TYPES_REGLES[i].libelle;
   return id;
@@ -481,7 +547,8 @@ function etatCompact(etat) {
     demande_commerciale: !!e.demande_commerciale,
     prise_de_main: !!e.prise_de_main,
     enseigne: e.enseigne || "",
-    statut_risque: e.statut_risque || ""
+    statut_risque: e.statut_risque || "",
+    campagne_push: !!e.campagne_push // B6.12 — pour l'affichage « règles concernées »
   };
 }
 
@@ -651,6 +718,7 @@ async function traiterEchange(corps) {
     client: clientCompact(client),
     etat: etatCompact(resultat.etat),
     lecons_appliquees: leconsAppliquees, // B6.7 — les leçons de terrain entrées dans le prompt de CE tour
+    regles_concernees: reglesConcernees(message, resultat.etat), // B6.12 — règles DURES du code jouant à ce tour
     persistant: persistantDe(corps), // B6.5 — echo : le navigateur les renvoie au tour suivant
     journal: resultat.journal.map(function (j) { return { etape: j.etape, texte: j.texte }; })
   };
@@ -1124,6 +1192,12 @@ function carteEchange(entree, reponse) {
   var leconsTxt = (reponse.lecons_appliquees && reponse.lecons_appliquees.length)
     ? (reponse.lecons_appliquees.map(function (l) { return "&bull; " + ech(l); })).join("<br>")
     : "";
+  var reglesTxt = (reponse.regles_concernees && reponse.regles_concernees.length)
+    ? (reponse.regles_concernees.map(function (r) {
+        return "&bull; <b>" + ech(r.titre) + "</b> (" + ech(r.brique) + ", " + ech(r.fichier) + ") : " + ech(r.texte) +
+          ' &middot; <button type="button" class="btn-regle-modif" onclick="proposerModifRegle(\\'' + r.id + '\\')">✏️ modifier cette règle</button>';
+      })).join("<br>")
+    : "";
   var escalade = reponse.escalade
     ? '<div class="resetok">Escalade demandée : ' + ech(reponse.raison_escalade) + "</div>"
     : "";
@@ -1138,6 +1212,7 @@ function carteEchange(entree, reponse) {
     " &middot; appels Mistral : " + ech(reponse.appels_mistral) + client + "</div>" +
     '<div class="meta">📍 Cycle que B4.2 poserait : ' + cycleTxt + "</div>" +
     (leconsTxt ? '<div class="meta">🧠 Leçons de terrain appliquées à ce tour :<br>' + leconsTxt + "</div>" : "") +
+    (reglesTxt ? '<div class="meta">⚖️ Règles du code concernées à ce tour :<br>' + reglesTxt + '<br><span style="color:#777">Une proposition enregistrée ne change PAS le code : demande ensuite à l\\'agent IA de lire tes propositions et de les appliquer.</span></div>' : "") +
     '<div class="bloc plaques"><span class="etiquette">Vérification parc (affichage)</span><div>' + plaques + "</div></div>" +
     '<div class="actions"><span class="etiquette">B4.2 (mode actif) ferait</span><div>' + actions + "</div></div>" +
     '<div class="journal"><span class="etiquette">Journal</span><div>' + journal + "</div></div>" +
@@ -1516,6 +1591,25 @@ async function ajouterLecon() {
   }
 }
 
+// B6.12 — PROPOSER UNE MODIFICATION DE RÈGLE DU CODE : prompt -> notation
+// type « modif_regle ». L'agent IA applique au code SUR DEMANDE de Corentin.
+async function proposerModifRegle(rid) {
+  var prop = window.prompt("Ta proposition de modification pour cette règle du code (enregistrée telle quelle - l'agent IA l'appliquera au code quand tu lui demanderas) :");
+  if (!prop || !prop.trim()) return;
+  try {
+    var r = await fetch("/api/test?secret=" + encodeURIComponent(SECRET), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ regle_proposition: { regle_id: rid, proposition: prop, conversation_id: conv.id } })
+    });
+    var j = await r.json();
+    if (!j.ok) { window.alert("erreur : " + (j.erreur || r.status)); return; }
+    window.alert("Proposition enregistrée. Demande ensuite à l'agent IA de lire tes propositions et de les appliquer au code.");
+  } catch (e) {
+    window.alert("erreur : " + e);
+  }
+}
+
 // B6.11 — SUPPRIMER une leçon annulée : confirmation obligatoire puis DELETE.
 async function supprimerLeconUI(id) {
   if (!window.confirm("Supprimer DEFINITIVEMENT cette leçon annulée ? La ligne disparaît de la table agent_sav.lecons.")) return;
@@ -1683,6 +1777,13 @@ module.exports = async function handler(req, res) {
       var sup = await supprimerLecon(corps.lecon_delete);
       if (!sup.ok) return res.status(400).json({ ok: false, erreur: sup.erreur });
       return res.status(200).json({ ok: true, brique: "B5.4", version: VERSION, lecon_delete: sup });
+    }
+
+    // B6.12 — PROPOSER une modification d'une règle du code (notation dédiée)
+    if (corps.regle_proposition && typeof corps.regle_proposition === "object") {
+      var pr = await proposerModificationRegle(corps.regle_proposition);
+      if (!pr.ok) return res.status(400).json({ ok: false, erreur: pr.erreur });
+      return res.status(201).json({ ok: true, brique: "B5.4", version: VERSION, regle_proposition: pr });
     }
 
     var messageT = String(corps.message || "").trim();
