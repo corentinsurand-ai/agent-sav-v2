@@ -52,12 +52,12 @@ test("leçon AVEC déclencheurs → applicable SI ET SEULEMENT SI un mot-clé es
   assert.strictEqual(lecons.leconApplicable(l, lecons.normaliserTexte("mon scooter ne démarre pas"), ""), false);
 });
 
-test("statut annulee / promue → JAMAIS injectée ; active et validee le sont", () => {
+test("statut annulee → JAMAIS injectée ; active, validee et promue (B6.7.5) le sont", () => {
   const base = { regle: "r", declencheurs: "", portee: "generale" };
   assert.strictEqual(lecons.leconApplicable(Object.assign({}, base, { statut: "active" }), "x", ""), true);
   assert.strictEqual(lecons.leconApplicable(Object.assign({}, base, { statut: "validee" }), "x", ""), true);
   assert.strictEqual(lecons.leconApplicable(Object.assign({}, base, { statut: "annulee" }), "x", ""), false);
-  assert.strictEqual(lecons.leconApplicable(Object.assign({}, base, { statut: "promue" }), "x", ""), false);
+  assert.strictEqual(lecons.leconApplicable(Object.assign({}, base, { statut: "promue" }), "x", ""), true, "B6.7.5 : une leçon PROMUE (règle dure validée par Corentin) est injectée");
   assert.strictEqual(lecons.leconApplicable(Object.assign({}, base, { statut: "" }), "x", ""), false);
 });
 
