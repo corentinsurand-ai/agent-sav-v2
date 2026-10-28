@@ -60,7 +60,7 @@
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B6.7.2";
+var VERSION = "B6.7.3";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");
@@ -417,7 +417,7 @@ function normaliserMemoire(memoire) {
       media: "",
       type_media: null,
       sortant: !!it.sortant,
-      humain: false
+      humain: !!it.humain && !!it.sortant // B6.7.3 — le drapeau COLLÈGUE À LA MAIN passe (jamais sur un entrant)
     });
   }
   return msgs;
@@ -863,6 +863,15 @@ select{padding:8px;border:1px solid #ccc;border-radius:8px;font-size:13px;flex:1
 <button id="btn-envoyer">Envoyer</button>
 <button id="btn-reset" class="reset">RESET</button>
 </div>
+</div>
+
+<div class="carte">
+<span class="etiquette">Message manuel — un collègue écrit au client à la main (respond.io)</span>
+<div class="rang">
+<input id="man" placeholder="Bonjour, notre technicien tourne prochainement dans votre secteur…" autocomplete="off">
+<button id="btn-manuel">Envoyer au client</button>
+</div>
+<div class="meta">S'inscrit dans la conversation SANS réveiller l'agent, comme un vrai message manuel respond.io (SANS signature Agent IA U'mob). Le message client suivant rejoue le comportement réel : réponse à une campagne → accueil + question ouverte sur le besoin, jamais de plaque demandée d'entrée (garde G12).</div>
 </div>
 
 <div class="carte">
@@ -1340,6 +1349,25 @@ function brancherNoter(idw) {
 
 $("btn-fiche").onclick = chargerFiche;
 
+// B6.7.3 — MESSAGE MANUEL D'UN COLLÈGUE : s'inscrit dans la conversation
+// SANS appeler l'agent (réalité respond.io : un sortant humain ne déclenche
+// RIEN — pas de webhook d'agent). SANS la signature Agent IA U'mob : le
+// prochain message CLIENT rejoue les détections (campagne push → accueil +
+// besoin ouvert, jamais de plaque d'entrée — garde G12).
+function envoyerManuel() {
+  var texte = $("man").value.trim();
+  if (!texte) return;
+  $("man").value = "";
+  conv.memoire.push({ sortant: true, humain: true, texte: texte, ts: Date.now() });
+  conv.cartes.push('<div class="carte"><span class="etiquette">COLLÈGUE (à la main) — envoyé au client, agent NON sollicité</span><div class="meta">' + ech(texte) + '</div></div>');
+  afficherConversation();
+  sauvegarderSession(); // B6.7.1
+}
+$("btn-manuel").onclick = envoyerManuel;
+$("man").addEventListener("keydown", function (ev) {
+  if (ev.key === "Enter") { ev.preventDefault(); envoyerManuel(); }
+});
+
 // B6.7 — LES LEÇONS DE TERRAIN : l'équipe apprend à l'agent. La liste vit
 // dans agent_sav.lecons ; l'agent les reçoit dans son prompt quand la
 // conversation cite un déclencheur (max 3 par tour).
@@ -1372,3 +1400,212 @@ function rendreLecons(lecons) {
         : "") +
       (l.statut === "active" || l.statut === "validee"
         ? ' &middot; <button type="button" class="btn-lecon-act" data-id="' + ech(l.id) + '" data-statut="validee">valider</button>' +
+          '<button type="button" class="btn-lecon-act" data-id="' + ech(l.id) + '" data-statut="annulee">annuler</button>' +
+          '<button type="button" class="btn-lecon-act" data-id="' + ech(l.id) + '" data-statut="promue">promue</button>'
+        : "") +
+      "</div>";
+  }
+  $("liste-lecons").innerHTML = html;
+  var boutons = document.querySelectorAll(".btn-lecon-act");
+  for (var b = 0; b < boutons.length; b++) {
+    boutons[b].onclick = function () {
+      actionLecon(this.getAttribute("data-id"), this.getAttribute("data-statut"));
+    };
+  }
+}
+
+async function ajouterLecon() {
+  $("lecon-err").textContent = "";
+  var regle = $("lecon-texte").value.trim();
+  var declencheurs = $("lecon-declencheurs").value.trim();
+  var portee = $("lecon-portee").value;
+  var contact = $("lecon-contact").value.trim();
+  if (!regle) { $("lecon-err").textContent = "écris d'abord la leçon (une phrase, un impératif)."; return; }
+  if (portee === "client" && !contact) { $("lecon-err").textContent = "pour une leçon ciblée, renseigne le téléphone du client."; return; }
+  $("btn-lecon-new").disabled = true;
+  try {
+    var r = await fetch("/api/test?secret=" + encodeURIComponent(SECRET), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lecon: { regle: regle, declencheurs: declencheurs, portee: portee, contact_id: contact } })
+    });
+    var j = await r.json();
+    if (!j.ok) {
+      $("lecon-err").textContent = "erreur " + r.status + " : " + (j.erreur || "?") + " (ta leçon n'est pas perdue : réessaie)";
+      return;
+    }
+    $("lecon-texte").value = "";
+    $("lecon-declencheurs").value = "";
+    chargerLecons();
+  } catch (e) {
+    $("lecon-err").textContent = "erreur : " + ech(e);
+  } finally {
+    $("btn-lecon-new").disabled = false;
+  }
+}
+
+async function actionLecon(id, statut) {
+  $("lecon-err").textContent = "";
+  try {
+    var r = await fetch("/api/test?secret=" + encodeURIComponent(SECRET), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lecon_action: { id: id, statut: statut } })
+    });
+    var j = await r.json();
+    if (!j.ok) { $("lecon-err").textContent = "erreur " + r.status + " : " + (j.erreur || "?"); return; }
+    chargerLecons();
+  } catch (e) {
+    $("lecon-err").textContent = "erreur : " + ech(e);
+  }
+}
+
+$("btn-lecon-new").onclick = ajouterLecon;
+$("btn-envoyer").onclick = function () {
+  var t = $("msg").value.trim();
+  if (!t) return;
+  envoyer(t);
+};
+$("btn-reset").onclick = function () { envoyer("RESET"); };
+$("msg").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") {
+    var t = $("msg").value.trim();
+    if (!t) return;
+    envoyer(t);
+  }
+});
+$("btn-commenter").onclick = function () {
+  var t = $("com").value.trim();
+  if (!t) return;
+  envoyerCommentaire(t);
+};
+$("menu-conv").onchange = function () {
+  var id = this.value;
+  for (var i = 0; i < conversations.length; i++) {
+    if (conversations[i].id === id) { conv = conversations[i]; break; }
+  }
+  afficherConversation();
+  majMenu();
+};
+$("btn-conv-new").onclick = function () { nouvelleConversation(); };
+$("btn-conv-purge").onclick = effacerHistorique; // B6.7.1
+if (!restaurerSession()) nouvelleConversation(); // B6.6 — la première conversation ; B6.7.1 — ou le fil restauré de CE navigateur
+chargerLecons();           // B6.7 — les leçons de terrain
+$("com").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") {
+    var t = $("com").value.trim();
+    if (!t) return;
+    envoyerCommentaire(t);
+  }
+});
+</script>
+</body>
+</html>`;
+
+// ----------------------------------------------------------------------------
+// Handler Vercel
+// ----------------------------------------------------------------------------
+module.exports = async function handler(req, res) {
+  if (req.method !== "GET" && req.method !== "POST") {
+    return res.status(405).json({ ok: false, erreur: "methode non autorisee" });
+  }
+  if (!autorise(req)) {
+    return res.status(401).json({ ok: false, erreur: "secret invalide" });
+  }
+
+  var manquantes = [];
+  if (!env("SUPABASE_URL")) manquantes.push("SUPABASE_URL");
+  if (!env("SUPABASE_SERVICE_KEY")) manquantes.push("SUPABASE_SERVICE_KEY");
+  if (!env("MISTRAL_API_KEY")) manquantes.push("MISTRAL_API_KEY");
+  if (manquantes.length) {
+    return res.status(500).json({
+      ok: false,
+      erreur: "configuration manquante : " + manquantes.join(", ") +
+        " — ajoutez-les dans Vercel (Settings → Environment Variables) puis Redeploy."
+    });
+  }
+
+  try {
+    if (req.method === "GET") {
+      if (paramDe(req, "notations")) {
+        var nots = await lireNotations();
+        return res.status(200).json({
+          ok: true,
+          brique: "B5.4",
+          version: VERSION,
+          notations: nots.notations,
+          resume: nots.resume
+        });
+      }
+      // B6.7 — les leçons de terrain (liste complète, tous statuts)
+      if (paramDe(req, "lecons")) {
+        try {
+          var lecs = await lireLecons();
+          return res.status(200).json({ ok: true, brique: "B5.4", version: VERSION, lecons: lecs });
+        } catch (e) {
+          return res.status(500).json({ ok: false, erreur: erreurLecons(e) });
+        }
+      }
+      var tel = paramDe(req, "telephone");
+      if (tel) {
+        var telN = etatLib.normaliserTelephone(tel);
+        var client = telN ? await chercherClientTelephone(telN) : null;
+        return res.status(200).json({ ok: true, brique: "B5.4", version: VERSION, telephone: telN || tel, client: clientCompact(client) });
+      }
+      return res.status(200).send(PAGE_HTML);
+    }
+
+    var corps = req.body;
+    if (typeof corps === "string") {
+      try { corps = JSON.parse(corps); } catch (e) { corps = null; }
+    }
+    if (!corps || typeof corps !== "object") {
+      return res.status(400).json({ ok: false, erreur: "corps JSON attendu : {telephone, message | commentaire, memoire}" });
+    }
+    // B6.6 — NOTATION : écriture notations + RENFORCEMENT des leçons dont un
+    // déclencheur est cité dans le commentaire (B6.7). Validée AVANT le
+    // reste : un POST {noter} n'a ni message ni commentaire.
+    if (corps.noter && typeof corps.noter === "object") {
+      var dep = await deposerNotation(corps.noter);
+      if (!dep.ok) return res.status(400).json({ ok: false, erreur: dep.erreur });
+      var renforcees = await renforcerLecons(dep.notation);
+      return res.status(201).json({ ok: true, brique: "B5.4", version: VERSION, notation: dep.notation, lecons_renforcees: renforcees });
+    }
+
+    // B6.7 — AJOUT D'UNE LEÇON DE TERRAIN (2e écriture du bac à sable)
+    if (corps.lecon && typeof corps.lecon === "object") {
+      var nouv = await creerLecon(corps.lecon);
+      if (!nouv.ok) return res.status(400).json({ ok: false, erreur: nouv.erreur });
+      return res.status(201).json({ ok: true, brique: "B5.4", version: VERSION, lecon: nouv.lecon });
+    }
+
+    // B6.7 — STATUT D'UNE LEÇON (annuler / valider / marquer promue)
+    if (corps.lecon_action && typeof corps.lecon_action === "object") {
+      var chg = await changerStatutLecon(corps.lecon_action);
+      if (!chg.ok) return res.status(400).json({ ok: false, erreur: chg.erreur });
+      return res.status(200).json({ ok: true, brique: "B5.4", version: VERSION, lecon_action: chg });
+    }
+
+    var messageT = String(corps.message || "").trim();
+    var commentaireT = String(corps.commentaire || "").trim();
+    if (!messageT && !commentaireT) {
+      return res.status(400).json({ ok: false, erreur: "message (ou commentaire) vide" });
+    }
+
+    // B6.5 — commentaire interne @Agent IA : le tour consigne du bac à sable
+    if (commentaireT && !messageT) {
+      var resultatCommentaire = await traiterCommentaire(corps);
+      return res.status(200).json(resultatCommentaire);
+    }
+
+    var resultat = await traiterEchange(corps);
+    return res.status(200).json(resultat);
+  } catch (e) {
+    return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
+  }
+};
+
+// B6.6 — la page ÉVALUÉE, exposée pour les tests (tests/test-page-servie.js
+// lit la chaîne RÉELLEMENT servie au lieu de re-évaluer la template à la
+// main : l'interpolation ${LIBELLES_REGLES_JSON} vit DANS le module).
+module.exports.PAGE_HTML = PAGE_HTML;

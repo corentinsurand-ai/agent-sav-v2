@@ -1350,3 +1350,313 @@ test("B6.4 consigne QUESTION INTERNE : réponse EN COMMENTAIRE au collègue, Mis
     mistral: async (m, o) => { appelsQ.push({ m: m, o: o }); return "Le dossier attend le téléphone de la personne à contacter sur place."; }
   });
   assert.strictEqual(res.statut, "consigne");
+  assert.strictEqual(res.type, "question_interne");
+  assert.strictEqual(res.appels, 1);
+  assert.strictEqual(res.reponse, "", "rien à envoyer au client");
+  assert.strictEqual(res.actions_b42.length, 1);
+  assert.strictEqual(res.actions_b42[0].action, "commentaire");
+  assert.ok(res.actions_b42[0].texte.indexOf("téléphone de la personne à contacter") !== -1);
+  assert.ok(res.journal.some((j) => j.etape === "consigne_question"));
+  // le prompt est le SYSTEME INTERNE (texte libre)
+  assert.strictEqual(appelsQ.length, 1);
+  assert.strictEqual(appelsQ[0].o.texteLibre, true);
+  assert.ok(appelsQ[0].m[0].content.indexOf("assistant interne") !== -1);
+  assert.ok(appelsQ[0].m[1].content.indexOf("où on en est sur ce dossier ?") !== -1);
+});
+
+test("B6.4 consigne ARMEMENT : refs Praxedo → cycle « En cours de réalisation » + compte-rendu vérifié + suivi_refs stockés", async () => {
+  const verifs = [];
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL, { nom: "PIZZA SERVICES ETAMPES", cycle: "A créer dans Praxedo", tags: [] }),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA intervention EVE05189 créée" },
+    praxedo: async (ref) => { verifs.push(ref); return "trouvee"; },
+    mistral: async () => { throw new Error("le cerveau ne doit pas être appelé sur un armement"); }
+  });
+  assert.strictEqual(res.statut, "consigne");
+  assert.strictEqual(res.type, "armement");
+  assert.strictEqual(res.appels, 0, "zéro appel Mistral — décision déterministe");
+  assert.deepStrictEqual(verifs, ["EVE05189"]);
+  assert.strictEqual(res.actions_b42.length, 2);
+  assert.strictEqual(res.actions_b42[0].action, "poser_cycle");
+  assert.strictEqual(res.actions_b42[0].cycle, "En cours de réalisation");
+  assert.strictEqual(res.actions_b42[1].action, "commentaire");
+  assert.ok(res.actions_b42[1].texte.indexOf("SUIVI PRAXEDO ARMÉ : EVE05189") !== -1);
+  assert.ok(res.actions_b42[1].texte.indexOf("retrouvée dans Praxedo") !== -1);
+  assert.deepStrictEqual(res.etat.suivi_refs, ["EVE05189"]);
+  assert.ok(res.journal.some((j) => j.etape === "consigne_armement"));
+});
+
+test("B6.4 armement SANS middleware Praxedo : compte-rendu « indisponible », suivi armé quand même", async () => {
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL, { nom: "X", cycle: "A créer dans Praxedo", tags: [] }),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA intervention 05190 créée" },
+    mistral: async () => { throw new Error("pas de cerveau ici"); }
+  });
+  assert.strictEqual(res.type, "armement");
+  assert.ok(res.actions_b42[1].texte.indexOf("middleware Praxedo non configuré") !== -1);
+  assert.deepStrictEqual(res.etat.suivi_refs, ["05190"]);
+});
+
+test("B6.4 armement : cycle DÉJÀ « En cours de réalisation » → le cycle n'est JAMAIS reposé", async () => {
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL, { nom: "X", cycle: "En cours de réalisation", tags: [] }),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA intervention EVE00002 créée" },
+    mistral: async () => { throw new Error("pas de cerveau ici"); }
+  });
+  assert.strictEqual(res.actions_b42.length, 1);
+  assert.strictEqual(res.actions_b42[0].action, "commentaire");
+  assert.deepStrictEqual(res.etat.suivi_refs, ["EVE00002"]);
+});
+
+test("B6.4 consigne REPRISE + ATTENTE CLIENT → silence journalisé (v2.20.119)", async () => {
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA poursuis la qualification dès que le client aura répondu" },
+    mistral: async () => { throw new Error("silence : aucun appel"); }
+  });
+  assert.strictEqual(res.statut, "silence");
+  assert.strictEqual(res.type, "attente_client");
+  assert.strictEqual(res.appels, 0);
+  assert.deepStrictEqual(res.actions_b42, []);
+  assert.ok(res.journal.some((j) => j.etape === "consigne_attente_client"));
+});
+
+test("B6.4 consigne REPRISE : bypass du silence prise de main — la chaîne NORMALE reprend (tag JAMAIS retiré)", async () => {
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL, { nom: "X", cycle: "A qualifier", tags: ["Prise de main"] }),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA poursuis la qualification" },
+    mistral: async () => reponseConformeDefaut
+  });
+  assert.strictEqual(res.statut, "traite", "la reprise bypass le silence de prise de main");
+  assert.strictEqual(res.appels, 1);
+  assert.ok(res.journal.some((j) => j.etape === "consigne_reprise"));
+  assert.ok(res.journal.some((j) => j.etape === "process_reprise"));
+  // le tag n'est JAMAIS retiré par une consigne (v2.20.106)
+  assert.ok(!res.actions_b42.some((a) => a.action === "retirer_tag"));
+});
+
+test("B6.4 consigne DÉDUP 15 min : repost de la MÊME consigne → silence, zéro appel (v2.20.99)", async () => {
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA poursuis la qualification" },
+    maintenant: MAINTENANT,
+    consigneVue: { cle: consignesLib.cleDedup("547249072", "poursuis la qualification"), ts: MAINTENANT - 5 * 60 * 1000 },
+    mistral: async () => { throw new Error("dédup : aucun appel"); }
+  });
+  assert.strictEqual(res.statut, "silence");
+  assert.strictEqual(res.appels, 0);
+  assert.ok(res.journal.some((j) => j.etape === "consigne_dedup"));
+});
+
+test("B6.4 api : une CONSIGNE en file (canal_nom=consigne) → tour consigne, réponse au collègue, AUCUNE écriture respond.io", async () => {
+  reinitialiseDb();
+  enfileMessage("547249072", "@Agent IA ? où on en est ?", { canalNom: "consigne" });
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  assert.strictEqual(r.statusCode, 200);
+  assert.strictEqual(r.corps.resultats.length, 1);
+  assert.strictEqual(r.corps.resultats[0].statut, "consigne");
+  assert.ok(db.journal.some((j) => j.etape === "consigne_question"));
+  // observation : AUCUNE écriture respond.io (que des GET de lecture)
+  const ecrituresRespondio = appelsFetch.filter((a) => a.url.indexOf("api.respond.io") !== -1 && a.method !== "GET");
+  assert.strictEqual(ecrituresRespondio.length, 0);
+  // la ligne consommée est marquée traite
+  assert.strictEqual(db.messages.filter((m) => m.statut === "traite").length, 1);
+});
+
+test("B6.4 api : les champs PERSISTANTS du dossier (suivi_refs, consigne_vue) survivent à un tour NORMAL", async () => {
+  reinitialiseDb();
+  db.dossiers["547249072"] = {
+    contact_id: "547249072",
+    cycle_actuel: "A qualifier",
+    etat: { suivi_refs: ["EVE00001"], consigne_vue: { cle: "x", ts: 1 }, tag_pdm_ts: 123 }
+  };
+  enfileMessage("547249072", "Toujours rien, le scooter est immobile");
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  assert.strictEqual(r.statusCode, 200);
+  assert.strictEqual(r.corps.resultats[0].statut, "traite");
+  const etatSauve = db.dossiers["547249072"].etat;
+  assert.deepStrictEqual(etatSauve.suivi_refs, ["EVE00001"], "suivi_refs réappliqué depuis le dossier");
+  assert.deepStrictEqual(etatSauve.consigne_vue, { cle: "x", ts: 1 });
+  assert.strictEqual(etatSauve.tag_pdm_ts, 123);
+});
+
+// ============================================================================
+// B6.5.1 — TOUR RELAIS CLIENT : « @Agent IA demande au client l'adresse » →
+// l'agent rédige le message AU CLIENT (gardes qualité, borne 2 appels,
+// transmission littérale en secours). Une consigne qui cite une ref Praxedo
+// reste un ARMEMENT (priorité B6.4).
+// ============================================================================
+
+test("B6.5.1 relais client conforme : message AU CLIENT, 1 appel Mistral LIBRE, action envoyer_message", async () => {
+  const appelsR = [];
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA demande au client l'adresse pour l'intervention" },
+    mistral: async (m, o) => {
+      appelsR.push({ m: m, o: o });
+      return "Bonjour, l'équipe SAV a besoin de l'adresse d'intervention pour votre scooter. Quelle est l'adresse complète où le technicien peut intervenir ?\n-Agent IA U'mob-";
+    }
+  });
+  assert.strictEqual(res.statut, "consigne");
+  assert.strictEqual(res.type, "relais_client");
+  assert.strictEqual(res.appels, 1);
+  assert.ok(res.reponse.indexOf("adresse") !== -1, "le message AU CLIENT porte la demande");
+  assert.ok(res.reponse.indexOf("-Agent IA U'mob-") !== -1, "signature présente");
+  assert.strictEqual(res.actions_b42.length, 1);
+  assert.strictEqual(res.actions_b42[0].action, "envoyer_message");
+  assert.ok(res.journal.some((j) => j.etape === "consigne_relais_client"));
+  assert.ok(res.journal.some((j) => j.etape === "observation" && j.texte.indexOf("NON ENVOYÉ") !== -1));
+  // le prompt : SYSTEME RELAIS + la consigne, appel TEXTE LIBRE
+  assert.strictEqual(appelsR.length, 1);
+  assert.strictEqual(appelsR[0].o.texteLibre, true);
+  assert.ok(appelsR[0].m[0].content.indexOf("TRANSMETTRE") !== -1);
+  assert.ok(appelsR[0].m[1].content.indexOf("l'adresse pour l'intervention") !== -1);
+});
+
+test("B6.5.1 relais client BYPASSE le silence de prise de main (le collègue donne l'ordre)", async () => {
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL, { nom: "X", cycle: "", tags: ["Prise de main"] }),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA demande-lui son adresse d'intervention" },
+    mistral: async () => "Bonjour, où le technicien doit-il intervenir ? Quelle est l'adresse exacte ?\n-Agent IA U'mob-"
+  });
+  assert.strictEqual(res.statut, "consigne", "pas de silence : le relais est un ordre du collègue");
+  assert.strictEqual(res.type, "relais_client");
+  assert.strictEqual(res.appels, 1);
+  assert.ok(res.reponse.indexOf("adresse") !== -1);
+});
+
+test("B6.5.1 relais client : question FERMÉE → garde → UNE régénération avec rappels, conforme au 2e appel", async () => {
+  const appelsR = [];
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA dis au client que le technicien passe" },
+    mistral: async (m, o) => {
+      appelsR.push({ m: m, o: o });
+      if (appelsR.length === 1) return "Bonjour, pouvez-vous me confirmer le passage du technicien ?\n-Agent IA U'mob-";
+      return "Bonjour, l'équipe SAV m'informe qu'un technicien passera sur place. À quelle adresse exacte doit-il se présenter ?\n-Agent IA U'mob-";
+    }
+  });
+  assert.strictEqual(res.type, "relais_client");
+  assert.strictEqual(res.appels, 2, "régénération bornée à 2 appels");
+  assert.ok(res.journal.some((j) => j.etape === "relais_gardes"), "la garde est journalisée");
+  assert.ok(res.reponse.indexOf("pouvez-vous") === -1, "la question fermée a disparu");
+  assert.ok(appelsR[1].m[1].content.indexOf("CORRECTIONS EXIGÉES") !== -1, "rappels réinjectés");
+});
+
+test("B6.5.1 relais client : récidive de garde → transmission LITTÉRALE de la consigne (zéro invention)", async () => {
+  let appels = 0;
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA demande au client l'adresse pour l'intervention" },
+    mistral: async () => { appels++; return "Bonjour, pouvez-vous me donner votre adresse ?\n-Agent IA U'mob-"; }
+  });
+  assert.strictEqual(res.appels, 2, "borne 2 appels, jamais de 3e");
+  assert.strictEqual(res.type, "relais_client");
+  assert.ok(res.reponse.indexOf("Message de l'équipe SAV") !== -1, "transmission littérale");
+  assert.ok(res.reponse.indexOf("l'adresse pour l'intervention") !== -1, "la consigne est transmise telle quelle");
+  assert.ok(res.reponse.indexOf("-Agent IA U'mob-") !== -1, "signature quand même");
+  assert.ok(res.journal.some((j) => j.etape === "relais_gardes" && j.texte.indexOf("LITTÉRALE") !== -1));
+});
+
+test("B6.5.1 priorité B6.4 : une consigne de relais qui CITE une ref Praxedo reste un ARMEMENT", async () => {
+  const res = await processLib.traiterMessage({
+    contactId: "547249072",
+    ctx: ctxStandard(filGG798NL),
+    declencheur: "consigne",
+    consigne: { texte: "@Agent IA dis au client que l'intervention EVE05189 est lancée" },
+    mistral: async () => { throw new Error("le tour armement n'appelle jamais Mistral"); }
+  });
+  assert.strictEqual(res.type, "armement");
+  assert.strictEqual(res.appels, 0);
+  assert.ok(res.journal.some((j) => j.etape === "consigne_armement"));
+  assert.deepStrictEqual(res.etat.suivi_refs, ["EVE05189"]);
+});
+
+// ============================================================================
+// B6.7.2 — CLIENTS MULTI-SCOOTERS — incident console Corentin 28/10 : après
+// RESET, problème « guidon » d'un client flotte → G4 croyait la plaque
+// « déjà connue » (les 11 plaques flotte vivaient dans plaques) → régénération
+// → récidive → repli neutre + transfert SAV SYSTÉMATIQUE. La flotte vit
+// désormais dans plaques_flotte : le scooter concerné n'est PAS identifié.
+// ============================================================================
+
+test("B6.7.2 incident multi-scooters : problème SANS plaque citée → question d'identification CONFORME (1 Mistral, plus de repli)", async () => {
+  reinitialiseDb();
+  if (!db.clients.some((c) => c.telephone === "33611223344")) {
+    db.clients.push({ telephone: "33611223344", plaque: "GJ337WF / GG798NL", enseigne: "DOMINO'S PIZZA TEST", statut_risque: null });
+  }
+  fiches["444446"] = { phone: "+33611223344", fullName: "DOMINO'S PIZZA TEST", lifecycle: { name: "Nouvelle Demande" }, tags: [] };
+  const message = "j'ai un problème de guidon";
+  historiques["444446"] = [itemRespondio({ ts: 1792683540000, texte: message })];
+  enfileMessage("444446", message);
+  reponsesMistral.push(JSON.stringify({
+    reponse: "Merci pour votre message. Pour intervenir rapidement : quelle est l'immatriculation du scooter concerné, s'il vous plaît ?\n-Agent IA U'mob-",
+    formulaire: { panne: "problème de guidon", etape: 2 },
+    escalade: false,
+    raison_escalade: ""
+  }));
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  const res = r.corps.resultats[0];
+  assert.strictEqual(res.statut, "traite", "la question d'identification d'un client flotte passe les gardes");
+  assert.strictEqual(res.appels_mistral, 1, "aucune régénération : G4 ne tire plus sur la flotte");
+  assert.ok(!db.journal.some((j) => j.etape === "process_gardes"), "aucune faute détectée");
+  assert.ok(!db.journal.some((j) => j.etape === "process_repli"), "plus de repli neutre injustifié");
+  assert.ok(!db.journal.some((j) => j.etape === "process_prise_de_main"), "plus de transfert SAV systématique");
+  // l'état : flotte connue (fiche), scooter NON identifié
+  const d = db.dossiers["444446"];
+  assert.strictEqual(d.etat.plaques.length, 0, "aucune plaque identifiée (le scooter concerné reste à qualifier)");
+  assert.ok(d.etat.plaques_flotte.indexOf("GJ337WF") !== -1 && d.etat.plaques_flotte.indexOf("GG798NL") !== -1, "flotte conservée dans plaques_flotte");
+  // le prompt du cerveau porte la guidance multi-scooters
+  const prompt = JSON.stringify(appelsMistral[0]);
+  assert.ok(prompt.indexOf("Flotte du client") !== -1, "la flotte est rendue au LLM");
+  assert.ok(prompt.indexOf("LEQUEL") !== -1, "le LLM sait qu'il doit demander LEQUEL est concerné");
+});
+
+test("B6.7.2 nouveau problème, scooter DÉJÀ identifié → guidance de rapprochement dans le prompt (même scooter ou un autre)", async () => {
+  reinitialiseDb();
+  if (!db.clients.some((c) => c.telephone === "33611223344")) {
+    db.clients.push({ telephone: "33611223344", plaque: "GJ337WF / GG798NL", enseigne: "DOMINO'S PIZZA TEST", statut_risque: null });
+  }
+  fiches["444446"] = { phone: "+33611223344", fullName: "DOMINO'S PIZZA TEST", lifecycle: { name: "Nouvelle Demande" }, tags: [] };
+  historiques["444446"] = [
+    itemRespondio({ ts: 1792683540000, texte: "mon scooter GG-798-NL a un problème de guidon" }),
+    itemRespondio({ ts: 1792683541000, texte: "Merci, nous prenons en charge votre demande pour le scooter GG-798-NL.", sortant: true }),
+    itemRespondio({ ts: 1792683542000, texte: "j'ai aussi un souci de frein arrière" })
+  ];
+  enfileMessage("444446", "j'ai aussi un souci de frein arrière");
+  reponsesMistral.push(JSON.stringify({
+    reponse: "Merci pour cette précision. Ce nouveau problème concerne-t-il le même scooter GG-798-NL, ou s'agit-il d'un autre scooter de votre flotte ?\n-Agent IA U'mob-",
+    formulaire: { panne: "problème de guidon + souci de frein arrière", etape: 3 },
+    escalade: false,
+    raison_escalade: ""
+  }));
+  const r = await apiProcess(requete("?secret=secret-de-test-b4"), faireRes());
+  const res = r.corps.resultats[0];
+  assert.strictEqual(res.statut, "traite");
+  assert.strictEqual(res.appels_mistral, 1, "la question de rapprochement ne heurte NI G2 NI G4");
+  assert.ok(!db.journal.some((j) => j.etape === "process_repli"));
+  // le prompt porte la ligne de rapprochement
+  const prompt = JSON.stringify(appelsMistral[0]);
+  assert.ok(prompt.indexOf("Scooter identifié pour ce dossier") !== -1, "le LLM voit le scooter identifié");
+  assert.ok(prompt.indexOf("NOUVEAU problème") !== -1, "le LLM est guidé vers le rapprochement même scooter / un autre");
+});
