@@ -815,7 +815,7 @@ select{padding:8px;border:1px solid #ccc;border-radius:8px;font-size:13px;flex:1
 </style>
 </head>
 <body>
-<h1>Agent SAV v2 — Console de test</h1>
+<h1>Agent SAV v2 — Console de test <span style="font-size:0.55em;background:#eef;padding:2px 8px;border-radius:8px">version ${VERSION}</span></h1>
 <div class="sous">Bac à sable : chaîne RÉELLE (fiche client miroir, vérification parc, Mistral, gardes, RESET, commentaires internes @Agent IA) mais ZÉRO écriture — rien n'est envoyé au client, rien n'est journalisé, aucun accès respond.io. La mémoire de la conversation vit dans CETTE page ; « RESET » la purge.</div>
 
 <div class="carte">
@@ -1510,7 +1510,9 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ ok: false, erreur: "methode non autorisee" });
   }
   if (!autorise(req)) {
-    return res.status(401).json({ ok: false, erreur: "secret invalide" });
+    // B6.7.4.1 : la 401 annonce la VERSION déployée — diagnostic public sans
+    // secret (vérifier par curl que la prod tourne bien le dernier commit).
+    return res.status(401).json({ ok: false, erreur: "secret invalide", version: VERSION });
   }
 
   var manquantes = [];
