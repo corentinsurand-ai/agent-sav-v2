@@ -1,7 +1,7 @@
 // ============================================================================
 // Agent SAV U'mob v2 — C1-IMP : tests de /api/clients-import (node --test)
 // Exécution : node --test tests/test-clients-import.js
-// (9 tests — aucune dépendance : Supabase et fetch sont SIMULÉS)
+// (11 tests — aucune dépendance : Supabase et fetch sont SIMULÉS)
 // ============================================================================
 
 const test = require('node:test');
@@ -167,4 +167,30 @@ test('verifier sur config manquante → 500 explicite', async () => {
   } finally {
     process.env.SUPABASE_URL = 'https://supabase-test.supabase.co';
   }
+});
+
+test('GET ?liste=1 → liste complète du miroir (brut inclus, limite)', async () => {
+  appels = [];
+  var res = faireRes();
+  await handler(faireReq('GET',
+    '/api/clients-import?secret=secret-test-c1imp&liste=1&limite=50', null), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.ok(urlDe(0).indexOf('/rest/v1/clients?') !== -1, 'lecture clients : ' + urlDe(0));
+  assert.ok(urlDe(0).indexOf('select=telephone,enseigne,plaque,statut_risque,brut') !== -1,
+    'brut inclus : ' + urlDe(0));
+  assert.ok(urlDe(0).indexOf('limit=50') !== -1, 'limite appliquée : ' + urlDe(0));
+  assert.ok(urlDe(0).indexOf('order=maj_a.desc') !== -1, 'ordre déterministe : ' + urlDe(0));
+  assert.strictEqual(optionsDe(0).headers['Accept-Profile'], 'agent_sav');
+  assert.strictEqual(res.corps.ok, true);
+  assert.strictEqual(res.corps.limite, 50);
+});
+
+test('GET ?liste=1 limite hors bornes → bornée à 5000', async () => {
+  appels = [];
+  var res = faireRes();
+  await handler(faireReq('GET',
+    '/api/clients-import?secret=secret-test-c1imp&liste=1&limite=999999', null), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.ok(urlDe(0).indexOf('limit=5000') !== -1, 'limite bornée : ' + urlDe(0));
+  assert.strictEqual(res.corps.limite, 5000);
 });
