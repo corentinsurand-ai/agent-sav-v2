@@ -419,3 +419,46 @@ test('B6.7.2 G4 : flotte + plaque IDENTIFIÉE en conversation → la redemande r
   assert.ok(codes(r).indexOf('plaque_redemandee') !== -1);
   assert.ok(r.fautes[0].rappel.indexOf('GG-798-NL') !== -1);
 });
+
+
+// ============================================================================
+// B6.14 — G13 : RÈGLE 12 — un récapitulatif de dossier SAV ne pose JAMAIS la
+// confirmation sans l'adresse d'intervention : absente du dossier et non
+// demandée dans le message → faute « recap_sans_adresse » (régénération).
+// ============================================================================
+test('G13 : récap « tout est correct » SANS adresse dans le dossier ni dans la question → FAUTE', () => {
+  const etat = etatAvec({ panne: 'levier cassé', plaques: ['AB123CD'] });
+  const r = gardes.verifier({
+    reponse: "Voici le récapitulatif : AB-123-CD, levier cassé, 0612345678. Est-ce que tout est correct ?\n-Agent IA U'mob-",
+    etat: etat
+  });
+  assert.ok(codes(r).indexOf('recap_sans_adresse') !== -1);
+  assert.ok(r.fautes.find((x) => x.code === 'recap_sans_adresse').rappel.indexOf('RÈGLE 12') !== -1);
+});
+
+test('G13 : récap qui DEMANDE l adresse → conforme (la confirmation viendra après)', () => {
+  const etat = etatAvec({ panne: 'levier cassé', plaques: ['AB123CD'] });
+  const r = gardes.verifier({
+    reponse: "Merci. Pour finaliser le dossier : quelle est l'adresse d'intervention pour AB-123-CD ?\n-Agent IA U'mob-",
+    etat: etat
+  });
+  assert.strictEqual(codes(r).indexOf('recap_sans_adresse'), -1);
+});
+
+test('G13 : récap avec adresse DÉJÀ CONNUE dans le dossier → conforme (le récap la cite à confirmer)', () => {
+  const etat = etatAvec({ panne: 'levier cassé', plaques: ['AB123CD'], adresse: '12 rue de la Gare, Lyon' });
+  const r = gardes.verifier({
+    reponse: "Voici le récapitulatif : AB-123-CD, levier cassé, 0612345678, adresse : 12 rue de la Gare. Est-ce que tout est correct ?\n-Agent IA U'mob-",
+    etat: etat
+  });
+  assert.strictEqual(codes(r).indexOf('recap_sans_adresse'), -1);
+});
+
+test('G13 : SANS panne décrite → pas de faute d adresse (pas un dossier SAV à récapituler)', () => {
+  const etat = etatAvec({});
+  const r = gardes.verifier({
+    reponse: "Voici le récapitulatif. Est-ce que tout est correct ?\n-Agent IA U'mob-",
+    etat: etat
+  });
+  assert.strictEqual(codes(r).indexOf('recap_sans_adresse'), -1);
+});

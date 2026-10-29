@@ -60,7 +60,7 @@
 // SUPABASE_SERVICE_KEY, MISTRAL_API_KEY) ou erreur de traitement.
 // ============================================================================
 
-var VERSION = "B6.13";
+var VERSION = "B6.14";
 var SCHEMA = "agent_sav";
 
 var etatLib = require("../lib/etat.js");
@@ -394,19 +394,23 @@ var REGLES_DURES = [
     texte: "question OUVERTE groupée : adresse + numéro à contacter + jours de fermeture",
     fichier: "lib/cerveau.js (prompt SYSTEME)",
     motif: /intervention|intervenir/i },
-  { id: "campagne_push", brique: "B6.9", titre: "Campagne push - jamais « votre demande »",
+  { id: "12", brique: "B6.14", titre: "Règle 12 - RECAP AVEC ADRESSE",
+      texte: "le récapitulatif fait confirmer l'adresse d'intervention au client ; absente → la demander AVANT la confirmation",
+      fichier: "lib/cerveau.js (prompt SYSTEME) + lib/gardes.js (G13)", motif: /récapitulatif|tout est correct/i, surReponse: true },
+    { id: "campagne_push", brique: "B6.9", titre: "Campagne push - jamais « votre demande »",
     texte: "remercier du retour + question ouverte sur le besoin (pas un ticket SAV)",
     fichier: "lib/cerveau.js + lib/gardes.js (G12)",
     motif: null }
 ];
 
-function reglesConcernees(message, etat) {
+function reglesConcernees(message, etat, reponse) {
   var e = etat || {};
   var t = String(message || "") + " " + String(e.panne || "");
+  var tr = String(reponse || ""); // B6.14 — certaines règles jouent sur la RÉPONSE de l'agent (ex. récapitulatif)
   var out = [];
   for (var i = 0; i < REGLES_DURES.length; i++) {
     var r = REGLES_DURES[i];
-    var joue = r.motif ? r.motif.test(t) : !!e.campagne_push;
+    var joue = r.surReponse ? (r.motif && r.motif.test(tr)) : (r.motif ? r.motif.test(t) : !!e.campagne_push);
     if (joue) {
       out.push({ id: r.id, titre: r.titre, texte: r.texte, fichier: r.fichier, brique: r.brique });
     }
@@ -543,6 +547,7 @@ function etatCompact(etat) {
     plaques_flotte: e.plaques_flotte || [], // B6.7.2 — flotte (fiche), scooter NON identifié
     panne: e.panne || "",
     telephone_contact: e.telephone_contact || "",
+    adresse: e.adresse || "", // B6.14 — l'adresse d'intervention figure dans le dossier
     jours_fermeture: e.jours_fermeture || "",
     demande_commerciale: !!e.demande_commerciale,
     prise_de_main: !!e.prise_de_main,
@@ -718,7 +723,7 @@ async function traiterEchange(corps) {
     client: clientCompact(client),
     etat: etatCompact(resultat.etat),
     lecons_appliquees: leconsAppliquees, // B6.7 — les leçons de terrain entrées dans le prompt de CE tour
-    regles_concernees: reglesConcernees(message, resultat.etat), // B6.12 — règles DURES du code jouant à ce tour
+    regles_concernees: reglesConcernees(message, resultat.etat, resultat.reponse), // B6.12 + B6.14 (règles détectées aussi sur la réponse) — règles DURES du code jouant à ce tour
     persistant: persistantDe(corps), // B6.5 — echo : le navigateur les renvoie au tour suivant
     journal: resultat.journal.map(function (j) { return { etape: j.etape, texte: j.texte }; })
   };

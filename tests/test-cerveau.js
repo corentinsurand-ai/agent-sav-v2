@@ -54,6 +54,39 @@ test('SYSTEME B6.8 : règle adresse + numéro contact + jours de fermeture group
     'la règle impose la formulation ouverte pour éviter la garde question_fermee');
 });
 
+// ============================================================================
+// B6.14 — RÈGLE 12 : le récapitulatif fait CONFIRMER l'adresse d'intervention
+// au client ; absente du dossier → la demander AVANT la confirmation. Champ
+// « adresse » ajouté au dossier — incident Corentin 28/10 : « lors du résumé,
+// parfois il ne demande pas l'adresse ».
+// ============================================================================
+test('SYSTEME B6.14 : règle 12 en dur — le récap fait confirmer l adresse', () => {
+  const s = cerveau.SYSTEME;
+  assert.ok(s.indexOf("12. Récapitulatif : cite l'adresse d'intervention") !== -1);
+  assert.ok(s.indexOf('demande-la AVANT') !== -1);
+  assert.ok(s.indexOf("adresse d'intervention + panne") !== -1, 'l étape 4 cite l adresse dans la liste à confirmer');
+  assert.ok(s.indexOf('"adresse"') !== -1, 'le formulaire de sortie accepte le champ adresse');
+});
+
+test('B6.14 : le contexte du dossier rend l ADRESSE au LLM (manquante OU déjà fournie)', () => {
+  const e1 = etatLib.etatVierge(); e1.panne = 'levier cassé';
+  const ctx1 = JSON.stringify(cerveau.construireMessages({ etat: e1 }));
+  assert.ok(ctx1.indexOf("Adresse d'intervention") !== -1);
+  assert.ok(ctx1.indexOf('manquante') !== -1, 'le LLM doit savoir que l adresse manque');
+  const e2 = etatLib.etatVierge(); e2.panne = 'levier cassé'; e2.adresse = '12 rue de la Gare, Lyon';
+  const ctx2 = JSON.stringify(cerveau.construireMessages({ etat: e2 }));
+  assert.ok(ctx2.indexOf('12 rue de la Gare, Lyon') !== -1);
+  assert.ok(ctx2.indexOf('ne JAMAIS la redemander') !== -1);
+});
+
+test('B6.14 : fusionnerMajEtat stocke l adresse (bornée), jamais d écrasement', () => {
+  const e = etatLib.etatVierge();
+  cerveau.fusionnerMajEtat(e, { adresse: '  12 rue de la Gare  ' });
+  assert.strictEqual(e.adresse, '12 rue de la Gare');
+  cerveau.fusionnerMajEtat(e, { adresse: 'autre adresse' }); // jamais écraser
+  assert.strictEqual(e.adresse, '12 rue de la Gare');
+});
+
 test('construireMessages : 2 messages (system + user), le formulaire est dans le contexte', () => {
   const etat = etatLib.reconstruireEtat([
     { texte: 'mon scooter GG-798-nl ne démarre plus', sortant: false },
