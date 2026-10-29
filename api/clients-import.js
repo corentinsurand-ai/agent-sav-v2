@@ -32,6 +32,11 @@
 // (mêmes règles exactes que /api/sync-clients.js). JAMAIS de secret dans le
 // code. Journal : 1 ligne agent_sav.journal (etape import_clients).
 //
+// CORS : la plateforme C1 (prototype navigateur) appelle cette route en
+// direct depuis le navigateur — sans Access-Control-Allow-Origin, la
+// réponse est bloquée (« Failed to fetch »). Allow-Origin: * accepté pour
+// ce prototype car l'authentification reste le secret (jamais dans le code).
+//
 // Réponses : 200 ; 400 corps invalide (clients vides, client sans téléphone
 // ni enseigne) ; 401 secret invalide ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
@@ -140,6 +145,16 @@ function normaliserClientEntre(c) {
 }
 
 module.exports = async function handler(req, res) {
+  // CORS — la plateforme C1 (navigateur) lit cette route en direct.
+  try { res.setHeader('Access-Control-Allow-Origin', '*'); } catch (e) {}
+  if (req.method === 'OPTIONS') {
+    try {
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-webhook-secret');
+    } catch (e) {}
+    return res.status(204).end();
+  }
+
   if (secretDe(req) !== env('WEBHOOK_SECRET') || !env('WEBHOOK_SECRET')) {
     return res.status(401).json({ ok: false, erreur: 'secret invalide' });
   }
