@@ -20,20 +20,23 @@
 //                   transfert, contrat, adresse_complete}, … ] }
 //   GET  ?secret=…&verifier=1&prefixe=TEST                       → lecture
 //        des clients importés (miroir, pour vérifier l'import en prod)
+//   GET  ?secret=…&liste=1&limite=1000                           → liste
+//        complète du miroir (plateforme C1 : fiches sociétés, contacts,
+//        plaques, contrats — brut inclus)
 //
 // Normalisations IDENTIQUES à la synchro : téléphone → 33612345678
 // (normaliserTelephone), plaques → TT101TE (normaliserImmat), plaque
 // agrégée = plaques uniques jointes par « / » (même forme que lireClients).
 //
 // Authentification : ?secret=<WEBHOOK_SECRET> ou header x-webhook-secret
-// (mêmes règles exactes que /api/sync-clients). JAMAIS de secret dans le
+// (mêmes règles exactes que /api/sync-clients.js). JAMAIS de secret dans le
 // code. Journal : 1 ligne agent_sav.journal (etape import_clients).
 //
 // Réponses : 200 ; 400 corps invalide (clients vides, client sans téléphone
 // ni enseigne) ; 401 secret invalide ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C1-IMP-1';
+var VERSION = 'C1-IMP-2';
 var SCHEMA = 'agent_sav';
 
 var clients = require('../lib/clients.js');
@@ -141,8 +144,8 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ ok: false, erreur: 'secret invalide' });
   }
 
-  // GET ?verifier=1&prefixe=TEST → lecture de contrôle des clients importés
   if (req.method === 'GET') {
+    // GET ?verifier=1&prefixe=TEST → lecture de contrôle des clients importés
     if (paramDe(req, 'verifier') === '1') {
       if (!env('SUPABASE_URL') || !env('SUPABASE_SERVICE_KEY')) {
         return res.status(500).json({ ok: false, erreur: 'configuration Supabase manquante' });
@@ -159,11 +162,34 @@ module.exports = async function handler(req, res) {
         return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
       }
     }
+
+    // GET ?liste=1[&limite=N] → liste des clients du miroir (plateforme C1 :
+    // fiches sociétés, contacts, plaques, contrats — brut inclus)
+    if (paramDe(req, 'liste') === '1') {
+      if (!env('SUPABASE_URL') || !env('SUPABASE_SERVICE_KEY')) {
+        return res.status(500).json({ ok: false, erreur: 'configuration Supabase manquante' });
+      }
+      try {
+        var limite = parseInt(paramDe(req, 'limite'), 10) || 1000;
+        if (limite < 1) limite = 1;
+        if (limite > 5000) limite = 5000;
+        var lignesListe = await supabaseGet('clients',
+          'select=telephone,enseigne,plaque,statut_risque,brut&order=maj_a.desc&limit=' + limite);
+        return res.status(200).json({
+          ok: true, brique: 'C1-IMP', version: VERSION,
+          limite: limite, trouves: lignesListe.length, clients: lignesListe
+        });
+      } catch (e) {
+        return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
+      }
+    }
+
     return res.status(200).json({
       ok: true, brique: 'C1-IMP', version: VERSION,
       role: 'import manuel de clients dans agent_sav.clients (meme ecriture que la synchro Sheet B2.2)',
       post: '{ clients: [ { telephone, plaques: [immat], enseigne, statut_risque, lignes: [lignes du Sheet] } ] }',
-      verifier: 'GET ?verifier=1&prefixe=TEST'
+      verifier: 'GET ?verifier=1&prefixe=TEST',
+      liste: 'GET ?liste=1&limite=1000 — liste complete du miroir (plateforme C1)'
     });
   }
 
