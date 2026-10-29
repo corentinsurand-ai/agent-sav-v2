@@ -47,7 +47,7 @@ function faireRes() {
 const ENTETES = ['Code client', 'Nom client', 'Addresse', 'Code postal', 'Ville',
   'Libellé produit', 'Immatriculation', 'Prénom', 'Nom contact', 'Fonction',
   'Mobile', 'Email', 'N° contrat', 'Libellé contrat', 'Date début', 'Date fin',
-  'Etat', 'Risque', 'Impayés', 'Procédure collective', 'Transfert', 'Résiliation'];
+  'Etat', 'Risque', 'Impayés', 'Procédure collective', 'Transfert', 'Résiliation', 'Siren'];
 
 const ONGLET = 'Client_contacts_risq_contr_prod';
 const LIGNES = [
@@ -57,18 +57,18 @@ const LIGNES = [
   ENTETES,                                                                                                                                                  // 4 en-têtes
   ['C001', 'PIZZA AL FORNO', '12 rue de la Paix', '75002', 'Paris', 'Scooter PX', 'aa-123-bb',
     'Marc', 'Dupont', 'Gérant', '06 12 34 56 78', 'marc@pizzaforno.fr', 'C-456', 'Maintenance',
-    '01/01/2025', '31/12/2026', 'Actif', 'RISQUE FORT', '', '', '', ''],                      // 5 client 1, scooter 1
+    '01/01/2025', '31/12/2026', 'Actif', 'RISQUE FORT', '', '', '', '', '123456789'],                      // 5 client 1, scooter 1
   ['C001', 'PIZZA AL FORNO', '12 rue de la Paix', '75002', 'Paris', 'Scooter PY', 'cc-456-dd',
     'Marc', 'Dupont', 'Gérant', '06 12 34 56 78', 'marc@pizzaforno.fr', 'C-457', 'Maintenance',
-    '01/01/2025', '31/12/2026', 'Actif', '', '', '', '', ''],                                 // 6 client 1, scooter 2 (MÊME tél)
+    '01/01/2025', '31/12/2026', 'Actif', '', '', '', '', '', '123456789'],                                 // 6 client 1, scooter 2 (MÊME tél)
   ['C002', 'BISTRO LYON', '3 quai Rhône', '69002', 'Lyon', 'Scooter PZ', 'ff-112-hh',
     'Léa', 'Martin', '', '', 'lea@bistro.fr', 'C-458', 'Maintenance', '', '', 'Actif', '', '', '', '', ''],  // 7 SANS mobile → ignorée
   ['C003', 'SUSHI NICE', '8 prom Anglais', '06000', 'Nice', 'Scooter PW', 'ee-789-ff',
     'Kenji', 'Sato', 'Dirigeant', '+33 6 98 76 54 32', 'kenji@sushi.fr', 'C-459', 'Maintenance',
-    '15/03/2025', '14/03/2027', 'Actif', 'IMPAYÉ 2 MENSUALITÉS', '', '', '', ''],             // 8 client 2
+    '15/03/2025', '14/03/2027', 'Actif', 'IMPAYÉ 2 MENSUALITÉS', '', '', '', '', ''],             // 8 client 2
   ['C003', 'SUSHI NICE', '8 prom Anglais', '06000', 'Nice', 'Scooter PW', 'ee-789-ff',
     'Kenji', 'Sato', 'Dirigeant', '+33 6 98 76 54 32', 'kenji@sushi.fr', 'C-459', 'Maintenance',
-    '15/03/2025', '14/03/2027', 'Actif', '', '', '', '', '']                                  // 9 client 2, DOUBLON immat → plaque UNIQUE
+    '15/03/2025', '14/03/2027', 'Actif', '', '', '', '', '', '']                                  // 9 client 2, DOUBLON immat → plaque UNIQUE
 ];
 
 // Fake Sheet pour le test de chunking : 1200 lignes de données, un téléphone
@@ -291,6 +291,7 @@ test('lireClients : en-têtes détectés ligne 4, colonnes utiles détectées', 
   assert.ok(lecture.colonnes.immat);
   assert.ok(lecture.colonnes.telephone);
   assert.ok(lecture.colonnes.risque);
+  assert.ok(lecture.colonnes.siren);
   assert.ok(lecture.colonnes.contrat_debut);
 });
 
@@ -308,6 +309,8 @@ test('lireClients : regroupement par téléphone, plaques uniques, risques', asy
   assert.strictEqual(pizza.statut_risque, 'RISQUE FORT');
   assert.strictEqual(pizza.plaque, 'AA123BB / CC456DD');       // 2 scooters
   assert.strictEqual(pizza.brut.lignes.length, 2);
+  assert.strictEqual(pizza.siren, '123456789');               // fiche société plateforme C1
+  assert.strictEqual(pizza.brut.lignes[0].siren, '123456789');
   assert.ok(pizza.brut.lignes[0].contrat.indexOf('n° C-456') !== -1);
   assert.ok(pizza.brut.lignes[0].contrat.indexOf('du 01/01/2025') !== -1);
   assert.ok(pizza.brut.lignes[0].contrat.indexOf('état : Actif') !== -1);
@@ -468,6 +471,7 @@ test('handler synchro réelle : upsert des clients détectés', async () => {
   assert.strictEqual(rows[0].enseigne, 'PIZZA AL FORNO');
   assert.strictEqual(rows[0].statut_risque, 'RISQUE FORT');
   assert.ok(rows[0].brut.lignes.length === 2);
+  assert.strictEqual(rows[0].brut.lignes[0].siren, '123456789');
 });
 
 test('handler : header x-webhook-secret accepté (comme webhook/contexte)', async () => {
@@ -486,3 +490,4 @@ test('handler : erreur Google remonte en 500 avec message', async () => {
   assert.strictEqual(res.statusCode, 500);
   assert.ok(String(res.corps.erreur).indexOf('403') !== -1);
 });
+
