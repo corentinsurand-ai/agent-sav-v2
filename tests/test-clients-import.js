@@ -1,7 +1,7 @@
 // ============================================================================
 // Agent SAV U'mob v2 — C1-IMP : tests de /api/clients-import (node --test)
 // Exécution : node --test tests/test-clients-import.js
-// (11 tests — aucune dépendance : Supabase et fetch sont SIMULÉS)
+// (12 tests — aucune dépendance : Supabase et fetch sont SIMULÉS)
 // ============================================================================
 
 const test = require('node:test');
@@ -20,6 +20,8 @@ function faireRes() {
   return {
     statusCode: null,
     corps: null,
+    entetes: {},
+    setHeader(nom, val) { this.entetes[nom] = val; },
     status(code) { this.statusCode = code; return this; },
     json(obj) { this.corps = obj; return this; },
     end() { return this; }
@@ -51,6 +53,15 @@ test('GET sans secret → 401', async () => {
   await handler(faireReq('GET', '/api/clients-import'), res);
   assert.strictEqual(res.statusCode, 401);
   assert.strictEqual(res.corps.erreur, 'secret invalide');
+  assert.strictEqual(res.entetes['Access-Control-Allow-Origin'], '*', 'CORS présent (plateforme C1 navigateur)');
+});
+
+test('OPTIONS (préflight navigateur) → 204 sans secret', async () => {
+  var res = faireRes();
+  await handler(faireReq('OPTIONS', '/api/clients-import'), res);
+  assert.strictEqual(res.statusCode, 204);
+  assert.strictEqual(res.entetes['Access-Control-Allow-Origin'], '*');
+  assert.ok(String(res.entetes['Access-Control-Allow-Methods']).indexOf('GET') !== -1);
 });
 
 test('GET avec secret → info (aucun accès Supabase)', async () => {
