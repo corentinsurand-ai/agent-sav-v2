@@ -192,7 +192,7 @@ test('date invalide : recu_a = now, pas de crash', async function () {
 
 // ---- Unitaires lib/mail.js ----------------------------------------------------
 test('parseMessage : base64 accents + emoji, sujet B, nom Q, from addr', function () {
-  var brut = 'From: =?UTF-8?Q?J=C3=A9r=C3=B4me_Martin?= <jerome@example.com>\r\nSubject: =?UTF-8?B?UsOpcGFyYXRpb24=?=\r\nMessage-ID: <abc@def>\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\nQ2hhcmdlIGVtZW50ZSBwbHVzIMOgIHNjb290ZXIg8J+Tqw==';
+  var brut = 'From: =?UTF-8?Q?J=C3=A9r=C3=B4me_Martin?= <jerome@example.com>\r\nSubject: =?UTF-8?B?UsOpcGFyYXRpb24=?=\r\nMessage-ID: <abc@def>\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\nQ2hhcmdlIGVtZW50ZSBwbHVzIMOgIHNjb290ZXIg8J+btQ==';
   var m = mail.parseMessage(brut);
   assert.equal(m.from_addr, 'jerome@example.com');
   assert.equal(m.from_nom, 'Jérôme Martin');
@@ -226,7 +226,7 @@ test('parseMessage : repli html detague sans plain', function () {
 
 test('decoderB64 maison : accents + emoji', function () {
   assert.equal(mail.decoderB64('Q2Fmw6k='), 'Café');
-  assert.equal(mail.decoderB64('8J+Tqw=='), String.fromCodePoint(0x1F6F5));
+  assert.equal(mail.decoderB64('8J+btQ=='), String.fromCodePoint(0x1F6F5));
 });
 
 // ---- Unitaires lib/imap.js ----------------------------------------------------
@@ -249,8 +249,8 @@ test('extraireReponse : faux OK dans un litteral ignore (octets), complet vs tro
 });
 
 test('uidsDeRecherche + litteralFetch + estOk', function () {
-  assert.deepEqual(imapLib.uidsDeReponse('* SEARCH 5 12 30\r\nA2 OK'), [5, 12, 30]);
-  assert.deepEqual(imapLib.uidsDeReponse('A2 OK Search completed'), []);
+  assert.deepEqual(imapLib.uidsDeRecherche('* SEARCH 5 12 30\r\nA2 OK'), [5, 12, 30]);
+  assert.deepEqual(imapLib.uidsDeRecherche('A2 OK Search completed'), []);
   assert.equal(imapLib.litteralFetch('* FETCH {3}\r\n<LIT>abc</LIT>),\r\nA3 OK'), 'abc');
   assert.equal(imapLib.litteralFetch('A3 OK sans litteral'), null);
   assert.ok(imapLib.estOk('A1 OK [CAPABILITY x] ready', 'A1'));
