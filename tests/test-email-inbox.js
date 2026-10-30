@@ -99,7 +99,9 @@ test('nominal : 2 nouveaux emails, 2 importes, boite fermee, journal ok', async 
   assert.equal(rr.res.corps.importes, 2);
   assert.equal(rr.res.corps.ignores, 0);
   assert.ok(FERME, 'LOGOUT/fermeture attendus');
-  var inserts = APPELS.filter(function (a) { return a.opts.method === 'POST' && a.url.indexOf('on_conflict') !== -1; });
+  // FUS-5 : plus de on_conflict (pas de contrainte unique) -> POST /emails direct,
+  // doublon evite par pre-verification GET message_id
+  var inserts = APPELS.filter(function (a) { return a.opts.method === 'POST' && a.url.indexOf('/emails') !== -1; });
   assert.equal(inserts.length, 2);
   var corps1 = JSON.parse(inserts[0].opts.body)[0];
   assert.equal(corps1.sens, 'entrant');
@@ -149,28 +151,39 @@ test('colonne uid_imap absente (400) : repli brut + insert SANS uid_imap', async
   REGLES = [
     { test: function (u) { return u.indexOf('select=uid_imap') !== -1; }, status: 400, corps: { code: 'PGRST204' } },
     { test: function (u) { return u.indexOf('select=brut') !== -1; }, status: 200, corps: [{ brut: { uid_imap: 300 } }] },
-    { test: function (u) { return u.indexOf('on_conflict') !== -1; }, status: 201, corps: [] }
+    { test: function (u) { return u.indexOf('/emails') !== -1 && u.indexOf('?') === -1; }, status: 201, corps: [] }
   ];
   var rr = reqRepGet('/api/emails?poll=1', 'abc');
   await handler(rr.req, rr.res);
   assert.equal(rr.res.corps.colonne_uid, false);
   assert.equal(rr.res.corps.importes, 2);
   assert.deepEqual(rr.res.corps.uids, [301, 302]);
-  var inserts = APPELS.filter(function (a) { return a.opts.method === 'POST' && a.url.indexOf('on_conflict') !== -1; });
+  var inserts = APPELS.filter(function (a) { return a.opts.method === 'POST' && a.url.indexOf('/emails') !== -1; });
   inserts.forEach(function (ins) {
     assert.equal(JSON.parse(ins.opts.body)[0].uid_imap, undefined, 'pas de colonne uid_imap quand absente');
   });
 });
 
-test('insert 409 doublon : ignore sans echec global', async function () {
-  config(); reset({ uids: [401], messages: { 401: 'From: a@b.fr\r\n\r\nx' } });
-  REGLES = [{ test: function (u) { return u.indexOf('on_conflict') !== -1; }, status: 409, corps: { code: '23505' } }];
+test('doublon deja en base : pre-verification GET -> doublons, pas d insert', async function () {
+  config(); reset({ uids: [401], messages: { 401: 'From: a@b.fr\r\nMessage-ID: <dup@x>\r\n\r\nx' } });
+  REGLES = [{ test: function (u) { return u.indexOf('message_id=eq.dup') !== -1; }, status: 200, corps: [{ id: 7 }] }];
   var rr = reqRepGet('/api/emails?poll=1', 'abc');
   await handler(rr.req, rr.res);
   assert.equal(rr.res.code, 200);
   assert.equal(rr.res.corps.importes, 0);
-  assert.equal(rr.res.corps.ignores, 1);
+  assert.equal(rr.res.corps.doublons, 1);
+  assert.equal(rr.res.corps.echecs, 0);
   assert.ok(FERME);
+});
+
+test('insert echoue deux fois : echec compte, corps erreur capture, route 200', async function () {
+  config(); reset({ uids: [401], messages: { 401: 'From: a@b.fr\r\n\r\nx' } });
+  REGLES = [{ test: function (u) { return u.indexOf('select=id') === -1; }, status: 409, corps: { code: '23505' } }];
+  var rr = reqRepGet('/api/emails?poll=1', 'abc');
+  await handler(rr.req, rr.res);
+  assert.equal(rr.res.code, 200);
+  assert.equal(rr.res.corps.importes, 0);
+  assert.equal(rr.res.corps.echecs, 1);
 });
 
 test('message vide : echec compte, route 200', async function () {
@@ -186,7 +199,7 @@ test('date invalide : recu_a = now, pas de crash', async function () {
   var rr = reqRepGet('/api/emails?poll=1', 'abc');
   await handler(rr.req, rr.res);
   assert.equal(rr.res.corps.importes, 1);
-  var ins = APPELS.filter(function (a) { return a.opts.method === 'POST' && a.url.indexOf('on_conflict') !== -1; })[0];
+  var ins = APPELS.filter(function (a) { return a.opts.method === 'POST' && a.url.indexOf('/emails') !== -1; })[0];
   assert.ok(JSON.parse(ins.opts.body)[0].recu_a);
 });
 
