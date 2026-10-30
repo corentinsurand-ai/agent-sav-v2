@@ -1,10 +1,23 @@
 // ============================================================================
 // Agent SAV U'mob v2 — C5.2 : /api/emails — Email entrant + lecture, UNE route
+//
+//   POLLING (cron-job.org, ~2 min) : GET /api/emails?secret=...&poll=1
+//     -> lit la boite OVH en IMAP (ex3.mail.ovh.net:993), importe dans
+//        agent_sav.emails les messages ENTRANTS nouveaux (sens='entrant').
+//   LECTURE (plateforme) :
+//     GET ?secret&liste=1&limite=50   -> fenetre recente (asc)
+//     GET ?secret&email=x@y.fr        -> historique du contact
+//
+// FIX C5.2-FUS-3 : SUPABASE_URL Vercel contient deja '/rest/v1' -> retire.
+// FIX C5.2-FUS-5 : la table emails n'a PAS de contrainte unique sur
+// message_id (42P10) -> plus de on_conflict : doublon evite par pre-verification
+// GET message_id avant insert (robuste quelle que soit la table).
 // ============================================================================
+
 var imap = require('../lib/imap');
 var mail = require('../lib/mail');
 
-var VERSION = 'C5.2-FUS-4d';
+var VERSION = 'C5.2-FUS-5';
 var MAX_PAR_RUN = 8;
 
 function urlSupabase(chemin) {
@@ -53,7 +66,16 @@ function repondre(res, code, corps) {
   res.end(JSON.stringify(corps));
 }
 
+// Un message_id est-il deja en base ? (remplace on_conflict, absent de la table)
+async function dejaEnBase(messageId) {
+  var r = await fetch(urlSupabase('emails?select=id&message_id=eq.' + encodeURIComponent(messageId)), { headers: teteSupa() });
+  if (!r.ok) return false; // en cas de doute on tente l'insert : la PK id protge
+  var lignes = await r.json();
+  return Array.isArray(lignes) && lignes.length > 0;
+}
+
 async function poller(user, pass, host) {
+  // ---- 1. Point de reprise : dernier uid importe -------------------------
   var colonneUid = true;
   var dernierUid = 0;
   var rMax = await fetch(urlSupabase('emails?select=uid_imap&order=uid_imap.desc&limit=1'), { headers: teteSupa() });
@@ -61,14 +83,24 @@ async function poller(user, pass, host) {
     var lignesMax = await rMax.json();
     if (Array.isArray(lignesMax) && lignesMax.length && lignesMax[0].uid_imap) dernierUid = Number(lignesMax[0].uid_imap);
   } else {
-    colonneUid = false;
+    colonneUid = false;   // PGRST204 : colonne absente -> repli via brut
+    var rBrut = await fetch(urlSupabase('emails?select=brut&order=id.desc&limit=50'), { headers: teteSupa() });
+    if (rBrut.ok) {
+      var lignesBrut = await rBrut.json();
+      (lignesBrut || []).forEach(function (l) {
+        var u = l && l.brut && (typeof l.brut === 'object') && l.brut.uid_imap;
+        if (u && Number(u) > dernierUid) dernierUid = Number(u);
+      });
+    }
   }
 
+  // ---- 2. Lecture boite IMAP --------------------------------------------
   var boite = await imap.ouvrirBoite({ host: host, user: user, pass: pass });
-  var resultat = { dernier_uid_avant: dernierUid, uids: [], importes: 0, ignores: 0, ignores_propres: 0, ignores_insert: 0, echecs: 0, colonne_uid: colonneUid };
+  var resultat = { dernier_uid_avant: dernierUid, uids: [], importes: 0, doublons: 0, ignores: 0, echecs: 0, colonne_uid: colonneUid };
   try {
     var uids;
     if (dernierUid === 0) {
+      // Premier run : ne pas importer tout l'historique -> les 8 derniers seulement
       uids = await boite.chercherNouveaux(0, 500);
       uids = uids.slice(-MAX_PAR_RUN);
     } else {
@@ -83,16 +115,17 @@ async function poller(user, pass, host) {
         if (!brutMsg) { resultat.echecs++; continue; }
         var m = mail.parseMessage(brutMsg);
 
-        resultat.detail = resultat.detail || [];
-        if (resultat.detail.length < 4) resultat.detail.push({ uid: uid, from: m.from_addr || null, sujet: (m.sujet || '').substring(0, 50) });
+        // Nos propres envois (SMTP sortant) ne sont pas des demandes clients
+        if ((m.from_addr || '').toLowerCase() === String(user).toLowerCase()) { resultat.ignores++; continue; }
 
-        if ((m.from_addr || '').toLowerCase() === String(user).toLowerCase()) { resultat.ignores_propres++; continue; }
+        var messageId = m.message_id || ('imap-uid-' + uid + '@agent-sav');
+        if (await dejaEnBase(messageId)) { resultat.doublons++; continue; }
 
         var d = m.date ? new Date(m.date) : null;
         var recuIso = (d && !isNaN(d.getTime())) ? d.toISOString() : new Date().toISOString();
 
         var ligne = {
-          message_id: m.message_id || ('imap-uid-' + uid + '@agent-sav'),
+          message_id: messageId,
           sens: 'entrant',
           from_addr: m.from_addr,
           from_nom: m.from_nom || null,
@@ -105,33 +138,31 @@ async function poller(user, pass, host) {
         };
         if (colonneUid) ligne.uid_imap = uid;
 
-        var rIns = await fetch(urlSupabase('emails?on_conflict=message_id'), {
+        var rIns = await fetch(urlSupabase('emails'), {
           method: 'POST',
-          headers: Object.assign(teteSupa(), {
-            'Content-Profile': 'agent_sav',
-            'Prefer': 'resolution=ignore-duplicates,return=minimal'
-          }),
+          headers: Object.assign(teteSupa(), { 'Content-Profile': 'agent_sav', 'Prefer': 'return=minimal' }),
           body: JSON.stringify([ligne])
         });
         if (rIns.ok) resultat.importes++;
         else {
-          resultat.ignores_insert++;
+          resultat.echecs++;
           if (!resultat.erreur_insert) {
             try { resultat.erreur_insert = (await rIns.text()).substring(0, 300); } catch (e) {}
           }
         }
-      } catch (eUn) {
-        resultat.echecs++;
-        if (!resultat.erreur_boucle) resultat.erreur_boucle = String(eUn && eUn.message || eUn).substring(0, 200);
-      }
+      } catch (eUn) { resultat.echecs++; }
     }
   } finally {
     try { await boite.finir(); } catch (e) {}
   }
 
+  await journaliser('email_inbox', 'poll IMAP ok : ' + resultat.importes + ' importes, ' + resultat.doublons + ' doublons, ' + resultat.ignores + ' ignores, ' + resultat.echecs + ' echecs (dernier uid ' + dernierUid + ')');
   return resultat;
 }
 
+// ----------------------------------------------------------------------------
+// LECTURE (ex /api/email-messages)
+// ----------------------------------------------------------------------------
 async function lireEmails(u) {
   var limite = Math.min(parseInt(u.searchParams.get('limite') || '50', 10) || 50, 500);
   var email = (u.searchParams.get('email') || '').trim();
@@ -150,7 +181,7 @@ async function lireEmails(u) {
   if (!r.ok) return { code: 502, corps: { ok: false, erreur: 'Supabase ' + r.status } };
 
   var messages = await r.json();
-  if (!email && Array.isArray(messages)) messages = messages.reverse();
+  if (!email && Array.isArray(messages)) messages = messages.reverse(); // liste -> plus recents en bas
 
   return {
     code: 200,
@@ -163,6 +194,9 @@ async function lireEmails(u) {
   };
 }
 
+// ----------------------------------------------------------------------------
+// Handler unique
+// ----------------------------------------------------------------------------
 module.exports = async function (req, res) {
   if (req.method === 'OPTIONS') return repondre(res, 204, {});
 
@@ -176,19 +210,22 @@ module.exports = async function (req, res) {
 
     var veutPoll = u.searchParams.get('poll') === '1' || corps.poll === 1 || corps.poll === '1';
 
+    // ---- MODE POLLING IMAP -------------------------------------------------
     if (veutPoll) {
       var host = process.env.SMTP_HOST, user = process.env.SMTP_USER, pass = process.env.SMTP_PASS;
       if (!host || !user || !pass || !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
-        return repondre(res, 500, { ok: false, erreur: 'config incomplete' });
+        return repondre(res, 500, { ok: false, erreur: 'config incomplete (SMTP_HOST/SMTP_USER/SMTP_PASS ou Supabase absents)' });
       }
       try {
         var resultat = await poller(user, pass, host);
         return repondre(res, 200, Object.assign({ ok: true, brique: 'C5.2', mode: 'poll', version: VERSION }, resultat));
       } catch (err) {
+        await journaliser('email_inbox', 'ERREUR : ' + String(err && err.message || err).substring(0, 400));
         return repondre(res, 502, { ok: false, brique: 'C5.2', mode: 'poll', erreur: String(err && err.message || err).substring(0, 400) });
       }
     }
 
+    // ---- MODE LECTURE ------------------------------------------------------
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
       return repondre(res, 500, { ok: false, erreur: 'config Supabase absente' });
     }
