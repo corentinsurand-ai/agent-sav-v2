@@ -1,33 +1,11 @@
 // ============================================================================
 // Agent SAV U'mob v2 — C5.2 : /api/emails — Email entrant + lecture, UNE route
-//
-// FUSION (30/10, limite Hobby : 12 fonctions/déploiement) : les ex-routes
-// /api/email-inbox (polling IMAP) et /api/email-messages (lecture) vivent
-// désormais ICI dans une seule fonction.
-//
-//   POLLING (cron-job.org, toutes les ~2 min) :
-//     GET  /api/emails?secret=...&poll=1
-//     POST /api/emails            (corps {secret, poll:1} accepté aussi)
-//     -> lit la boite OVH en IMAP (ex3.mail.ovh.net:993) et importe dans
-//        agent_sav.emails les messages ENTRANTS nouveaux (sens='entrant').
-//
-//   LECTURE (plateforme) :
-//     GET /api/emails?secret=...&liste=1&limite=50       -> fenetre recente (asc)
-//     GET /api/emails?secret=...&email=x@y.fr&limite=100 -> historique du contact
-//
-// FIX C5.2-FUS-3 (30/10) : SUPABASE_URL sur Vercel CONTIENT deja '/rest/v1' ;
-// on le retire comme le fait /api/whatsapp-messages (sinon /rest/v1/rest/v1
-// -> PGRST125, la cause du 404 "table introuvable").
-//
-// Reutilise SMTP_HOST/SMTP_USER/SMTP_PASS comme identifiants IMAP (meme
-// serveur OVH). Aucun secret dans le code.
 // ============================================================================
-
 var imap = require('../lib/imap');
 var mail = require('../lib/mail');
 
-var VERSION = 'C5.2-FUS-3';
-var MAX_PAR_RUN = 8;          // Vercel Hobby : 10 s max, on borne le travail
+var VERSION = 'C5.2-FUS-4d';
+var MAX_PAR_RUN = 8;
 
 function urlSupabase(chemin) {
   var base = (process.env.SUPABASE_URL || '')
@@ -75,11 +53,7 @@ function repondre(res, code, corps) {
   res.end(JSON.stringify(corps));
 }
 
-// ----------------------------------------------------------------------------
-// POLLING IMAP (ex /api/email-inbox)
-// ----------------------------------------------------------------------------
 async function poller(user, pass, host) {
-  // ---- 1. Point de reprise : dernier uid importe -------------------------
   var colonneUid = true;
   var dernierUid = 0;
   var rMax = await fetch(urlSupabase('emails?select=uid_imap&order=uid_imap.desc&limit=1'), { headers: teteSupa() });
@@ -87,24 +61,14 @@ async function poller(user, pass, host) {
     var lignesMax = await rMax.json();
     if (Array.isArray(lignesMax) && lignesMax.length && lignesMax[0].uid_imap) dernierUid = Number(lignesMax[0].uid_imap);
   } else {
-    colonneUid = false;   // PGRST204 : colonne absente -> repli via brut
-    var rBrut = await fetch(urlSupabase('emails?select=brut&order=id.desc&limit=50'), { headers: teteSupa() });
-    if (rBrut.ok) {
-      var lignesBrut = await rBrut.json();
-      (lignesBrut || []).forEach(function (l) {
-        var u = l && l.brut && (typeof l.brut === 'object') && l.brut.uid_imap;
-        if (u && Number(u) > dernierUid) dernierUid = Number(u);
-      });
-    }
+    colonneUid = false;
   }
 
-  // ---- 2. Lecture boite IMAP --------------------------------------------
   var boite = await imap.ouvrirBoite({ host: host, user: user, pass: pass });
-  var resultat = { dernier_uid_avant: dernierUid, uids: [], importes: 0, ignores: 0, echecs: 0, colonne_uid: colonneUid };
+  var resultat = { dernier_uid_avant: dernierUid, uids: [], importes: 0, ignores: 0, ignores_propres: 0, ignores_insert: 0, echecs: 0, colonne_uid: colonneUid };
   try {
     var uids;
     if (dernierUid === 0) {
-      // Premier run : ne pas importer tout l'historique -> les 8 derniers seulement
       uids = await boite.chercherNouveaux(0, 500);
       uids = uids.slice(-MAX_PAR_RUN);
     } else {
@@ -119,8 +83,10 @@ async function poller(user, pass, host) {
         if (!brutMsg) { resultat.echecs++; continue; }
         var m = mail.parseMessage(brutMsg);
 
-        // Nos propres envois (SMTP sortant) ne sont pas des demandes clients
-        if ((m.from_addr || '').toLowerCase() === String(user).toLowerCase()) { resultat.ignores++; continue; }
+        resultat.detail = resultat.detail || [];
+        if (resultat.detail.length < 4) resultat.detail.push({ uid: uid, from: m.from_addr || null, sujet: (m.sujet || '').substring(0, 50) });
+
+        if ((m.from_addr || '').toLowerCase() === String(user).toLowerCase()) { resultat.ignores_propres++; continue; }
 
         var d = m.date ? new Date(m.date) : null;
         var recuIso = (d && !isNaN(d.getTime())) ? d.toISOString() : new Date().toISOString();
@@ -147,20 +113,25 @@ async function poller(user, pass, host) {
           }),
           body: JSON.stringify([ligne])
         });
-        if (rIns.ok) resultat.importes++; else resultat.ignores++;
-      } catch (eUn) { resultat.echecs++; }
+        if (rIns.ok) resultat.importes++;
+        else {
+          resultat.ignores_insert++;
+          if (!resultat.erreur_insert) {
+            try { resultat.erreur_insert = (await rIns.text()).substring(0, 300); } catch (e) {}
+          }
+        }
+      } catch (eUn) {
+        resultat.echecs++;
+        if (!resultat.erreur_boucle) resultat.erreur_boucle = String(eUn && eUn.message || eUn).substring(0, 200);
+      }
     }
   } finally {
     try { await boite.finir(); } catch (e) {}
   }
 
-  await journaliser('email_inbox', 'poll IMAP ok : ' + resultat.importes + ' importes, ' + resultat.ignores + ' ignores, ' + resultat.echecs + ' echecs (dernier uid ' + dernierUid + ')');
   return resultat;
 }
 
-// ----------------------------------------------------------------------------
-// LECTURE (ex /api/email-messages)
-// ----------------------------------------------------------------------------
 async function lireEmails(u) {
   var limite = Math.min(parseInt(u.searchParams.get('limite') || '50', 10) || 50, 500);
   var email = (u.searchParams.get('email') || '').trim();
@@ -179,7 +150,7 @@ async function lireEmails(u) {
   if (!r.ok) return { code: 502, corps: { ok: false, erreur: 'Supabase ' + r.status } };
 
   var messages = await r.json();
-  if (!email && Array.isArray(messages)) messages = messages.reverse(); // liste -> plus recents en bas
+  if (!email && Array.isArray(messages)) messages = messages.reverse();
 
   return {
     code: 200,
@@ -192,9 +163,6 @@ async function lireEmails(u) {
   };
 }
 
-// ----------------------------------------------------------------------------
-// Handler unique
-// ----------------------------------------------------------------------------
 module.exports = async function (req, res) {
   if (req.method === 'OPTIONS') return repondre(res, 204, {});
 
@@ -208,22 +176,19 @@ module.exports = async function (req, res) {
 
     var veutPoll = u.searchParams.get('poll') === '1' || corps.poll === 1 || corps.poll === '1';
 
-    // ---- MODE POLLING IMAP -------------------------------------------------
     if (veutPoll) {
       var host = process.env.SMTP_HOST, user = process.env.SMTP_USER, pass = process.env.SMTP_PASS;
       if (!host || !user || !pass || !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
-        return repondre(res, 500, { ok: false, erreur: 'config incomplete (SMTP_HOST/SMTP_USER/SMTP_PASS ou Supabase absents)' });
+        return repondre(res, 500, { ok: false, erreur: 'config incomplete' });
       }
       try {
         var resultat = await poller(user, pass, host);
         return repondre(res, 200, Object.assign({ ok: true, brique: 'C5.2', mode: 'poll', version: VERSION }, resultat));
       } catch (err) {
-        await journaliser('email_inbox', 'ERREUR : ' + String(err && err.message || err).substring(0, 400));
         return repondre(res, 502, { ok: false, brique: 'C5.2', mode: 'poll', erreur: String(err && err.message || err).substring(0, 400) });
       }
     }
 
-    // ---- MODE LECTURE ------------------------------------------------------
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
       return repondre(res, 500, { ok: false, erreur: 'config Supabase absente' });
     }
