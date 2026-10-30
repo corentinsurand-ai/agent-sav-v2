@@ -1,10 +1,13 @@
 // ============================================================================
 // Agent SAV U'mob v2 — C4 : /api/whatsapp-messages — lecture des messages
-// WhatsApp enregistrés (plateforme maison C1/C4)
+// WhatsApp enregistrés (plateforme maison C1/C4/C2)
 //
 // RÔLE : donner au canvas de la plateforme les VRAIS messages reçus par
 // /api/whatsapp-webhook, pour construire les conversations (historique +
 // nouveaux messages au rechargement 🔌 — choix Corentin 30/10).
+// Depuis C4-LEC-2 : les messages ENVOYÉS (sens='sortant', brique C2) sont
+// renvoyés aussi, avec leur statut de distribution (statut_reception :
+// sent | delivered | read | failed) → ✓/✓✓/✓✓ bleu dans le canvas.
 //
 //   GET ?secret=<WEBHOOK_SECRET>                  → info
 //   GET ?secret=…&liste=1&limite=1000             → les derniers messages
@@ -12,14 +15,22 @@
 //         limité aux plus récents : le canvas groupe par téléphone)
 //   GET ?secret=…&tel=33620476040                  → l'historique d'un numéro
 //
+// COMPATIBILITÉ : si les colonnes sens/statut_reception n'existent pas
+// encore dans la table (ALTER pas exécuté), on retombe automatiquement sur
+// l'ancien select — la route ne casse jamais la plateforme pendant le setup.
+//
 // CORS : Allow-Origin:* comme /api/clients-import (prototype navigateur,
 // authentification par secret jamais présent dans le code).
 //
 // Réponses : 200 ; 401 secret ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C4-LEC-1';
+var VERSION = 'C4-LEC-2';
 var SCHEMA = 'agent_sav';
+
+// null tant que la présence des colonnes C2 n'est pas confirmée ;
+// true/false une fois testé (repli silencieux si le ALTER n'est pas passé).
+var COLONNES_C2 = null;
 
 function env(nom) { return process.env[nom] || ''; }
 
@@ -53,18 +64,41 @@ function urlSupabase(table, params) {
   return base + '/rest/v1/' + table + (params ? '?' + params : '');
 }
 
-async function supabaseGet(params) {
-  var res = await fetch(urlSupabase('wa_messages', params), {
-    method: 'GET',
-    headers: {
-      'apikey': env('SUPABASE_SERVICE_KEY'),
-      'Authorization': 'Bearer ' + env('SUPABASE_SERVICE_KEY'),
-      'Accept-Profile': SCHEMA
-    }
-  });
+var SELECT_BASE = 'wa_id,nom_profil,texte,type,wamid,recu_a';
+var SELECT_C2 = SELECT_BASE + ',sens,statut_reception';
+
+// Lecture avec repli : tente d'abord select avec les colonnes C2
+// (sens, statut_reception) ; si la table ne les a pas (PGRST204 — colonne
+// inconnue), retombe sur l'ancien select une fois pour toutes.
+async function supabaseGetAvecC2(params) {
+  var essai = function(select) {
+    return fetch(urlSupabase('wa_messages', params.replace('SELECT', select)), {
+      method: 'GET',
+      headers: {
+        'apikey': env('SUPABASE_SERVICE_KEY'),
+        'Authorization': 'Bearer ' + env('SUPABASE_SERVICE_KEY'),
+        'Accept-Profile': SCHEMA
+      }
+    });
+  };
+  if (COLONNES_C2 === false) {
+    var r0 = await essai(SELECT_BASE);
+    var c0 = '';
+    try { c0 = await r0.text(); } catch (e) { c0 = ''; }
+    if (!r0.ok) throw new Error('Supabase wa_messages ' + r0.status + ' — ' + c0.substring(0, 300));
+    return c0 ? JSON.parse(c0) : [];
+  }
+  var res = await essai(SELECT_C2);
   var corps = '';
   try { corps = await res.text(); } catch (e) { corps = ''; }
-  if (!res.ok) throw new Error('Supabase wa_messages ' + res.status + ' — ' + corps.substring(0, 300));
+  if (!res.ok) {
+    if (corps.indexOf('statut_reception') !== -1 || corps.indexOf('PGRST204') !== -1) {
+      COLONNES_C2 = false;                            // ALTER pas encore exécuté
+      return supabaseGetAvecC2(params);               // → repli ancien select
+    }
+    throw new Error('Supabase wa_messages ' + res.status + ' — ' + corps.substring(0, 300));
+  }
+  COLONNES_C2 = true;
   return corps ? JSON.parse(corps) : [];
 }
 
@@ -96,8 +130,8 @@ module.exports = async function handler(req, res) {
   if (tel) {
     var d = tel.replace(/\D/g, '');
     try {
-      var fil = await supabaseGet(
-        'select=wa_id,nom_profil,texte,type,wamid,recu_a&wa_id=eq.' + encodeURIComponent(d) +
+      var fil = await supabaseGetAvecC2(
+        'select=SELECT&wa_id=eq.' + encodeURIComponent(d) +
         '&order=recu_a.asc&limit=1000');
       return res.status(200).json({
         ok: true, brique: 'C4', version: VERSION, tel: d, trouves: fil.length, messages: fil
@@ -114,8 +148,8 @@ module.exports = async function handler(req, res) {
     if (limite > 5000) limite = 5000;
     try {
       // fenêtre des N plus récents, renvoyés en ordre chronologique croissant
-      var derniers = await supabaseGet(
-        'select=wa_id,nom_profil,texte,type,wamid,recu_a&order=recu_a.desc&limit=' + limite);
+      var derniers = await supabaseGetAvecC2(
+        'select=SELECT&order=recu_a.desc&limit=' + limite);
       derniers.reverse();
       var parTel = {};
       derniers.forEach(function(m) { parTel[m.wa_id] = (parTel[m.wa_id] || 0) + 1; });
@@ -131,7 +165,7 @@ module.exports = async function handler(req, res) {
 
   return res.status(200).json({
     ok: true, brique: 'C4', version: VERSION,
-    role: 'lecture des messages WhatsApp recus par /api/whatsapp-webhook',
+    role: 'lecture des messages WhatsApp (recus par /api/whatsapp-webhook + envoyes par /api/whatsapp-send)',
     liste: 'GET ?liste=1&limite=1000 — derniers messages (canvas : regroupe par telephone)',
     tel: 'GET ?tel=33620476040 — historique chronologique d un numero'
   });

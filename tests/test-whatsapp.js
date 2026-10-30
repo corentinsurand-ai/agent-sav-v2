@@ -2,6 +2,8 @@
 // Agent SAV U'mob v2 — C4 : tests du webhook WhatsApp + lecture messages
 // Exécution : node --test tests/test-whatsapp.js
 // (17 tests — Supabase SIMULÉ, aucune dépendance, aucun réseau)
+// Mise à jour C2 (30/10) : les statuses Meta ne sont plus ignorés — ils
+// mettent à jour statut_reception du wamid (✓✓ dans le canvas).
 // ============================================================================
 
 const test = require('node:test');
@@ -28,6 +30,7 @@ function faireRes() {
 
 let appelsFetch = [];
 let reponseInsert = null;          // si défini : échec simulé sur l'insert
+let lignesMiroir = [];             // lignes wa_messages "stockées" par le mock
 globalThis.fetch = async function(url, options) {
   url = String(url); options = options || {};
   appelsFetch.push({ url, options });
@@ -37,16 +40,12 @@ globalThis.fetch = async function(url, options) {
     return { ok: false, status: r.status, text: async () => JSON.stringify(r.corps || {}) };
   }
   if (url.indexOf('wa_messages') !== -1 && (options.method || 'GET') === 'POST') {
+    lignesMiroir = JSON.parse(options.body).map(function(l, i) { return Object.assign({}, l, { id: i + 1 + lignesMiroir.length }); });
     return { ok: true, status: 201, text: async () => '' };
   }
   if (url.indexOf('wa_messages') !== -1) {
-    // GET : renvoie le lot POSTé en dernier (simulation miroir)
-    const dernier = [...appelsFetch].reverse().find(a => (a.options.method || '') === 'POST' && a.url.indexOf('wa_messages') !== -1);
-    let lignes = [];
-    if (dernier) {
-      lignes = JSON.parse(dernier.options.body).map(function(l, i) { return Object.assign({}, l, { id: i + 1 }); });
-    }
-    return { ok: true, status: 200, text: async () => JSON.stringify(lignes) };
+    // GET/PATCH : renvoie les lignes "stockées" (simulation miroir persistante)
+    return { ok: true, status: 200, text: async () => JSON.stringify(lignesMiroir) };
   }
   if (url.indexOf('journal') !== -1) {
     return { ok: true, status: 201, text: async () => '' };
@@ -54,7 +53,7 @@ globalThis.fetch = async function(url, options) {
   return { ok: true, status: 200, text: async () => '{}' };
 };
 
-function raz() { appelsFetch = []; reponseInsert = null; }
+function raz() { appelsFetch = []; reponseInsert = null; lignesMiroir = []; }
 
 function reqGet(query) {
   return {
@@ -149,19 +148,56 @@ test('webhook POST : message texte → enregistré avec wa_id, texte, ISO', asyn
   assert.strictEqual(insert.options.headers['Prefer'].indexOf('ignore-duplicates') !== -1, true);
 });
 
-test('webhook POST : statuses (accusés de livraison) → ignorés, 200', async () => {
+test('webhook POST : statuses (accusés Meta) → statut_reception mis à jour (C2)', async () => {
   raz();
   const res = faireRes();
-  await handlerWebhook(reqPost({
+  const p = {
     object: 'whatsapp_business_account',
-    entry: [{ id: '1', changes: [{ field: 'messages', value: {
-      messaging_product: 'whatsapp',
-      statuses: [{ id: 'wamid.X', status: 'delivered', timestamp: '1777461601', recipient_id: '33758091234' }]
-    } } }]
-  }), res);
+    entry: [{
+      id: '1',
+      changes: [{
+        field: 'messages',
+        value: {
+          messaging_product: 'whatsapp',
+          statuses: [{ id: 'wamid.X', status: 'delivered', timestamp: '1777461601', recipient_id: '33758091234' }]
+        }
+      }]
+    }]
+  };
+  await handlerWebhook(reqPost(p), res);
   assert.strictEqual(res.statusCode, 200);
   assert.strictEqual(res.corps.enregistres, 0);
-  assert.strictEqual(appelsFetch.filter(a => a.url.indexOf('wa_messages') !== -1).length, 0);
+  assert.strictEqual(res.corps.statuts_maj, 1);
+  const patch = appelsFetch.find(a => a.url.indexOf('wa_messages') !== -1 && a.options.method === 'PATCH');
+  assert.ok(patch, 'un PATCH wa_messages pour le statut');
+  assert.ok(patch.url.indexOf('wamid=eq.wamid.X') !== -1, 'cible le bon wamid');
+  assert.strictEqual(JSON.parse(patch.options.body).statut_reception, 'delivered');
+});
+
+test('webhook POST : statuses read → lu ; plusieurs statuts traités', async () => {
+  raz();
+  const res = faireRes();
+  const p2 = {
+    object: 'whatsapp_business_account',
+    entry: [{
+      id: '1',
+      changes: [{
+        field: 'messages',
+        value: {
+          messaging_product: 'whatsapp',
+          statuses: [
+            { id: 'wamid.R', status: 'read', timestamp: '1777461700', recipient_id: '33758091234' },
+            { id: 'wamid.S', status: 'sent', timestamp: '1777461701', recipient_id: '33758091234' }
+          ]
+        }
+      }]
+    }]
+  };
+  await handlerWebhook(reqPost(p2), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.statuts_maj, 2);
+  const patchs = appelsFetch.filter(a => a.url.indexOf('wa_messages') !== -1 && a.options.method === 'PATCH');
+  assert.strictEqual(patchs.length, 2);
 });
 
 test('webhook POST : image sans légende → placeholder [média reçu], jamais d URL', async () => {
@@ -241,7 +277,7 @@ test('lecture liste : renvoie les messages et le nombre de conversations', async
       text: { body: 'Autre conversation' }
     });
   })), faireRes());
-  raz();
+  appelsFetch = [];  // on garde les lignes du miroir, on ne vide que les appels
   const res = faireRes();
   await handlerMessages(reqGet('?secret=secret-de-test-c4&liste=1'), res);
   assert.strictEqual(res.statusCode, 200);
@@ -254,7 +290,7 @@ test('lecture liste : renvoie les messages et le nombre de conversations', async
 test('lecture tel : filtre par numéro (chiffres seuls tolérés)', async () => {
   raz();
   await handlerWebhook(reqPost(payloadMeta()), faireRes());
-  raz();
+  appelsFetch = [];
   const res = faireRes();
   await handlerMessages(reqGet('?secret=secret-de-test-c4&tel=+33 6 20 47 60 40'), res);
   assert.strictEqual(res.statusCode, 200);
@@ -284,4 +320,15 @@ test('lecture : erreur Supabase → 500 avec message', async () => {
   await handlerMessages(reqGet('?secret=secret-de-test-c4&liste=1'), res);
   assert.strictEqual(res.statusCode, 500);
   assert.ok(String(res.corps.erreur).indexOf('403') !== -1);
+});
+
+test('lecture : colonnes C2 absentes (PGRST204) → repli ancien select, pas de crash', async () => {
+  raz();
+  reponseInsert = { status: 400, corps: { message: 'column wa_messages.sens does not exist', code: 'PGRST204' } };
+  // le mock renvoie l'erreur UNE fois pour le select avec sens/statut_reception,
+  // puis la lecture miroir classique pour le select repli
+  const res = faireRes();
+  await handlerMessages(reqGet('?secret=secret-de-test-c4&liste=1'), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.ok, true);
 });

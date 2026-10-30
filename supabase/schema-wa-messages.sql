@@ -2,6 +2,8 @@
 -- Agent SAV U'mob v2 — C4 : table des messages WhatsApp (à exécuter dans le
 -- SQL Editor du projet umob-crm — SEULEMENT cette section si le schéma
 -- agent_sav existe déjà ; idempotent, rejouable sans risque)
+-- Mise à jour C2 (30/10) : colonnes sens (entrant|sortant) et
+-- statut_reception (sent|delivered|read|failed) pour les ✓✓ du canvas.
 -- ============================================================================
 
 create table if not exists agent_sav.wa_messages (
@@ -13,8 +15,16 @@ create table if not exists agent_sav.wa_messages (
   wamid text not null unique,                   -- id Meta — dédup des rejeus de webhook
   brut jsonb not null,                          -- message Meta complet, pour diagnostic
   recu_a timestamptz not null default now(),    -- timestamp Meta (jamais 01/01/1970)
-  statut text not null default 'nouveau'        -- nouveau | lu
+  statut text not null default 'nouveau',       -- nouveau | lu (lu par l'AGENT, côté boîte)
+  sens text not null default 'entrant',         -- entrant (client) | sortant (U'mob — brique C2)
+  statut_reception text                        -- sent | delivered | read | failed (accusés Meta C2)
 );
+
+-- Installation existante (table créée avant la brique C2) → colonnes ajoutées
+-- proprement, idempotent :
+alter table agent_sav.wa_messages add column if not exists sens text not null default 'entrant';
+alter table agent_sav.wa_messages add column if not exists statut_reception text;
+
 create index if not exists idx_wa_messages_wa_id on agent_sav.wa_messages (wa_id, recu_a);
 alter table agent_sav.wa_messages enable row level security;
 grant all on agent_sav.wa_messages to service_role;

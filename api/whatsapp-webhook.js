@@ -1,6 +1,6 @@
 // ============================================================================
 // Agent SAV U'mob v2 — C4 : /api/whatsapp-webhook — réception des messages
-// WhatsApp Cloud API (Meta)
+// WhatsApp Cloud API (Meta) + statuts de distribution (C2)
 //
 // RÔLE : recevoir les vrais messages WhatsApp des clients et les stocker
 // dans agent_sav.wa_messages — la plateforme maison C1/C4 (prototype
@@ -19,10 +19,12 @@
 //   { object: "whatsapp_business_account",
 //     entry: [ { id, changes: [ { field: "messages", value: {
 //       messages: [ { from, id, timestamp, type, text: { body } … } ],
+//       statuses:  [ { id, status, timestamp, recipient_id } ],
 //       contacts: [ { profile: { name }, wa_id } ] } ] } ] }
-//   - value.statuses (accusés de livraison) → ignorés (200)
 //   - messages sans texte (image/audio…) → type + placeholder, jamais d'appel
 //     multimodal (même discipline que l'ancien système v136)
+//   - statuses (C2, 30/10) → mise à jour de statut_reception du wamid
+//     (sent | delivered | read | failed) pour les ✓✓ du canvas
 //
 // DÉDUP : wamid unique (contrainte) + Prefer resolution=ignore-duplicates —
 // les rejeus Meta sont absorbés sans doublon (même parade que la dédup
@@ -98,6 +100,30 @@ function extraireMessages(corps) {
   return sortie;
 }
 
+// Extrait les statuts de distribution d'un payload Meta (C2) →
+// [{wamid, statut: sent|delivered|read|failed, timestamp, recipient_id}]
+function extraireStatuses(corps) {
+  var sortie = [];
+  if (!corps || corps.object !== 'whatsapp_business_account' || !Array.isArray(corps.entry)) return sortie;
+  corps.entry.forEach(function(ent) {
+    if (!ent || !Array.isArray(ent.changes)) return;
+    ent.changes.forEach(function(ch) {
+      var v = ch && ch.value;
+      if (!v || !Array.isArray(v.statuses)) return;
+      v.statuses.forEach(function(st) {
+        if (!st || !st.id || !st.status) return;
+        sortie.push({
+          wamid: String(st.id),
+          statut: String(st.status),
+          timestamp: String(st.timestamp || ''),
+          recipient_id: String(st.recipient_id || '')
+        });
+      });
+    });
+  });
+  return sortie;
+}
+
 async function enregistrerMessages(messages) {
   var cle = env('SUPABASE_SERVICE_KEY');
   var url = urlSupabase('wa_messages', 'on_conflict=wamid');
@@ -131,6 +157,34 @@ async function enregistrerMessages(messages) {
     throw new Error('Supabase wa_messages ' + res.status + ' — ' + corps);
   }
   return lot.length;
+}
+
+// Met à jour statut_reception (sent|delivered|read|failed) des wamid —
+// les échecs individuels sont ignorés (best effort, 200 quand même),
+// la fonction renvoie le nombre de mises à jour réussies.
+async function majStatuts(statuts) {
+  var cle = env('SUPABASE_SERVICE_KEY');
+  var faits = 0;
+  for (var i = 0; i < statuts.length; i++) {
+    try {
+      var res = await fetch(
+        urlSupabase('wa_messages', 'wamid=eq.' + encodeURIComponent(statuts[i].wamid)),
+        {
+          method: 'PATCH',
+          headers: {
+            'apikey': cle,
+            'Authorization': 'Bearer ' + cle,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+            'Content-Profile': SCHEMA
+          },
+          body: JSON.stringify({ statut_reception: statuts[i].statut })
+        }
+      );
+      if (res.ok) faits++;
+    } catch (e) { /* best effort */ }
+  }
+  return faits;
 }
 
 async function journaliser(texte, detail) {
@@ -167,31 +221,38 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ ok: false, erreur: 'methode non autorisee' });
   }
 
-  // POST : enregistrer les messages — 200 TOUJOURS (même si Supabase tombe :
-  // Meta retenterait en rafale, on journalise l'échec et on avoue ok)
+  // POST : enregistrer les messages + statuts — 200 TOUJOURS (même si
+  // Supabase tombe : Meta retenterait en rafale, on journalise et on avoue ok)
   var corps = req.body;
   if (!corps && typeof req.body !== 'object') {
     try { corps = JSON.parse(String(req.body || '{}')); } catch (e) { corps = null; }
   }
   var messages = corps ? extraireMessages(corps) : [];
-  if (!messages.length) {
-    // statuses (accusés de livraison), heartbeats ou payload inconnu → 200
-    return res.status(200).json({ ok: true, enregistres: 0 });
+  var statuts = corps ? extraireStatuses(corps) : [];
+  if (!messages.length && !statuts.length) {
+    // heartbeats ou payload inconnu → 200
+    return res.status(200).json({ ok: true, enregistres: 0, statuts_maj: 0 });
   }
   if (!env('SUPABASE_URL') || !env('SUPABASE_SERVICE_KEY')) {
-    await journaliser('wa_webhook sans config Supabase', { messages: messages.length });
-    return res.status(200).json({ ok: true, enregistres: 0, erreur_interne: 'config manquante' });
+    await journaliser('wa_webhook sans config Supabase', {
+      messages: messages.length, statuts: statuts.length
+    });
+    return res.status(200).json({ ok: true, enregistres: 0, statuts_maj: 0, erreur_interne: 'config manquante' });
   }
   try {
-    var ecrits = await enregistrerMessages(messages);
-    await journaliser('wa_webhook : ' + ecrits + ' message(s) WhatsApp enregistré(s)', {
-      wa_ids: messages.map(function(m) { return m.wa_id; })
-    });
-    return res.status(200).json({ ok: true, enregistres: ecrits });
+    var ecrits = messages.length ? await enregistrerMessages(messages) : 0;
+    var maj = statuts.length ? await majStatuts(statuts) : 0;
+    if (messages.length || statuts.length) {
+      await journaliser('wa_webhook : ' + ecrits + ' message(s) + ' + maj + ' statut(s)', {
+        wa_ids: messages.map(function(m) { return m.wa_id; }),
+        statuts: statuts.map(function(s) { return s.statut; })
+      });
+    }
+    return res.status(200).json({ ok: true, enregistres: ecrits, statuts_maj: maj });
   } catch (e) {
     // Échec d'écriture : 200 quand même (Meta ne doit pas rejuger en rafale),
     // l'échec est journalisé pour diagnostic.
     await journaliser('wa_webhook ERREUR écriture', { erreur: String((e && e.message) || e) });
-    return res.status(200).json({ ok: true, enregistres: 0, erreur_interne: true });
+    return res.status(200).json({ ok: true, enregistres: 0, statuts_maj: 0, erreur_interne: true });
   }
 };
