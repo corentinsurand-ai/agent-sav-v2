@@ -1,5 +1,5 @@
 // ============================================================================
-// Tests C5.2 — api/email-inbox.js + lib/mail.js + lib/imap.js (zéro dépendance)
+// Tests C5.2 — api/emails.js (polling IMAP + lecture) + lib/mail.js + lib/imap.js
 // Exécution : node --test tests/test-email-inbox.js
 // ============================================================================
 
@@ -44,7 +44,7 @@ imapLib.ouvrirBoite = async function (opts) {
   };
 };
 
-var handler = require('../api/email-inbox');
+var handler = require('../api/emails');
 
 // ---- Fabrique requête/réponse -------------------------------------------------
 function reqRepGet(query, secretHeader) {
@@ -71,7 +71,7 @@ function config() {
 // ---- Tests route --------------------------------------------------------------
 test('secret manquant : 401', async function () {
   config(); reset();
-  var rr = reqRepGet('/api/email-inbox');
+  var rr = reqRepGet('/api/emails?poll=1');
   await handler(rr.req, rr.res);
   assert.equal(rr.res.code, 401);
 });
@@ -79,7 +79,7 @@ test('secret manquant : 401', async function () {
 test('config absente : 500', async function () {
   delete process.env.SUPABASE_URL;
   reset();
-  var rr = reqRepGet('/api/email-inbox', 'abc');
+  var rr = reqRepGet('/api/emails?poll=1', 'abc');
   await handler(rr.req, rr.res);
   process.env.SUPABASE_URL = 'https://supa.test';
   assert.equal(rr.res.code, 500);
@@ -93,7 +93,7 @@ test('nominal : 2 nouveaux emails, 2 importes, boite fermee, journal ok', async 
       102: 'From: client2@example.com\r\n\r\nSujet et message-id absents'
     }
   });
-  var rr = reqRepGet('/api/email-inbox', 'abc');
+  var rr = reqRepGet('/api/emails?poll=1', 'abc');
   await handler(rr.req, rr.res);
   assert.equal(rr.res.code, 200);
   assert.equal(rr.res.corps.importes, 2);
@@ -116,7 +116,7 @@ test('email de nous-meme ignore', async function () {
     uids: [201],
     messages: { 201: 'From: corentin.surand@umob.fr\r\nSubject: Test\r\n\r\nmoi' }
   });
-  var rr = reqRepGet('/api/email-inbox', 'abc');
+  var rr = reqRepGet('/api/emails?poll=1', 'abc');
   await handler(rr.req, rr.res);
   assert.equal(rr.res.corps.importes, 0);
   assert.equal(rr.res.corps.ignores, 1);
@@ -127,7 +127,7 @@ test('premier run (dernierUid=0) : 25 uids -> seulement les 8 derniers', async f
     uids: Array.from({ length: 25 }, function (_, i) { return i + 1; }),
     messages: {}
   });
-  var rr = reqRepGet('/api/email-inbox', 'abc');
+  var rr = reqRepGet('/api/emails?poll=1', 'abc');
   await handler(rr.req, rr.res);
   assert.equal(rr.res.code, 200);
   assert.deepEqual(rr.res.corps.uids, [18, 19, 20, 21, 22, 23, 24, 25]);
@@ -135,7 +135,7 @@ test('premier run (dernierUid=0) : 25 uids -> seulement les 8 derniers', async f
 
 test('LOGIN IMAP refuse : 502 + journal ERREUR', async function () {
   config(); reset({ uids: [], messages: {}, erreurLogin: true });
-  var rr = reqRepGet('/api/email-inbox', 'abc');
+  var rr = reqRepGet('/api/emails?poll=1', 'abc');
   await handler(rr.req, rr.res);
   assert.equal(rr.res.code, 502);
   assert.match(rr.res.corps.erreur, /LOGIN refuse/);
@@ -151,7 +151,7 @@ test('colonne uid_imap absente (400) : repli brut + insert SANS uid_imap', async
     { test: function (u) { return u.indexOf('select=brut') !== -1; }, status: 200, corps: [{ brut: { uid_imap: 300 } }] },
     { test: function (u) { return u.indexOf('on_conflict') !== -1; }, status: 201, corps: [] }
   ];
-  var rr = reqRepGet('/api/email-inbox', 'abc');
+  var rr = reqRepGet('/api/emails?poll=1', 'abc');
   await handler(rr.req, rr.res);
   assert.equal(rr.res.corps.colonne_uid, false);
   assert.equal(rr.res.corps.importes, 2);
@@ -165,7 +165,7 @@ test('colonne uid_imap absente (400) : repli brut + insert SANS uid_imap', async
 test('insert 409 doublon : ignore sans echec global', async function () {
   config(); reset({ uids: [401], messages: { 401: 'From: a@b.fr\r\n\r\nx' } });
   REGLES = [{ test: function (u) { return u.indexOf('on_conflict') !== -1; }, status: 409, corps: { code: '23505' } }];
-  var rr = reqRepGet('/api/email-inbox', 'abc');
+  var rr = reqRepGet('/api/emails?poll=1', 'abc');
   await handler(rr.req, rr.res);
   assert.equal(rr.res.code, 200);
   assert.equal(rr.res.corps.importes, 0);
@@ -175,7 +175,7 @@ test('insert 409 doublon : ignore sans echec global', async function () {
 
 test('message vide : echec compte, route 200', async function () {
   config(); reset({ uids: [501], messages: {} });
-  var rr = reqRepGet('/api/email-inbox', 'abc');
+  var rr = reqRepGet('/api/emails?poll=1', 'abc');
   await handler(rr.req, rr.res);
   assert.equal(rr.res.code, 200);
   assert.equal(rr.res.corps.echecs, 1);
@@ -183,7 +183,7 @@ test('message vide : echec compte, route 200', async function () {
 
 test('date invalide : recu_a = now, pas de crash', async function () {
   config(); reset({ uids: [601], messages: { 601: 'From: a@b.fr\r\nDate: pas-une-date\r\n\r\nx' } });
-  var rr = reqRepGet('/api/email-inbox', 'abc');
+  var rr = reqRepGet('/api/emails?poll=1', 'abc');
   await handler(rr.req, rr.res);
   assert.equal(rr.res.corps.importes, 1);
   var ins = APPELS.filter(function (a) { return a.opts.method === 'POST' && a.url.indexOf('on_conflict') !== -1; })[0];
@@ -256,6 +256,38 @@ test('uidsDeRecherche + litteralFetch + estOk', function () {
   assert.ok(imapLib.estOk('A1 OK [CAPABILITY x] ready', 'A1'));
   assert.ok(!imapLib.estOk('A1 NO Authentication error', 'A1'));
   assert.ok(!imapLib.estOk('A1 BAD Command', 'A1'));
+});
+
+// ---- Tests lecture (ex email-messages, désormais dans /api/emails) -----------
+test('lecture liste : plus recents en bas (asc), total, sans poll', async function () {
+  config(); reset();
+  REGLES = [{ test: function (u2) { return u2.indexOf('order=id.desc') !== -1; }, status: 200, corps: [{ id: 3, sujet: 'C' }, { id: 2, sujet: 'B' }, { id: 1, sujet: 'A' }] }];
+  var rr = reqRepGet('/api/emails?secret=abc&liste=1&limite=50');
+  await handler(rr.req, rr.res);
+  assert.equal(rr.res.code, 200);
+  assert.equal(rr.res.corps.ok, true);
+  assert.equal(rr.res.corps.total, 3);
+  assert.deepEqual(rr.res.corps.messages.map(function (m) { return m.sujet; }), ['A', 'B', 'C']);
+});
+
+test('lecture par email : filtre or(from,to) + ordre asc', async function () {
+  config(); reset();
+  REGLES = [{ test: function (u2) { return u2.indexOf('order=id.asc') !== -1; }, status: 200, corps: [{ id: 1, from_addr: 'x@y.fr' }] }];
+  var rr = reqRepGet('/api/emails?secret=abc&email=x@y.fr&limite=100');
+  await handler(rr.req, rr.res);
+  assert.equal(rr.res.code, 200);
+  assert.equal(rr.res.corps.email, 'x@y.fr');
+  var appel = APPELS.find(function (a) { return a.url.indexOf('order=id.asc') !== -1; });
+  assert.ok(appel, 'appel Supabase attendu');
+  assert.ok(appel.url.indexOf('from_addr.eq.x%40y.fr') !== -1, 'filtre from');
+  assert.ok(appel.url.indexOf('to_addr.eq.x%40y.fr') !== -1, 'filtre to');
+});
+
+test('lecture sans secret : 401', async function () {
+  config(); reset();
+  var rr = reqRepGet('/api/emails?liste=1');
+  await handler(rr.req, rr.res);
+  assert.equal(rr.res.code, 401);
 });
 
 test('teardown : restaure ouvrirBoite et fetch', function () {

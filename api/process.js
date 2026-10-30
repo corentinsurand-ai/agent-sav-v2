@@ -480,6 +480,13 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ ok: false, erreur: "methode non autorisee" });
   }
 
+  // FUSION (30/10, limite Hobby : 12 fonctions/déploiement) : le scan horaire
+  // B6.4 vit désormais ICI — /api/process?secret=...&scan=1 délègue au module
+  // du scan (qui fait SA PROPRE auth : ?secret= / x-webhook-secret / Bearer).
+  if (/(?:^|[?&])scan=1(?:&|$)/.test(req.url || "")) {
+    return require("../lib/scan-route.js")(req, res);
+  }
+
   if (!autorise(req)) {
     return res.status(401).json({ ok: false, erreur: "secret invalide" });
   }

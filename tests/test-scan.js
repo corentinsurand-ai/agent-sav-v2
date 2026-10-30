@@ -20,7 +20,7 @@ delete process.env.MODE_AGENT;
 delete process.env.B42_EXECUTION;
 delete process.env.RESEND_API_KEY;
 
-const apiScan = require("../api/scan.js");
+const apiScan = require("../lib/scan-route.js");
 
 // --- État simulé --------------------------------------------------------------
 let dbDossiers = {};        // contact_id → {contact_id, etat, cycle_actuel, maj_a}
