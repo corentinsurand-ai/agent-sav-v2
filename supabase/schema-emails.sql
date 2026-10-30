@@ -24,3 +24,13 @@ create index if not exists emails_uid_imap_idx on agent_sav.emails (uid_imap);
 
 alter table agent_sav.emails add column if not exists statut_reception text;
 alter table agent_sav.emails add column if not exists from_nom text;
+
+-- ----------------------------------------------------------------------------
+-- GRANTS service_role (OBLIGATOIRES pour toute NOUVELLE table du schéma
+-- agent_sav : le « grant all on all tables » déjà joué ne s'applique qu'aux
+-- tables existantes au moment de son exécution — la table emails doit être
+-- accordée explicitement, sinon l'API renvoie 42501 permission denied).
+-- ----------------------------------------------------------------------------
+grant usage on schema agent_sav to service_role;
+grant all on agent_sav.emails to service_role;
+grant all on all sequences in schema agent_sav to service_role;
