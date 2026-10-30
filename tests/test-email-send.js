@@ -258,3 +258,52 @@ test('unitaire : corpsB64 découpe en lignes ≤ 76 caractères', () => {
   assert.ok(lignes.every(l => l.length <= 76));
   assert.ok(lignes.length > 1);
 });
+
+// ------------------------------------------------ régression V1 (incident réel 30/10)
+
+// Faux socket façon Node : émet la bannière EN UN SEUL CHUNK (comme un vrai
+// serveur SMTP) — le détecteur de fin V1 pendait exactement sur ce cas.
+const EventEmitter = require('node:events');
+function fauxSocket() {
+  const so = new EventEmitter();
+  so.setEncoding = function () {};
+  so.write = function (t, cb) { if (typeof cb === 'function') cb(); };
+  so.end = function () {};
+  so.destroy = function () {};
+  return so;
+}
+
+test('régression : bannière SMTP livrée en un seul chunk → ne pend plus', async () => {
+  const so = fauxSocket();
+  const f = reelSmtp.fluxDe(so);
+  const promesse = f.lireCode();
+  so.emit('data', '220 ex3.mail.ovh.net ESMTP ready\r\n');   // UN SEUL chunk
+  const r = await promesse;
+  assert.strictEqual(r.code, 220);
+  assert.ok(r.lignes[0].indexOf('ex3.mail.ovh.net') !== -1);
+});
+
+test('régression : réponse SMTP multiligne (250- ... 250 ␣) → code final extrait', async () => {
+  const so = fauxSocket();
+  const f = reelSmtp.fluxDe(so);
+  const promesse = f.lireCode();
+  so.emit('data', '250-ex3.mail.ovh.net\r\n250-AUTH LOGIN PLAIN\r\n250 SIZE 52428800\r\n');
+  const r = await promesse;
+  assert.strictEqual(r.code, 250);
+  assert.strictEqual(r.lignes.length, 3);
+});
+
+test('régression : réponses en plusieurs chunks et arrivées AVANT lireCode', async () => {
+  const so = fauxSocket();
+  const f2 = reelSmtp.fluxDe(so);
+  // le code 354 arrive en deux morceaux, la ligne finale complète n'existe qu'au 2e
+  const p = f2.lireCode();
+  so.emit('data', '354 go ahead');
+  so.emit('data', ' with mail\r\n');
+  const r = await p;
+  assert.strictEqual(r.code, 354);
+  // réponse arrivée AVANT tout lireCode : livrée immédiatement à l'appel
+  so.emit('data', '250 queued as ABC123\r\n');
+  const r2 = await f2.lireCode();
+  assert.strictEqual(r2.code, 250);
+});
