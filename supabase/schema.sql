@@ -119,3 +119,27 @@ grant usage, select on all sequences in schema agent_sav to service_role;
 --    Une leçon SANS déclencheurs reste applicable à CHAQUE tour (comportement B6.3).
 --    À exécuter dans le SQL Editor après la section 7.
 alter table agent_sav.lecons add column if not exists declencheurs text not null default '';
+
+-- 9. WA_MESSAGES (C4) — les VRAIS messages WhatsApp reçus par
+--    /api/whatsapp-webhook (WhatsApp Cloud API, Meta). Uniquement les
+--    messages ENTRANTS du client : la plateforme maison (C1/C4) les lit via
+--    /api/whatsapp-messages pour construire ses conversations. Les réponses
+--    sortantes arriveront avec la brique d'envoi (C2 réel, derrière drapeau).
+--    DÉDUP : wamid unique (Meta rejoue ses webhooks) + Prefer
+--    resolution=ignore-duplicates côté API.
+--    À exécuter dans le SQL Editor après la section 8.
+create table if not exists agent_sav.wa_messages (
+  id bigint generated always as identity primary key,
+  wa_id text not null,                          -- téléphone WhatsApp du client (chiffres avec indicatif, ex 33620476040)
+  nom_profil text,                              -- nom du profil WhatsApp (si fourni par Meta)
+  texte text,
+  type text not null default 'texte',           -- texte | image | audio | interactive | …
+  wamid text not null unique,                   -- id Meta — dédup des rejeus
+  brut jsonb not null,                          -- message Meta complet, pour diagnostic
+  recu_a timestamptz not null default now(),    -- timestamp Meta (jamais 01/01/1970)
+  statut text not null default 'nouveau'        -- nouveau | lu
+);
+create index if not exists idx_wa_messages_wa_id on agent_sav.wa_messages (wa_id, recu_a);
+alter table agent_sav.wa_messages enable row level security;
+grant all on agent_sav.wa_messages to service_role;
+grant usage, select on all sequences in schema agent_sav to service_role;
