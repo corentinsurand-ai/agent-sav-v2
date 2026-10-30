@@ -9,15 +9,18 @@
 //     GET ?secret&email=x@y.fr        -> historique du contact
 //
 // FIX C5.2-FUS-3 : SUPABASE_URL Vercel contient deja '/rest/v1' -> retire.
-// FIX C5.2-FUS-5 : la table emails n'a PAS de contrainte unique sur
-// message_id (42P10) -> plus de on_conflict : doublon evite par pre-verification
-// GET message_id avant insert (robuste quelle que soit la table).
+// FIX C5.2-FUS-5 : pas de contrainte unique message_id (42P10) -> doublon
+// evite par pre-verification GET message_id avant insert.
+// FIX C5.2-FUS-6 : (a) reprise uid : DESC met les NULL en premier -> on scanne
+// toutes les lignes et ignore les NULL ; (b) PGRST102 (JSON rejete) -> on
+// assainit les champs (controles, surrogats isoles) et on retente avec le
+// texte tronque ; (c) message_id litteral 'null' -> repli imap-uid-<uid>.
 // ============================================================================
 
 var imap = require('../lib/imap');
 var mail = require('../lib/mail');
 
-var VERSION = 'C5.2-FUS-5';
+var VERSION = 'C5.2-FUS-6';
 var MAX_PAR_RUN = 8;
 
 function urlSupabase(chemin) {
@@ -69,19 +72,32 @@ function repondre(res, code, corps) {
 // Un message_id est-il deja en base ? (remplace on_conflict, absent de la table)
 async function dejaEnBase(messageId) {
   var r = await fetch(urlSupabase('emails?select=id&message_id=eq.' + encodeURIComponent(messageId)), { headers: teteSupa() });
-  if (!r.ok) return false; // en cas de doute on tente l'insert : la PK id protge
+  if (!r.ok) return false; // en cas de doute on tente l'insert : la PK id protege
   var lignes = await r.json();
   return Array.isArray(lignes) && lignes.length > 0;
+}
+
+// Caracteres de controle et surrogats isoles -> certains serveurs rejettent le JSON
+function nettoyer(s) {
+  return String(s == null ? '' : s)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, ' ')
+    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/g, '')
+    .replace(/(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '');
 }
 
 async function poller(user, pass, host) {
   // ---- 1. Point de reprise : dernier uid importe -------------------------
   var colonneUid = true;
   var dernierUid = 0;
-  var rMax = await fetch(urlSupabase('emails?select=uid_imap&order=uid_imap.desc&limit=1'), { headers: teteSupa() });
+  var rMax = await fetch(urlSupabase('emails?select=uid_imap&order=uid_imap.desc&limit=5'), { headers: teteSupa() });
   if (rMax.ok) {
     var lignesMax = await rMax.json();
-    if (Array.isArray(lignesMax) && lignesMax.length && lignesMax[0].uid_imap) dernierUid = Number(lignesMax[0].uid_imap);
+    if (Array.isArray(lignesMax)) {
+      for (var k = 0; k < lignesMax.length; k++) {
+        var um = lignesMax[k] && lignesMax[k].uid_imap;
+        if (um && Number(um) > dernierUid) dernierUid = Number(um); // NULL exclus
+      }
+    }
   } else {
     colonneUid = false;   // PGRST204 : colonne absente -> repli via brut
     var rBrut = await fetch(urlSupabase('emails?select=brut&order=id.desc&limit=50'), { headers: teteSupa() });
@@ -118,7 +134,7 @@ async function poller(user, pass, host) {
         // Nos propres envois (SMTP sortant) ne sont pas des demandes clients
         if ((m.from_addr || '').toLowerCase() === String(user).toLowerCase()) { resultat.ignores++; continue; }
 
-        var messageId = m.message_id || ('imap-uid-' + uid + '@agent-sav');
+        var messageId = (m.message_id && m.message_id !== 'null') ? m.message_id : ('imap-uid-' + uid + '@agent-sav');
         if (await dejaEnBase(messageId)) { resultat.doublons++; continue; }
 
         var d = m.date ? new Date(m.date) : null;
@@ -128,10 +144,10 @@ async function poller(user, pass, host) {
           message_id: messageId,
           sens: 'entrant',
           from_addr: m.from_addr,
-          from_nom: m.from_nom || null,
+          from_nom: nettoyer(m.from_nom) || null,
           to_addr: user,
-          sujet: m.sujet,
-          texte: m.texte,
+          sujet: nettoyer(m.sujet),
+          texte: nettoyer(m.texte),
           brut: { uid_imap: uid, source: 'imap' },
           recu_a: recuIso,
           lu: false
@@ -143,6 +159,18 @@ async function poller(user, pass, host) {
           headers: Object.assign(teteSupa(), { 'Content-Profile': 'agent_sav', 'Prefer': 'return=minimal' }),
           body: JSON.stringify([ligne])
         });
+        if (!rIns.ok) {
+          // Repli : corps potentiellement volumineux/indigeste -> texte tronque
+          ligne.texte = String(ligne.texte || '').substring(0, 4000);
+          ligne.brut = { uid_imap: uid, source: 'imap' };
+          try {
+            rIns = await fetch(urlSupabase('emails'), {
+              method: 'POST',
+              headers: Object.assign(teteSupa(), { 'Content-Profile': 'agent_sav', 'Prefer': 'return=minimal' }),
+              body: JSON.stringify([ligne])
+            });
+          } catch (eRe) { resultat.echecs++; continue; }
+        }
         if (rIns.ok) resultat.importes++;
         else {
           resultat.echecs++;
