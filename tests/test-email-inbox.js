@@ -316,6 +316,96 @@ test('uidsDeRecherche + litteralFetch + estOk', function () {
   assert.ok(!imapLib.estOk('A1 BAD Command', 'A1'));
 });
 
+
+// ---- C5.3 : stockage du corps HTML (rendu fidèle signatures/logos) ------------
+test('C5.3 parseMessage multipart : m.html conserve la partie text/html', function () {
+  var brut = [
+    'From: a@b.fr', 'Subject: SAV',
+    'Content-Type: multipart/alternative; boundary="XYZ"', '',
+    '--XYZ', 'Content-Type: text/plain; charset=UTF-8', '',
+    'Bonjour,', 'ma batterie est HS.',
+    '--XYZ', 'Content-Type: text/html; charset=UTF-8', '',
+    '<p>Bonjour <b>café</b></p>', '--XYZ--'
+  ].join('\r\n');
+  var m = mail.parseMessage(brut);
+  assert.ok(m.html, 'html present');
+  assert.ok(m.html.indexOf('<b>caf\u00e9</b>') !== -1, 'html avec accents conservé');
+  assert.match(m.texte, /batterie est HS/, 'plain toujours prioritaire pour texte');
+});
+
+test('C5.3 parseMessage : image cid: inline en data URI dans m.html', function () {
+  var brut = [
+    'From: a@b.fr', 'Subject: Signature',
+    'Content-Type: multipart/related; boundary="REL"', '',
+    '--REL', 'Content-Type: text/html; charset=UTF-8', '',
+    '<p>Bonjour</p><img src="cid:logo@x"> fin', '',
+    '--REL', 'Content-Type: image/png', 'Content-Transfer-Encoding: base64',
+    'Content-ID: <logo@x>', '',
+    'iVBORw0KGgoAAAANSU', '--REL--'
+  ].join('\r\n');
+  var m = mail.parseMessage(brut);
+  assert.ok(m.html, 'html present');
+  assert.ok(m.html.indexOf('data:image/png;base64,iVBORw0KGgoAAAANSU') !== -1, 'cid remplace par data URI');
+  assert.ok(m.html.indexOf('cid:') === -1, 'plus aucun cid restant');
+  assert.ok(m.texte.indexOf('data:') === -1, 'texte detague non pollue');
+});
+
+test('C5.3 parseMessage : non-multipart text/html -> html = corps decode, texte detague', function () {
+  var m = mail.parseMessage('From: a@b.fr\r\nContent-Type: text/html\r\n\r\n<p>Bonjour <b>UV</b></p>');
+  assert.ok(m.html.indexOf('<p>Bonjour <b>UV</b></p>') !== -1, 'html conserve tel quel');
+  assert.match(m.texte, /Bonjour UV/, 'texte toujours detague');
+});
+
+test('C5.3 poller : colonne corps_html presente -> insere avec corps_html', async function () {
+  config(); reset({
+    uids: [701],
+    messages: {
+      701: 'From: a@b.fr\r\nSubject: Sig\r\nContent-Type: multipart/alternative; boundary="Z"\r\n\r\n--Z\r\nContent-Type: text/plain\r\n\r\nplain\r\n--Z\r\nContent-Type: text/html\r\n\r\n<p><b>html</b></p>\r\n--Z--'
+    }
+  });
+  var rr = reqRepGet('/api/emails?poll=1', 'abc');
+  await handler(rr.req, rr.res);
+  assert.equal(rr.res.corps.colonne_html, true);
+  assert.equal(rr.res.corps.importes, 1);
+  var ins = APPELS.filter(function (a) { return a.opts.method === 'POST' && a.url.indexOf('/emails') !== -1; })[0];
+  var ligne = JSON.parse(ins.opts.body)[0];
+  assert.ok(ligne.corps_html.indexOf('<b>html</b>') !== -1, 'corps_html insere');
+});
+
+test('C5.3 poller : colonne corps_html absente (400) -> insert SANS corps_html', async function () {
+  config(); reset({
+    uids: [702],
+    messages: {
+      702: 'From: c@d.fr\r\nSubject: H\r\nContent-Type: text/html\r\n\r\n<p>hello</p>'
+    }
+  });
+  REGLES = [
+    { test: function (u) { return u.indexOf('select=corps_html') !== -1; }, status: 400, corps: { code: 'PGRST204' } },
+    { test: function (u) { return u.indexOf('select=id') === -1; }, status: 200, corps: [] },
+    { test: function (u) { return u.indexOf('select=id') !== -1; }, status: 201, corps: [] }
+  ];
+  var rr = reqRepGet('/api/emails?poll=1', 'abc');
+  await handler(rr.req, rr.res);
+  assert.equal(rr.res.corps.colonne_html, false);
+  assert.equal(rr.res.corps.importes, 1);
+  var ins = APPELS.filter(function (a) { return a.opts.method === 'POST' && a.url.indexOf('/emails') !== -1; })[0];
+  assert.equal(JSON.parse(ins.opts.body)[0].corps_html, undefined, 'pas de corps_html quand colonne absente');
+});
+
+test('C5.3 lecture : select corps_html echoue (400) -> repli select de base', async function () {
+  config(); reset();
+  REGLES = [
+    { test: function (u2) { return u2.indexOf('corps_html') !== -1; }, status: 400, corps: { code: 'PGRST204' } },
+    { test: function (u2) { return u2.indexOf('order=id.desc') !== -1; }, status: 200, corps: [{ id: 1, sujet: 'A' }] }
+  ];
+  var rr = reqRepGet('/api/emails?secret=abc&liste=1&limite=50');
+  await handler(rr.req, rr.res);
+  assert.equal(rr.res.code, 200);
+  assert.equal(rr.res.corps.total, 1);
+  assert.ok(APPELS.filter(function (a) { return a.url.indexOf('corps_html') !== -1; }).length >= 1, 'premier essai avec corps_html');
+  assert.ok(APPELS.filter(function (a) { return a.url.indexOf('corps_html') === -1 && a.url.indexOf('order=id.desc') !== -1; }).length >= 1, 'repli sans corps_html');
+});
+
 // ---- Tests lecture (ex email-messages, désormais dans /api/emails) -----------
 test('lecture liste : plus recents en bas (asc), total, sans poll', async function () {
   config(); reset();
