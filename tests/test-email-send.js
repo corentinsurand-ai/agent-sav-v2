@@ -21,6 +21,7 @@ globalThis.fetch = async function(url, options) {
 };
 
 process.env.WEBHOOK_SECRET = 'secret-de-test-c5';
+process.env.EMAIL_SANS_COPIE = '1';   // C5-ENV-3 : pas d'IMAP réel dans les tests (sauf test dédié ci-dessous)
 process.env.SUPABASE_URL = 'https://umob-crm.supabase.co';
 process.env.SUPABASE_SERVICE_KEY = 'cle-service-test';
 process.env.SMTP_HOST = 'ssl0.ovh.net';
@@ -340,4 +341,54 @@ test('C5-ENV-2 : html trop long (> 300000) → 400', async () => {
   const res = faireRes();
   await handler(reqPost({ a: 'client@ex.fr', texte: 'bonjour', html: new Array(300002).join('x') }, 'secret-de-test-c5'), res);
   assert.strictEqual(res.statusCode, 400);
+});
+
+// ------------------------------------------------- C5-ENV-3 : copie Éléments envoyés
+
+test('C5-ENV-3 : après envoi OK, copie IMAP APPEND dans Éléments envoyés (best effort)', async () => {
+  raz();
+  process.env.EMAIL_SANS_COPIE = '0';
+  var imap = require('../lib/imap');
+  var ouvrirReel = imap.ouvrirBoite;
+  var appels = [];
+  imap.ouvrirBoite = async function(opts) {
+    appels.push(opts);
+    return {
+      dossierEnvoyes: async function() { return 'Éléments envoyés'; },
+      envoyerCopie: async function(dossier, message) { appels.push({ dossier: dossier, message: message }); },
+      finir: async function() { appels.push('FIN'); }
+    };
+  };
+  try {
+    const res = faireRes();
+    await handler(reqPost({ a: 'client@ex.fr', sujet: 'RE: TEST', texte: 'bonjour' }, 'secret-de-test-c5'), res);
+    assert.strictEqual(res.statusCode, 200);
+    assert.ok(appels.length >= 2, 'IMAP sollicité : ' + JSON.stringify(appels));
+    assert.strictEqual(appels[0].user, 'sav@umob.fr', 'connexion IMAP avec la boîte SMTP_USER');
+    assert.strictEqual(appels[0].host, 'ssl0.ovh.net');
+    var copie = appels.filter(function(x){ return x && x.dossier; })[0];
+    assert.ok(copie, 'copie déposée');
+    assert.strictEqual(copie.dossier, 'Éléments envoyés');
+    assert.ok(copie.message.indexOf('Subject:') !== -1, 'le message MIME complet est copié');
+    assert.ok(copie.message.indexOf('\r\n') !== -1, 'CRLF final présent');
+  } finally {
+    imap.ouvrirBoite = ouvrirReel;
+    process.env.EMAIL_SANS_COPIE = '1';
+  }
+});
+
+test('C5-ENV-3 : panne IMAP à la copie → 200 quand même (email déjà parti)', async () => {
+  raz();
+  process.env.EMAIL_SANS_COPIE = '0';
+  var imap = require('../lib/imap');
+  var ouvrirReel = imap.ouvrirBoite;
+  imap.ouvrirBoite = async function() { throw new Error('IMAP injoignable'); };
+  try {
+    const res = faireRes();
+    await handler(reqPost({ a: 'client@ex.fr', texte: 'bonjour' }, 'secret-de-test-c5'), res);
+    assert.strictEqual(res.statusCode, 200, 'l envoi reste OK malgré la panne de copie');
+  } finally {
+    imap.ouvrirBoite = ouvrirReel;
+    process.env.EMAIL_SANS_COPIE = '1';
+  }
 });

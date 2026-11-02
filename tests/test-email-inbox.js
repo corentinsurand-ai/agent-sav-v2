@@ -495,3 +495,65 @@ test('C5.3c parseMessage : signature VOLUMINEUSE (gif Outlook 585 Ko = 752k char
   assert.strictEqual((m.html.match(/cid:/g) || []).length, 0, 'plus aucun cid residuel');
   assert.ok(m.html.length > 700000, 'html contient la data URI complete (cap relevee)');
 });
+
+test('C5-ENV-3 ouvrirBoite.dossierEnvoyes : LIST → trouve « Éléments envoyés »', async function () {
+  var imap = require('../lib/imap');
+  var conn = {
+    dejaSalue: true,
+    command: async function (cmd) {
+      if (cmd.indexOf('LOGIN') === 0) return 'A1 OK LOGIN';
+      if (cmd.indexOf('SELECT') === 0) return 'A2 OK [READ-WRITE] SELECT';
+      if (cmd.indexOf('LIST') === 0) return '* LIST (\\HasNoChildren) "/" "INBOX"\r\n* LIST (\\HasNoChildren) "/" "Corbeille"\r\n* LIST (\\HasNoChildren) "/" "Éléments envoyés"\r\nA3 OK LIST';
+      return 'A4 OK';
+    },
+    fermer: function () {}
+  };
+  var boite = await imap.ouvrirBoite({ host: 'h', user: 'u', pass: 'p' }, { connexion: async function () { return conn; } });
+  var dos = await boite.dossierEnvoyes();
+  assert.strictEqual(dos, 'Éléments envoyés');
+  await boite.finir();
+});
+
+test('C5-ENV-3 ouvrirBoite.envoyerCopie : APPEND avec littéral {N} octets + tag A900 OK', async function () {
+  var imap = require('../lib/imap');
+  var ecrits = [];
+  var conn = {
+    dejaSalue: true,
+    ecrireBrut: function (t) { ecrits.push(String(t)); },
+    attendreContinuation: async function () {},
+    command: async function (cmd) {
+      if (cmd.indexOf('LOGIN') === 0) return 'A1 OK LOGIN';
+      if (cmd.indexOf('SELECT') === 0) return 'A2 OK SELECT';
+      if (cmd.indexOf('NOOP') === 0) return '+ Ready for literal\r\nA900 OK [APPENDUID] APPEND\r\nA3 OK NOOP';
+      return 'A4 OK';
+    },
+    fermer: function () {}
+  };
+  var boite = await imap.ouvrirBoite({ host: 'h', user: 'u', pass: 'p' }, { connexion: async function () { return conn; } });
+  var msg = 'Subject: test\r\n\r\nCorps avec accents éà\r\n';
+  await boite.envoyerCopie('Éléments envoyés', msg);
+  var append = ecrits.filter(function (e) { return e.indexOf('APPEND') !== -1; })[0];
+  assert.ok(append, 'commande APPEND écrite');
+  assert.ok(append.indexOf('A900 APPEND "Éléments envoyés" (\\Seen) {') !== -1, 'tag A900 + dossier échappé + drapeau \\Seen');
+  assert.strictEqual(append.match(/\{(\d+)\}/)[1], String(Buffer.byteLength(msg, 'utf8')), 'taille du littéral en OCTETS utf-8');
+  assert.ok(ecrits.indexOf(msg) !== -1, 'le message complet est écrit tel quel après la continuation');
+  await boite.finir();
+});
+
+test('C5-ENV-3 envoyerCopie : APPEND refusé par le serveur → erreur explicite', async function () {
+  var imap = require('../lib/imap');
+  var conn = {
+    dejaSalue: true,
+    ecrireBrut: function () {},
+    attendreContinuation: async function () {},
+    command: async function (cmd) {
+      if (cmd.indexOf('LOGIN') === 0) return 'A1 OK LOGIN';
+      if (cmd.indexOf('SELECT') === 0) return 'A2 OK SELECT';
+      if (cmd.indexOf('NOOP') === 0) return 'A900 NO [TRYCREATE] APPEND\r\nA3 OK NOOP';
+      return 'A4 OK';
+    },
+    fermer: function () {}
+  };
+  var boite = await imap.ouvrirBoite({ host: 'h', user: 'u', pass: 'p' }, { connexion: async function () { return conn; } });
+  await assert.rejects(function () { return boite.envoyerCopie('Inconnu', 'x'); }, /APPEND refuse/);
+});

@@ -126,6 +126,29 @@ module.exports = async function handler(req, res) {
     return res.status(502).json({ ok: false, erreur: 'envoi SMTP echoue', detail: String((e && e.message) || e).substring(0, 300) });
   }
 
+  // C5-ENV-3 : copie du message dans « Éléments envoyés » (IMAP APPEND).
+  // Best effort : l'email est déjà parti — une panne IMAP ne fait pas échouer
+  // l'envoi. EMAIL_SANS_COPIE=1 désactive (tests).
+  if (env('EMAIL_SANS_COPIE') !== '1' && result.message) {
+    try {
+      var imap = require('../lib/imap');
+      var boite = await imap.ouvrirBoite({ host: host, user: user, pass: pass });
+      try {
+        var dossier = await boite.dossierEnvoyes();
+        if (dossier) {
+          await boite.envoyerCopie(dossier, result.message);
+          await journaliser('email_send : copie deposee dans Elements envoyes', { dossier: dossier, a: a });
+        } else {
+          await journaliser('email_send : dossier Elements envoyes introuvable (LIST)', { a: a });
+        }
+      } finally {
+        try { await boite.finir(); } catch (eF) {}
+      }
+    } catch (eImap) {
+      await journaliser('email_send : copie Elements envoyes echouee (email bien parti)', { a: a, erreur: String((eImap && eImap.message) || eImap).substring(0, 200) });
+    }
+  }
+
   // Enregistrement côté emails (sens sortant) — best effort.
   try {
     await fetch(urlSupabase('emails', ''), {
