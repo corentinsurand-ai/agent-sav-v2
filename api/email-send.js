@@ -6,8 +6,8 @@
 // à parler au serveur SMTP (principe cerveau ≠ canal) : aucun LLM ici.
 //
 //   POST /api/email-send
-//   { secret, a, sujet, texte }     (secret accepté : query, header, body)
-//   → { ok:true, brique:'C5', message_id }
+//   { secret, a, sujet, texte, html } (secret accepté : query, header, body ;
+//     html = corps HTML optionnel (signature) → multipart/alternative)
 //
 // APRÈS l'envoi réussi : enregistré dans agent_sav.emails avec sens='sortant'
 // (best effort — une panne Supabase ne fait pas échouer l'envoi).
@@ -96,12 +96,14 @@ module.exports = async function handler(req, res) {
   var a = String((corps && corps.a) || '').trim();
   var sujet = String((corps && corps.sujet) || '').trim();
   var texte = String((corps && corps.texte) || '').trim();
+  var html = String((corps && corps.html) || '').trim();   // C5-ENV-2 : corps HTML (signature logo)
 
   if (!a) return res.status(400).json({ ok: false, erreur: 'a requis (adresse email du client)' });
   if (!emailValide(a)) return res.status(400).json({ ok: false, erreur: 'a doit etre une adresse email valide' });
   if (!texte) return res.status(400).json({ ok: false, erreur: 'texte requis' });
   if (!sujet) sujet = 'Message de votre service U\'mob';
   if (texte.length > 50000) return res.status(400).json({ ok: false, erreur: 'texte trop long (max 50000 caracteres)' });
+  if (html.length > 300000) return res.status(400).json({ ok: false, erreur: 'html trop long (max 300000 caracteres)' });
 
   var host = env('SMTP_HOST'), user = env('SMTP_USER'), pass = env('SMTP_PASS');
   var de = env('EMAIL_FROM') || user;
@@ -117,7 +119,7 @@ module.exports = async function handler(req, res) {
     result = await smtp.envoyerSmtp({
       host: host, port: env('SMTP_PORT') || 465,
       user: user, pass: pass,
-      de: de, a: a, sujet: sujet, texte: texte
+      de: de, a: a, sujet: sujet, texte: texte, html: html || undefined
     });
   } catch (e) {
     await journaliser('email_send ERREUR SMTP', { a: a, erreur: String((e && e.message) || e) });
@@ -142,6 +144,7 @@ module.exports = async function handler(req, res) {
         to_addr: a,
         sujet: sujet,
         texte: texte,
+        corps_html: html || null,
         brut: { envoye_par: 'plateforme-c5' },
         recu_a: new Date().toISOString(),
         statut_reception: 'sent',

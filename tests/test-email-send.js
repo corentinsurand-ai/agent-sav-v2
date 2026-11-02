@@ -307,3 +307,37 @@ test('régression : réponses en plusieurs chunks et arrivées AVANT lireCode', 
   const r2 = await f2.lireCode();
   assert.strictEqual(r2.code, 250);
 });
+
+// ------------------------------------------------- C5-ENV-2 : corps HTML
+
+test('C5-ENV-2 : html fourni → multipart/alternative (texte + html) dans DATA', async () => {
+  raz();
+  const res = faireRes();
+  await handler(reqPost({ a: 'client@ex.fr', sujet: 'RE: TEST', texte: 'bonjour', html: '<p>bonjour</p><img src="https://umob.fr/logo.png">' }, 'secret-de-test-c5'), res);
+  assert.strictEqual(res.statusCode, 200);
+  // le DATA est la 9e commande écrite (après AUTH etc.)
+  var data = COURANT.commandes.filter(function(c) { return String(c).indexOf('Subject:') !== -1; })[0];
+  assert.ok(data, 'commande DATA trouvée');
+  assert.ok(data.indexOf('multipart/alternative') !== -1, 'Content-Type multipart/alternative');
+  assert.ok(data.indexOf('text/html; charset=UTF-8') !== -1, 'partie text/html presente');
+  assert.ok(data.indexOf('text/plain; charset=UTF-8') !== -1, 'repli text/plain present');
+  // les deux corps sont en base64 : le logo URL ne doit PAS apparaître en clair
+  assert.ok(data.indexOf('umob.fr/logo.png') === -1, 'corps html encode en base64');
+});
+
+test('C5-ENV-2 : SANS html → text/plain (aucune régression v1)', async () => {
+  raz();
+  const res = faireRes();
+  await handler(reqPost({ a: 'client@ex.fr', sujet: 'RE: TEST', texte: 'bonjour' }, 'secret-de-test-c5'), res);
+  assert.strictEqual(res.statusCode, 200);
+  var data = COURANT.commandes.filter(function(c) { return String(c).indexOf('Subject:') !== -1; })[0];
+  assert.ok(String(data).indexOf('text/plain; charset=UTF-8') !== -1, 'text/plain conserve');
+  assert.ok(String(data).indexOf('multipart') === -1, 'pas de multipart sans html');
+});
+
+test('C5-ENV-2 : html trop long (> 300000) → 400', async () => {
+  raz();
+  const res = faireRes();
+  await handler(reqPost({ a: 'client@ex.fr', texte: 'bonjour', html: new Array(300002).join('x') }, 'secret-de-test-c5'), res);
+  assert.strictEqual(res.statusCode, 400);
+});
