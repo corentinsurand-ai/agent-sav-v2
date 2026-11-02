@@ -324,6 +324,41 @@ module.exports = async function (req, res) {
       } catch (eLst) { return repondre(res, 502, { ok: false, erreur: String(eLst && eLst.message || eLst).substring(0, 300) }); }
     }
 
+    // ---- MODE DEBUG C5-ENV-3 : essayer des variantes d'APPEND ------------
+    if (u.searchParams.get('debugappend') === '1') {
+      var hA = process.env.SMTP_HOST, uA = process.env.SMTP_USER, pA = process.env.SMTP_PASS;
+      if (!hA || !uA || !pA) return repondre(res, 500, { ok: false, erreur: 'config SMTP absente' });
+      var imapA = require('../lib/imap');
+      var msgMini = 'From: test@umob.fr\r\nTo: test@umob.fr\r\nSubject: Test append\r\n\r\nCorps minimal.\r\n';
+      var variantes = [
+        { nom: 'Sent Items + flags \\Seen', dossier: 'Sent Items', flags: '(\\Seen)' },
+        { nom: 'Sent Items sans flags', dossier: 'Sent Items', flags: '' },
+        { nom: 'INBOX + flags (controle)', dossier: 'INBOX', flags: '(\\Seen)' },
+        { nom: 'Sent Items + flags + date', dossier: 'Sent Items', flags: '(\\Seen) "02-Nov-2026 15:00:00 +0100"' }
+      ];
+      var resultats = [];
+      for (var iv = 0; iv < variantes.length; iv++) {
+        var va = variantes[iv];
+        var uneLigne = { nom: va.nom, reponse: null };
+        try {
+          var boiteA = await imapA.ouvrirBoite({ host: hA, user: uA, pass: pA });
+          try {
+            var tag = 'A9' + iv;
+            var nA = Buffer.byteLength(msgMini, 'utf8');
+            boiteA.api.ecrireBrut(tag + ' APPEND "' + va.dossier + '" ' + (va.flags ? va.flags + ' ' : '') + '{' + nA + '}\r\n');
+            await boiteA.api.attendreContinuation(3000);
+            boiteA.api.ecrireBrut(msgMini);
+            var rA = await boiteA.api.command('NOOP');
+            var mA = new RegExp(tag + ' (OK|NO|BAD)[^\r\n]*').exec(rA);
+            uneLigne.reponse = mA ? mA[0] : ('pas de reponse taggee : ' + rA.substring(0, 150));
+          } catch (eV) { uneLigne.reponse = 'ERREUR : ' + String((eV && eV.message) || eV).substring(0, 200); }
+          finally { try { if (boiteA.api.detruire) boiteA.api.detruire(); } catch (eD2) {} }
+        } catch (eBx) { uneLigne.reponse = 'CONNEXION : ' + String((eBx && eBx.message) || eBx).substring(0, 150); }
+        resultats.push(uneLigne);
+      }
+      return repondre(res, 200, { ok: true, variantes: resultats });
+    }
+
     // ---- MODE DEBUG TEMPORAIRE C5.3b (a retirer) ---------------------------
     var uidDebug = u.searchParams.get('debugraw');
     if (uidDebug) {
