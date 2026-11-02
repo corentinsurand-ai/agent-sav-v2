@@ -41,10 +41,11 @@
 // ni enseigne) ; 401 secret invalide ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C1-IMP-2';
+var VERSION = 'C6-AUTH-1';
 var SCHEMA = 'agent_sav';
 
 var clients = require('../lib/clients.js');
+var auth = require('../lib/auth.js');
 
 function env(nom) { return process.env[nom] || ''; }
 
@@ -113,6 +114,51 @@ async function journaliser(texte, detail) {
   } catch (e) { return false; }
 }
 
+// --- C6-AUTH-1 : Supabase écriture (utilisateurs) ----------------------------
+
+async function supabaseEcrire(table, methode, params, corpsObjet) {
+  var res = await fetch(urlSupabase(table, params), {
+    method: methode,
+    headers: {
+      'apikey': env('SUPABASE_SERVICE_KEY'),
+      'Authorization': 'Bearer ' + env('SUPABASE_SERVICE_KEY'),
+      'Content-Type': 'application/json',
+      'Accept-Profile': SCHEMA,
+      'Content-Profile': SCHEMA,
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(corpsObjet)
+  });
+  var texte = '';
+  try { texte = await res.text(); } catch (e) { texte = ''; }
+  if (!res.ok) throw new Error('Supabase ' + res.status + ' — ' + texte.substring(0, 300));
+  return texte ? JSON.parse(texte) : [];
+}
+
+// Jeton de la requête : ?jeton= (query), header x-jeton, ou body.jeton.
+function jetonDe(req, corps) {
+  var j = paramDe(req, 'jeton');
+  if (!j && req.headers && req.headers['x-jeton']) j = String(req.headers['x-jeton']);
+  if (!j && corps && corps.jeton) j = String(corps.jeton);
+  return j;
+}
+
+// Utilisateur courant depuis son jeton — VÉRIFIE aussi actif en base
+// (un compte désactivé est déconnecté immédiatement). Retourne null si
+// jeton invalide, expiré, compte absent ou désactivé.
+async function utilisateurDuJeton(jeton) {
+  var payload = auth.lireJeton(jeton, auth.secretSignature());
+  if (!payload || !payload.id) return null;
+  try {
+    var lignes = await supabaseGet('utilisateurs',
+      'select=id,email,nom,role,actif&id=eq.' + encodeURIComponent(payload.id));
+    if (!lignes.length || lignes[0].actif !== true) return null;
+    return { id: lignes[0].id, email: lignes[0].email, nom: lignes[0].nom, role: lignes[0].role };
+  } catch (e) {
+    return null; // base injoignable → session refusée (fail closed)
+  }
+}
+
 // --- Normalisation d'un client reçu → forme EXACTE de lireClients ----------
 // {telephone: '33612345678', plaque: 'TT101TE / TT102TE', enseigne,
 //  statut_risque, brut: {lignes: […]}}
@@ -150,10 +196,149 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     try {
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-webhook-secret');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-webhook-secret, x-jeton');
     } catch (e) {}
     return res.status(204).end();
   }
+
+  // ==========================================================================
+  // C6-AUTH-1 — AUTHENTIFICATION ÉQUIPE (AVANT le secret : les collaborateurs
+  // n'ont PAS le secret, ils ont un compte agent_sav.utilisateurs + jeton).
+  // ==========================================================================
+  var corpsAuth = req.body;
+  if (!corpsAuth || typeof corpsAuth !== 'object') {
+    try { corpsAuth = JSON.parse(String(req.body || '{}')); } catch (e) { corpsAuth = {}; }
+  }
+  var demandeAuth = paramDe(req, 'auth') === '1' ||
+    (req.method === 'POST' && (corpsAuth.connexion || corpsAuth.utilisateur || corpsAuth.activation || typeof corpsAuth.nouveau_mdp === 'string'));
+  if (demandeAuth) {
+
+    // ---- POST {connexion:{email, mot_de_passe}} → jeton --------------------
+    if (req.method === 'POST' && corpsAuth.connexion && typeof corpsAuth.connexion === 'object') {
+      if (!env('SUPABASE_URL') || !env('SUPABASE_SERVICE_KEY')) {
+        return res.status(500).json({ ok: false, erreur: 'configuration Supabase manquante' });
+      }
+      var emailC = String(corpsAuth.connexion.email || '').trim().toLowerCase();
+      var mdpC = String(corpsAuth.connexion.mot_de_passe || corpsAuth.connexion.mdp || '');
+      if (!emailC || !mdpC) {
+        return res.status(400).json({ ok: false, erreur: 'email et mot_de_passe requis' });
+      }
+      var lignesU = [];
+      try {
+        lignesU = await supabaseGet('utilisateurs',
+          'select=id,email,nom,role,actif,mot_de_passe&email=eq.' + encodeURIComponent(emailC));
+      } catch (e) {
+        return res.status(500).json({ ok: false, erreur: 'erreur base utilisateurs : ' + String((e && e.message) || e).substring(0, 200) });
+      }
+      var u = lignesU.length ? lignesU[0] : null;
+      if (!u || u.actif !== true || !auth.verifierMotDePasse(mdpC, u.mot_de_passe)) {
+        return res.status(401).json({ ok: false, erreur: 'identifiants invalides' });
+      }
+      try { await supabaseEcrire('utilisateurs', 'PATCH', '?id=eq.' + encodeURIComponent(u.id), { derniere_connexion: new Date().toISOString() }); } catch (e) {}
+      var utilisateur = { id: u.id, email: u.email, nom: u.nom, role: u.role };
+      return res.status(200).json({
+        ok: true, brique: 'C6-AUTH', version: VERSION,
+        jeton: auth.creerJeton(utilisateur, auth.secretSignature()),
+        utilisateur: utilisateur
+      });
+    }
+
+    if (!env('SUPABASE_URL') || !env('SUPABASE_SERVICE_KEY')) {
+      return res.status(500).json({ ok: false, erreur: 'configuration Supabase manquante' });
+    }
+
+    // Le jeton est requis pour tout le reste des branches auth.
+    var courant = await utilisateurDuJeton(jetonDe(req, corpsAuth));
+    if (!courant) {
+      return res.status(401).json({ ok: false, erreur: 'jeton invalide ou expire' });
+    }
+
+    // ---- GET ?auth=1&jeton=… → vérification + utilisateur courant ---------
+    if (req.method === 'GET' && paramDe(req, 'utilisateurs') !== '1') {
+      return res.status(200).json({
+        ok: true, brique: 'C6-AUTH', version: VERSION, utilisateur: courant
+      });
+    }
+
+    // ---- C6-AUTH-1 : changement de SON propre mot de passe (jeton requis) -
+    if (req.method === 'POST' && typeof corpsAuth.nouveau_mdp === 'string') {
+      if (corpsAuth.nouveau_mdp.length < 8) {
+        return res.status(400).json({ ok: false, erreur: 'mot de passe : 8 caracteres minimum' });
+      }
+      try {
+        await supabaseEcrire('utilisateurs', 'PATCH', '?id=eq.' + encodeURIComponent(courant.id), {
+          mot_de_passe: auth.hacherMotDePasse(corpsAuth.nouveau_mdp)
+        });
+        return res.status(200).json({ ok: true, brique: 'C6-AUTH', version: VERSION, mot_de_passe_modifie: true });
+      } catch (e) {
+        return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
+      }
+    }
+
+    // ---- Admin uniquement à partir d'ici ----------------------------------
+    if (courant.role !== 'admin') {
+      return res.status(403).json({ ok: false, erreur: 'role admin requis' });
+    }
+
+    // GET ?auth=1&utilisateurs=1 → liste des comptes (JAMAIS de hash)
+    if (req.method === 'GET') {
+      try {
+        var listeU = await supabaseGet('utilisateurs',
+          'select=id,email,nom,role,actif,cree_a,derniere_connexion&order=cree_a.asc');
+        return res.status(200).json({ ok: true, brique: 'C6-AUTH', version: VERSION, utilisateurs: listeU });
+      } catch (e) {
+        return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
+      }
+    }
+
+    if (req.method !== 'POST') {
+      return res.status(405).json({ ok: false, erreur: 'methode non autorisee' });
+    }
+
+    // POST {utilisateur:{email,nom,role,mot_de_passe}} → création d'un compte
+    if (corpsAuth.utilisateur && typeof corpsAuth.utilisateur === 'object') {
+      var nu = corpsAuth.utilisateur;
+      var emailN = String(nu.email || '').trim().toLowerCase();
+      var mdpN = String(nu.mot_de_passe || nu.mdp || '');
+      var roleN = String(nu.role || 'collaborateur');
+      if (!emailN || !mdpN) return res.status(400).json({ ok: false, erreur: 'email et mot_de_passe requis' });
+      if (mdpN.length < 8) return res.status(400).json({ ok: false, erreur: 'mot de passe : 8 caracteres minimum' });
+      if (roleN !== 'admin' && roleN !== 'collaborateur') {
+        return res.status(400).json({ ok: false, erreur: 'role invalide (admin|collaborateur)' });
+      }
+      try {
+        var crees = await supabaseEcrire('utilisateurs', 'POST', '', {
+          email: emailN, nom: String(nu.nom || '').trim(), role: roleN,
+          mot_de_passe: auth.hacherMotDePasse(mdpN), actif: true
+        });
+        var fait = Array.isArray(crees) ? crees[0] : crees;
+        return res.status(201).json({
+          ok: true, brique: 'C6-AUTH', version: VERSION,
+          utilisateur: fait ? { id: fait.id, email: fait.email, nom: fait.nom, role: fait.role, actif: fait.actif } : null
+        });
+      } catch (e) {
+        return res.status(409).json({ ok: false, erreur: 'creation impossible (email deja pris ?) : ' + String((e && e.message) || e).substring(0, 200) });
+      }
+    }
+
+    // POST {activation:{email, actif}} → activer/désactiver un compte
+    if (corpsAuth.activation && typeof corpsAuth.activation === 'object') {
+      var emailA = String(corpsAuth.activation.email || '').trim().toLowerCase();
+      var actifA = corpsAuth.activation.actif === true;
+      if (!emailA) return res.status(400).json({ ok: false, erreur: 'email requis' });
+      try {
+        var majA = await supabaseEcrire('utilisateurs', 'PATCH',
+          '?email=eq.' + encodeURIComponent(emailA), { actif: actifA });
+        return res.status(200).json({ ok: true, brique: 'C6-AUTH', version: VERSION, modifies: majA.length });
+      } catch (e) {
+        return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
+      }
+    }
+
+
+    return res.status(400).json({ ok: false, erreur: 'action auth inconnue (connexion | utilisateur | activation | nouveau_mdp)' });
+  }
+
 
   if (secretDe(req) !== env('WEBHOOK_SECRET') || !env('WEBHOOK_SECRET')) {
     return res.status(401).json({ ok: false, erreur: 'secret invalide' });
