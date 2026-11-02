@@ -359,6 +359,39 @@ module.exports = async function (req, res) {
       return repondre(res, 200, { ok: true, variantes: resultats });
     }
 
+    // ---- MODE DEBUG : test APPEND isole (iterations rapides sans envoi SMTP)
+    if (u.searchParams.get('appendtest') === '1') {
+      var hA = process.env.SMTP_HOST, uA = process.env.SMTP_USER, pA = process.env.SMTP_PASS;
+      if (!hA || !uA || !pA) return repondre(res, 500, { ok: false, erreur: 'config SMTP absente' });
+      try {
+        var imapA = require('../lib/imap');
+        var boiteA = await imapA.ouvrirBoite({ host: hA, user: uA, pass: pA });
+        var variantes = [];
+        var dossierA = u.searchParams.get('folder') || 'Sent Items';
+        var msgA = 'From: <test@umob.fr>\r\nSubject: test append\r\n\r\ncorps test\r\n';
+        var nA = Buffer.byteLength(msgA, 'utf8');
+        try {
+          // variante 1 : avec drapeaux (\Seen) ; variante 2 : sans drapeaux
+          var cmd1 = 'B901 APPEND "' + dossierA.replace(/(["\\])/g, '\\$1') + '" (\\Seen) {' + nA + '}';
+          var cmd2 = 'B902 APPEND "' + dossierA.replace(/(["\\])/g, '\\$1') + '" {' + nA + '}';
+          var essais = [cmd1, cmd2];
+          for (var iA = 0; iA < essais.length; iA++) {
+            var cmd = essais[iA];
+            boiteA.api.ecrireBrut(cmd + '\r\n');
+            try {
+              await boiteA.api.attendreContinuation(3000);
+              boiteA.api.ecrireBrut(msgA);
+              var rA = await boiteA.api.command('NOOP');
+              variantes.push({ cmd: cmd.substring(0, 60), ok: rA.indexOf(cmd.slice(0, 4) + ' OK') !== -1, reponse: rA.substring(0, 250) });
+            } catch (eEss) {
+              variantes.push({ cmd: cmd.substring(0, 60), ok: false, erreur: String((eEss && eEss.message) || eEss).substring(0, 200), accu: boiteA.api.accu ? boiteA.api.accu() : '' });
+            }
+          }
+        } finally { try { if (boiteA.api.detruire) boiteA.api.detruire(); } catch (eF) {} }
+        return repondre(res, 200, { ok: true, dossier: dossierA, variantes: variantes });
+      } catch (eAp) { return repondre(res, 502, { ok: false, erreur: String(eAp && eAp.message || eAp).substring(0, 300) }); }
+    }
+
     // ---- MODE DEBUG TEMPORAIRE C5.3b (a retirer) ---------------------------
     var uidDebug = u.searchParams.get('debugraw');
     if (uidDebug) {
