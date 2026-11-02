@@ -521,6 +521,7 @@ test('C5-ENV-3 ouvrirBoite.envoyerCopie : APPEND avec littéral {N} octets + tag
     dejaSalue: true,
     ecrireBrut: function (t) { ecrits.push(String(t)); },
     attendreContinuation: async function () {},
+    accu: function () { return ''; },
     command: async function (cmd) {
       if (cmd.indexOf('LOGIN') === 0) return 'A1 OK LOGIN';
       if (cmd.indexOf('SELECT') === 0) return 'A2 OK SELECT';
@@ -546,6 +547,7 @@ test('C5-ENV-3 envoyerCopie : APPEND refusé par le serveur → erreur explicite
     dejaSalue: true,
     ecrireBrut: function () {},
     attendreContinuation: async function () {},
+    accu: function () { return ''; },
     accu: function () { return ''; },
     command: async function (cmd) {
       if (cmd.indexOf('LOGIN') === 0) return 'A1 OK LOGIN';
