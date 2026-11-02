@@ -557,3 +557,20 @@ test('C5-ENV-3 envoyerCopie : APPEND refusé par le serveur → erreur explicite
   var boite = await imap.ouvrirBoite({ host: 'h', user: 'u', pass: 'p' }, { connexion: async function () { return conn; } });
   await assert.rejects(function () { return boite.envoyerCopie('Inconnu', 'x'); }, /APPEND refuse/);
 });
+
+test('C5-ENV-3 dossierEnvoyes : nom ACCENTUÉ en littéral IMAP (<LIT>) + exclusion DEVIS ENVOYES', async function () {
+  var imap = require('../lib/imap');
+  var conn = {
+    dejaSalue: true,
+    command: async function (cmd) {
+      if (cmd.indexOf('LOGIN') === 0) return 'A1 OK LOGIN';
+      if (cmd.indexOf('SELECT') === 0) return 'A2 OK SELECT';
+      if (cmd.indexOf('LIST') === 0) return '* LIST (\\HasNoChildren) "/" "INBOX"\r\n* LIST (\\HasNoChildren) "/" "1. DEVIS ENVOYES"\r\n* LIST (\\HasNoChildren) "/" <LIT>Éléments envoyés</LIT>\r\nA3 OK LIST';
+      return 'A4 OK';
+    },
+    fermer: function () {}
+  };
+  var boite = await imap.ouvrirBoite({ host: 'h', user: 'u', pass: 'p' }, { connexion: async function () { return conn; } });
+  assert.strictEqual(await boite.dossierEnvoyes(), 'Éléments envoyés');
+  await boite.finir();
+});

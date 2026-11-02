@@ -141,7 +141,7 @@ module.exports = async function handler(req, res) {
       boiteImap = await imap.ouvrirBoite({ host: host, user: user, pass: pass });
       etapesCopie.push('login+select');
       var dossier = await boiteImap.dossierEnvoyes();
-      etapesCopie.push('LIST : ' + (dossier || 'introuvable'));
+      etapesCopie.push('LIST -> ' + (dossier || 'introuvable'));
       if (dossier) {
         await boiteImap.envoyerCopie(dossier, result.message);
         etapesCopie.push('APPEND ok');
