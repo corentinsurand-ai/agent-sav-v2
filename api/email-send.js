@@ -129,23 +129,40 @@ module.exports = async function handler(req, res) {
   // C5-ENV-3 : copie du message dans « Éléments envoyés » (IMAP APPEND).
   // Best effort : l'email est déjà parti — une panne IMAP ne fait pas échouer
   // l'envoi. EMAIL_SANS_COPIE=1 désactive (tests).
+  // FIX fluid compute : le socket IMAP est DÉTRUIT dans tous les cas — une
+  // socket TLS ouverte retient la fonction Vercel en vie et bloque la réponse.
+  var etapesCopie = [];
+  var boiteImap = null;
   if (env('EMAIL_SANS_COPIE') !== '1' && result.message) {
-    try {
+    var delaiCopie = Number(env('EMAIL_COPIE_DELAI_MS') || 8000);
+    var copie = (async function () {
       var imap = require('../lib/imap');
-      var boite = await imap.ouvrirBoite({ host: host, user: user, pass: pass });
-      try {
-        var dossier = await boite.dossierEnvoyes();
-        if (dossier) {
-          await boite.envoyerCopie(dossier, result.message);
-          await journaliser('email_send : copie deposee dans Elements envoyes', { dossier: dossier, a: a });
-        } else {
-          await journaliser('email_send : dossier Elements envoyes introuvable (LIST)', { a: a });
-        }
-      } finally {
-        try { await boite.finir(); } catch (eF) {}
+      etapesCopie.push('ouverture');
+      boiteImap = await imap.ouvrirBoite({ host: host, user: user, pass: pass });
+      etapesCopie.push('login+select');
+      var dossier = await boiteImap.dossierEnvoyes();
+      etapesCopie.push('LIST : ' + (dossier || 'introuvable'));
+      if (dossier) {
+        await boiteImap.envoyerCopie(dossier, result.message);
+        etapesCopie.push('APPEND ok');
       }
-    } catch (eImap) {
-      await journaliser('email_send : copie Elements envoyes echouee (email bien parti)', { a: a, erreur: String((eImap && eImap.message) || eImap).substring(0, 200) });
+      await boiteImap.finir();
+      etapesCopie.push('fini');
+    })();
+    copie.catch(function () {});   // rejets tardifs (socket détruite) : jamais non traités
+    try {
+      await Promise.race([
+        copie,
+        new Promise(function (_, rej) {
+          setTimeout(function () { rej(new Error('timeout copie ' + delaiCopie + ' ms')); }, delaiCopie);
+        })
+      ]);
+      await journaliser('email_send : copie deposee dans Elements envoyes', { etapes: etapesCopie.join(' | '), a: a });
+    } catch (eC) {
+      etapesCopie.push('ERREUR : ' + String((eC && eC.message) || eC).substring(0, 150));
+      await journaliser('email_send : copie Elements envoyes echouee (email bien parti)', { etapes: etapesCopie.join(' | '), a: a });
+    } finally {
+      try { if (boiteImap && boiteImap.api && boiteImap.api.detruire) boiteImap.api.detruire(); } catch (eD) {}
     }
   }
 
@@ -179,5 +196,5 @@ module.exports = async function handler(req, res) {
   }
 
   await journaliser('email_send : email envoye a ' + a, { message_id: result.message_id, sujet: sujet.substring(0, 120) });
-  return res.status(200).json({ ok: true, brique: 'C5', version: VERSION, message_id: result.message_id, statut: 'envoye' });
+  return res.status(200).json({ ok: true, brique: 'C5', version: VERSION, message_id: result.message_id, statut: 'envoye', copie: etapesCopie });
 };

@@ -293,7 +293,8 @@ async function debugRaw(uid, user, pass, host, opts) {
       maj = { status: rMaj.status, ok: rMaj.ok, message_id: pm.message_id };
     } catch (eMaj) { maj = { ok: false, erreur: String(eMaj && eMaj.message || eMaj).substring(0, 200) }; }
   }
-  if (opts && opts.maj) return { uid: uid, taille: brut.length, parse: parse, maj: maj };
+  // C5-ENV-3 FIX : la réponse non-maj doit TOUJOURS ramener le MIME brut
+  return { uid: uid, taille: brut.length, boundaries: boundaries, parties: parties, parse: parse, maj: maj, brut: brut };
 }
 
 // ----------------------------------------------------------------------------
