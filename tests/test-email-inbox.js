@@ -546,6 +546,7 @@ test('C5-ENV-3 envoyerCopie : APPEND refusé par le serveur → erreur explicite
     dejaSalue: true,
     ecrireBrut: function () {},
     attendreContinuation: async function () {},
+    accu: function () { return ''; },
     command: async function (cmd) {
       if (cmd.indexOf('LOGIN') === 0) return 'A1 OK LOGIN';
       if (cmd.indexOf('SELECT') === 0) return 'A2 OK SELECT';
