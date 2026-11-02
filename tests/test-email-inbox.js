@@ -350,6 +350,28 @@ test('C5.3 parseMessage : image cid: inline en data URI dans m.html', function (
   assert.ok(m.texte.indexOf('data:') === -1, 'texte detague non pollue');
 });
 
+test('C5.3b parseMessage : multipart IMBRIQUE (Exchange mixed>related>alternative) — html + cid inline', function () {
+  var brut = [
+    'From: "Corentin SURAND" <corentin.surand@umob.fr>', 'Subject: TR: TEST',
+    'Content-Type: multipart/mixed; boundary="MIX"', '',
+    '--MIX', 'Content-Type: multipart/related; boundary="REL"', '',
+    '--REL', 'Content-Type: multipart/alternative; boundary="ALT"', '',
+    '--ALT', 'Content-Type: text/plain; charset=UTF-8', '', 'TEST plain', '',
+    '--ALT', 'Content-Type: text/html; charset=UTF-8', '',
+    '<p>TEST</p><img src="cid:image001.gif@01DD6AAB.B30C9100">', '',
+    '--ALT--', '',
+    '--REL', 'Content-Type: image/gif;', '\tname="image001.gif"',
+    'Content-Transfer-Encoding: base64',
+    'Content-ID: <image001.gif@01DD6AAB.B30C9100>', '', 'R0lGODlhAQABAAAA', '',
+    '--REL--', '--MIX--'
+  ].join('\r\n');
+  var m = mail.parseMessage(brut);
+  assert.ok(m.html, 'html present dans un nest profond');
+  assert.ok(m.html.indexOf('data:image/gif;base64,R0lGODlhAQABAAAA') !== -1, 'cid imbrique inline en data URI');
+  assert.ok(m.html.indexOf('cid:') === -1, 'plus aucun cid restant');
+  assert.match(m.texte, /TEST plain/, 'plain prioritaire');
+});
+
 test('C5.3 parseMessage : non-multipart text/html -> html = corps decode, texte detague', function () {
   var m = mail.parseMessage('From: a@b.fr\r\nContent-Type: text/html\r\n\r\n<p>Bonjour <b>UV</b></p>');
   assert.ok(m.html.indexOf('<p>Bonjour <b>UV</b></p>') !== -1, 'html conserve tel quel');
