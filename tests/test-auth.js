@@ -260,5 +260,5 @@ test('REGRESSION : la route import classique (secret) fonctionne toujours', asyn
   await handler(faireReq('GET', '/api/clients-import?secret=' + process.env.WEBHOOK_SECRET), res);
   assert.strictEqual(res.statusCode, 200);
   assert.strictEqual(res.corps.ok, true);
-  assert.strictEqual(res.corps.version, 'C6-AUTH-1');
+  assert.strictEqual(res.corps.version, 'C7-MAINT-1');
 });

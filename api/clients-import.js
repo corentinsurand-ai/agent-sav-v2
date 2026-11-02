@@ -22,7 +22,19 @@
 //        des clients importés (miroir, pour vérifier l'import en prod)
 //   GET  ?secret=…&liste=1&limite=1000                           → liste
 //        complète du miroir (plateforme C1 : fiches sociétés, contacts,
-//        plaques, contrats — brut inclus)
+//        plaques, contrats — brut inclus) + FUSION des comptages de
+//        maintenances par code_client (champ maintenances par client ;
+//        best-effort : si la table comptages est vide/absente, la liste
+//        fonctionne quand même, sans maintenances)
+//   GET  ?secret=…&maintenances=1&limite=2000                    → liste
+//        complète des comptages (plateforme C1)
+//   POST ?secret=…  body {maintenances: [...]}                   → import
+//        des comptages précalculés (upsert PAR code_client, idempotent,
+//        régénérable : un import complet remplace l'ancien comptage).
+//        maintenance = { code_client, nom, donnees: {sans_contrat,
+//        sites: [{cp, ville, adresse, pack, droits, consommes, restants,
+//        contrat_debut, contrat_fin, derniere, conclusion}], connecteurs:
+//        {nb, conclusion, dernier}} }
 //
 // Normalisations IDENTIQUES à la synchro : téléphone → 33612345678
 // (normaliserTelephone), plaques → TT101TE (normaliserImmat), plaque
@@ -41,7 +53,7 @@
 // ni enseigne) ; 401 secret invalide ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C6-AUTH-1';
+var VERSION = 'C7-MAINT-1';
 var SCHEMA = 'agent_sav';
 
 var clients = require('../lib/clients.js');
@@ -157,6 +169,67 @@ async function utilisateurDuJeton(jeton) {
   } catch (e) {
     return null; // base injoignable → session refusée (fail closed)
   }
+}
+
+// --- C7-MAINT-1 : upsert des comptages de maintenances ----------------------
+// POST /rest/v1/comptages_maintenance?on_conflict=code_client avec
+// Prefer resolution=merge-duplicates → régénérable sans doublon (une ligne
+// PAR code_client, un import complet remplace l'ancien comptage).
+async function comptagesEcrire(lignes) {
+  var res = await fetch(urlSupabase('comptages_maintenance', 'on_conflict=code_client'), {
+    method: 'POST',
+    headers: {
+      'apikey': env('SUPABASE_SERVICE_KEY'),
+      'Authorization': 'Bearer ' + env('SUPABASE_SERVICE_KEY'),
+      'Content-Type': 'application/json',
+      'Accept-Profile': SCHEMA,
+      'Content-Profile': SCHEMA,
+      'Prefer': 'resolution=merge-duplicates,return=minimal'
+    },
+    body: JSON.stringify(lignes)
+  });
+  var texte = '';
+  try { texte = await res.text(); } catch (e) { texte = ''; }
+  if (!res.ok) throw new Error('Supabase ' + res.status + ' — ' + texte.substring(0, 300));
+  return lignes.length;
+}
+
+// Fusion best-effort : rattache les comptages aux clients du miroir par
+// code_client trouvé dans brut.lignes (la liste fonctionne même si la table
+// comptages est vide ou absente — chaque client a alors maintenances: []).
+async function fusionMaintenances(lignesClients) {
+  var comptages = [];
+  try {
+    comptages = await supabaseGet('comptages_maintenance',
+      'select=code_client,nom,donnees&order=code_client.asc&limit=5000');
+  } catch (e) {
+    comptages = []; // table absente → liste sans maintenances, pas d'erreur
+  }
+  var parCode = {};
+  for (var i = 0; i < comptages.length; i++) {
+    parCode[comptages[i].code_client] = comptages[i];
+  }
+  for (var j = 0; j < lignesClients.length; j++) {
+    var lc = lignesClients[j];
+    var codes = [];
+    var lignesBrut = (lc.brut && lc.brut.lignes) || [];
+    for (var k = 0; k < lignesBrut.length; k++) {
+      var cc = lignesBrut[k] && lignesBrut[k].code_client;
+      if (cc && codes.indexOf(cc) === -1) codes.push(cc);
+    }
+    lc.maintenances = [];
+    for (var m = 0; m < codes.length; m++) {
+      var cm = parCode[codes[m]];
+      if (cm) {
+        lc.maintenances.push({
+          code_client: cm.code_client,
+          nom: cm.nom,
+          donnees: cm.donnees
+        });
+      }
+    }
+  }
+  return comptages.length;
 }
 
 // --- Normalisation d'un client reçu → forme EXACTE de lireClients ----------
@@ -363,8 +436,29 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // GET ?maintenances=1[&limite=N] → comptages de maintenances (plateforme C1)
+    if (paramDe(req, 'maintenances') === '1') {
+      if (!env('SUPABASE_URL') || !env('SUPABASE_SERVICE_KEY')) {
+        return res.status(500).json({ ok: false, erreur: 'configuration Supabase manquante' });
+      }
+      try {
+        var limiteM = parseInt(paramDe(req, 'limite'), 10) || 2000;
+        if (limiteM < 1) limiteM = 1;
+        if (limiteM > 5000) limiteM = 5000;
+        var comptagesListe = await supabaseGet('comptages_maintenance',
+          'select=code_client,nom,donnees&order=code_client.asc&limit=' + limiteM);
+        return res.status(200).json({
+          ok: true, brique: 'C7-MAINT', version: VERSION,
+          limite: limiteM, trouves: comptagesListe.length, maintenances: comptagesListe
+        });
+      } catch (e) {
+        return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
+      }
+    }
+
     // GET ?liste=1[&limite=N] → liste des clients du miroir (plateforme C1 :
-    // fiches sociétés, contacts, plaques, contrats — brut inclus)
+    // fiches sociétés, contacts, plaques, contrats — brut inclus + comptages
+    // de maintenances fusionnés par code_client)
     if (paramDe(req, 'liste') === '1') {
       if (!env('SUPABASE_URL') || !env('SUPABASE_SERVICE_KEY')) {
         return res.status(500).json({ ok: false, erreur: 'configuration Supabase manquante' });
@@ -375,9 +469,11 @@ module.exports = async function handler(req, res) {
         if (limite > 5000) limite = 5000;
         var lignesListe = await supabaseGet('clients',
           'select=telephone,enseigne,plaque,statut_risque,brut&order=maj_a.desc&limit=' + limite);
+        var nbComptages = await fusionMaintenances(lignesListe);
         return res.status(200).json({
           ok: true, brique: 'C1-IMP', version: VERSION,
-          limite: limite, trouves: lignesListe.length, clients: lignesListe
+          limite: limite, trouves: lignesListe.length, comptages_maintenances: nbComptages,
+          clients: lignesListe
         });
       } catch (e) {
         return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
@@ -389,7 +485,8 @@ module.exports = async function handler(req, res) {
       role: 'import manuel de clients dans agent_sav.clients (meme ecriture que la synchro Sheet B2.2)',
       post: '{ clients: [ { telephone, plaques: [immat], enseigne, statut_risque, lignes: [lignes du Sheet] } ] }',
       verifier: 'GET ?verifier=1&prefixe=TEST',
-      liste: 'GET ?liste=1&limite=1000 — liste complete du miroir (plateforme C1)'
+      liste: 'GET ?liste=1&limite=1000 — liste complete du miroir (plateforme C1, comptages maintenances fusionnes)',
+      maintenances: 'GET ?maintenances=1 — comptages maintenance | POST {maintenances:[{code_client,nom,donnees}]} — import des comptages'
     });
   }
 
@@ -406,7 +503,52 @@ module.exports = async function handler(req, res) {
   if (!corps && typeof req.body !== 'object') {
     try { corps = JSON.parse(String(req.body || '{}')); } catch (e) { corps = null; }
   }
-  if (!corps || typeof corps !== 'object' || !Array.isArray(corps.clients) || !corps.clients.length) {
+  if (!corps || typeof corps !== 'object') {
+    return res.status(400).json({ ok: false, erreur: 'corps invalide : JSON attendu' });
+  }
+
+  // --- C7-MAINT-1 : POST {maintenances: [...]} → import des comptages ------
+  // (upsert PAR code_client — régénérable ; un import complet remplace
+  // l'ancien comptage sans créer de doublons)
+  if (Array.isArray(corps.maintenances)) {
+    if (!corps.maintenances.length) {
+      return res.status(400).json({ ok: false, erreur: 'corps invalide : maintenances vide' });
+    }
+    if (corps.maintenances.length > 200) {
+      return res.status(400).json({ ok: false, erreur: 'trop de comptages (max 200 par appel)' });
+    }
+    var lignesCm = [];
+    for (var m = 0; m < corps.maintenances.length; m++) {
+      var cm = corps.maintenances[m];
+      if (!cm || typeof cm !== 'object' || !String(cm.code_client || '').trim()) {
+        return res.status(400).json({ ok: false, erreur: 'comptage ' + (m + 1) + ' : code_client requis' });
+      }
+      if (!cm.donnees || typeof cm.donnees !== 'object' || Array.isArray(cm.donnees)) {
+        return res.status(400).json({ ok: false, erreur: 'comptage ' + (m + 1) + ' : donnees (objet) requis' });
+      }
+      lignesCm.push({
+        code_client: String(cm.code_client).trim(),
+        nom: String(cm.nom || '').trim(),
+        donnees: cm.donnees
+      });
+    }
+    try {
+      var ecritsCm = await comptagesEcrire(lignesCm);
+      await journaliser('import de ' + ecritsCm + ' comptage(s) maintenance', {
+        version: VERSION,
+        codes: lignesCm.map(function(l) { return l.code_client; })
+      });
+      return res.status(200).json({
+        ok: true, brique: 'C7-MAINT', version: VERSION,
+        ecrits: ecritsCm,
+        codes: lignesCm.map(function(l) { return l.code_client; })
+      });
+    } catch (e) {
+      return res.status(500).json({ ok: false, erreur: 'table comptages_maintenance inexistante ? ' + String((e && e.message) || e).substring(0, 250) });
+    }
+  }
+
+  if (!Array.isArray(corps.clients) || !corps.clients.length) {
     return res.status(400).json({ ok: false, erreur: 'corps invalide : { clients: [...] } requis' });
   }
   if (corps.clients.length > 100) {

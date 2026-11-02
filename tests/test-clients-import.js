@@ -205,3 +205,128 @@ test('GET ?liste=1 limite hors bornes → bornée à 5000', async () => {
   assert.ok(urlDe(0).indexOf('limit=5000') !== -1, 'limite bornée : ' + urlDe(0));
   assert.strictEqual(res.corps.limite, 5000);
 });
+
+// ----------------------------------------------------------------------------
+// C7-MAINT-1 : comptages de maintenances (import + lecture + fusion liste)
+// ----------------------------------------------------------------------------
+
+test('POST {maintenances} → upsert comptages (on_conflict=code_client, resolution=merge-duplicates)', async () => {
+  appels = [];
+  var res = faireRes();
+  await handler(faireReq('POST', '/api/clients-import?secret=secret-test-c1imp', {
+    maintenances: [
+      { code_client: 'C1016', nom: 'STEROPES', donnees: { sites: [{ pack: 'Confort Plus', droits: 8 }] } },
+      { code_client: 'C2089', nom: 'MONACO ASIAN MARKET', donnees: { sites: [] } }
+    ]
+  }), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.ok, true);
+  assert.strictEqual(res.corps.brique, 'C7-MAINT');
+  assert.strictEqual(res.corps.ecrits, 2);
+  assert.ok(urlDe(0).indexOf('/rest/v1/comptages_maintenance?on_conflict=code_client') !== -1,
+    'upsert par code_client : ' + urlDe(0));
+  assert.ok(String(optionsDe(0).headers['Prefer']).indexOf('resolution=merge-duplicates') !== -1,
+    'Prefer merge-duplicates : ' + optionsDe(0).headers['Prefer']);
+  assert.strictEqual(optionsDe(0).headers['Content-Profile'], 'agent_sav');
+  var lot = JSON.parse(optionsDe(0).body);
+  assert.strictEqual(lot.length, 2);
+  assert.strictEqual(lot[0].code_client, 'C1016');
+  assert.strictEqual(lot[0].nom, 'STEROPES');
+  assert.strictEqual(lot[0].donnees.sites[0].pack, 'Confort Plus');
+  // journal
+  assert.ok(urlDe(1).indexOf('/rest/v1/journal') !== -1, 'journal écrit : ' + urlDe(1));
+});
+
+test('POST {maintenances} invalide → 400 (code_client / donnees requis)', async () => {
+  var res = faireRes();
+  await handler(faireReq('POST', '/api/clients-import?secret=secret-test-c1imp', {
+    maintenances: [{ nom: 'X', donnees: {} }]
+  }), res);
+  assert.strictEqual(res.statusCode, 400);
+  assert.ok(/code_client/.test(res.corps.erreur));
+  res = faireRes();
+  await handler(faireReq('POST', '/api/clients-import?secret=secret-test-c1imp', {
+    maintenances: [{ code_client: 'C1', donnees: 'texte' }]
+  }), res);
+  assert.strictEqual(res.statusCode, 400);
+  assert.ok(/donnees/.test(res.corps.erreur));
+});
+
+test('POST {maintenances} trop de lignes → 400 (max 200)', async () => {
+  var gros = [];
+  for (var i = 0; i < 201; i++) gros.push({ code_client: 'C' + i, donnees: {} });
+  var res = faireRes();
+  await handler(faireReq('POST', '/api/clients-import?secret=secret-test-c1imp', { maintenances: gros }), res);
+  assert.strictEqual(res.statusCode, 400);
+  assert.ok(/200/.test(res.corps.erreur));
+});
+
+test('GET ?maintenances=1 → liste des comptages (brique C7-MAINT)', async () => {
+  appels = [];
+  var res = faireRes();
+  await handler(faireReq('GET',
+    '/api/clients-import?secret=secret-test-c1imp&maintenances=1', null), res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.brique, 'C7-MAINT');
+  assert.ok(urlDe(0).indexOf('/rest/v1/comptages_maintenance?') !== -1, 'lecture comptages : ' + urlDe(0));
+  assert.ok(urlDe(0).indexOf('select=code_client,nom,donnees') !== -1, 'colonnes : ' + urlDe(0));
+  assert.strictEqual(optionsDe(0).headers['Accept-Profile'], 'agent_sav');
+  assert.strictEqual(res.corps.limite, 2000, 'limite par défaut');
+});
+
+test('GET ?liste=1 → fusion des comptages par code_client des brut.lignes', async () => {
+  appels = [];
+  // Fake fetch : 1er appel = clients du miroir (avec code_client dans brut),
+  // 2e appel = comptages de maintenances
+  var clientsMiroir = [{
+    telephone: '33612345678', enseigne: 'STEROPES', plaque: 'AA123BB', statut_risque: null,
+    brut: { lignes: [{ code_client: 'C1016', immat: 'AA123BB' }] }
+  }, {
+    telephone: '33781223344', enseigne: 'SANS COMPTE', plaque: 'CC456DD', statut_risque: null,
+    brut: { lignes: [{ code_client: 'C9999', immat: 'CC456DD' }] }
+  }];
+  var comptages = [
+    { code_client: 'C1016', nom: 'STEROPES', donnees: { sites: [{ pack: 'Confort Plus', restants: 3 }] } }
+  ];
+  globalThis.fetch = function(url, options) {
+    appels.push({ url: String(url), options: options || {} });
+    var corps = url.indexOf('comptages_maintenance') !== -1 ? comptages : clientsMiroir;
+    return Promise.resolve({ ok: true, status: 200, text: function() { return Promise.resolve(JSON.stringify(corps)); } });
+  };
+  try {
+    var res = faireRes();
+    await handler(faireReq('GET',
+      '/api/clients-import?secret=secret-test-c1imp&liste=1', null), res);
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res.corps.comptages_maintenances, 1, 'comptages lus : ' + res.corps.comptages_maintenances);
+    // Le client C1016 a ses comptages fusionnés…
+    assert.strictEqual(res.corps.clients[0].maintenances.length, 1);
+    assert.strictEqual(res.corps.clients[0].maintenances[0].code_client, 'C1016');
+    assert.strictEqual(res.corps.clients[0].maintenances[0].donnees.sites[0].pack, 'Confort Plus');
+    // …l'autre client a maintenances: [] (code inconnu des comptages)
+    assert.strictEqual(res.corps.clients[1].maintenances.length, 0);
+  } finally {
+    globalThis.fetch = fetchSimule;
+  }
+});
+
+test('GET ?liste=1 → table comptages absente : liste QUAND MÊME (best-effort)', async () => {
+  appels = [];
+  globalThis.fetch = function(url, options) {
+    appels.push({ url: String(url), options: options || {} });
+    var siComptages = url.indexOf('comptages_maintenance') !== -1;
+    return Promise.resolve({
+      ok: siComptages ? false : true, status: siComptages ? 404 : 200,
+      text: function() { return Promise.resolve(siComptages ? 'table inexistante' : JSON.stringify([{ telephone: '33600000000', enseigne: 'X', brut: { lignes: [] } }])); }
+    });
+  };
+  try {
+    var res = faireRes();
+    await handler(faireReq('GET',
+      '/api/clients-import?secret=secret-test-c1imp&liste=1', null), res);
+    assert.strictEqual(res.statusCode, 200, 'liste fonctionne sans comptages');
+    assert.strictEqual(res.corps.clients[0].maintenances.length, 0);
+  } finally {
+    globalThis.fetch = fetchSimule;
+  }
+});
