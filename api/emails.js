@@ -247,7 +247,7 @@ async function lireEmails(u) {
 // MODE DEBUG TEMPORAIRE C5.3b : ?debugraw=<uid> -> MIME brut + inventaire parties
 // (a retirer apres diagnostic)
 // ----------------------------------------------------------------------------
-async function debugRaw(uid, user, pass, host) {
+async function debugRaw(uid, user, pass, host, opts) {
   var boite = await imap.ouvrirBoite({ host: host, user: user, pass: pass });
   var brut = '';
   try { brut = await boite.lireMessage(uid); } finally { try { await boite.finir(); } catch (e) {} }
@@ -280,7 +280,20 @@ async function debugRaw(uid, user, pass, host) {
     cid_residuels: (hParse.match(/cid:/g) || []).length,
     data_uris: (hParse.match(/data:image/g) || []).length
   };
-  return { uid: uid, taille: brut.length, boundaries: boundaries, parties: parties, parse: parse, brut: brut };
+  // maj=1 : met a jour corps_html de l'email DEJA en base (les imports passes
+  // ne sont jamais re-parses -> cette option repare un email existant)
+  var maj = null;
+  if (opts && opts.maj && parse.data_uris > 0 && pm.message_id) {
+    try {
+      var rMaj = await fetch(urlSupabase('emails?message_id=eq.' + encodeURIComponent(pm.message_id)), {
+        method: 'PATCH',
+        headers: Object.assign(teteSupa(), { 'Content-Profile': 'agent_sav' }),
+        body: JSON.stringify({ corps_html: hParse })
+      });
+      maj = { status: rMaj.status, ok: rMaj.ok, message_id: pm.message_id };
+    } catch (eMaj) { maj = { ok: false, erreur: String(eMaj && eMaj.message || eMaj).substring(0, 200) }; }
+  }
+  if (opts && opts.maj) return { uid: uid, taille: brut.length, parse: parse, maj: maj };
 }
 
 // ----------------------------------------------------------------------------
@@ -302,7 +315,7 @@ module.exports = async function (req, res) {
     if (uidDebug) {
       var hD = process.env.SMTP_HOST, uD = process.env.SMTP_USER, pD = process.env.SMTP_PASS;
       if (!hD || !uD || !pD) return repondre(res, 500, { ok: false, erreur: 'config SMTP absente' });
-      try { return repondre(res, 200, await debugRaw(uidDebug, uD, pD, hD)); }
+      try { return repondre(res, 200, await debugRaw(uidDebug, uD, pD, hD, { maj: u.searchParams.get('maj') === '1' })); }
       catch (eD) { return repondre(res, 502, { ok: false, erreur: String(eD && eD.message || eD).substring(0, 300) }); }
     }
 
