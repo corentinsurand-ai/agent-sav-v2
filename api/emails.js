@@ -20,7 +20,7 @@
 var imap = require('../lib/imap');
 var mail = require('../lib/mail');
 
-var VERSION = 'C5.2-FUS-6';
+var VERSION = 'C5.3-HTML-1';
 var MAX_PAR_RUN = 8;
 
 function urlSupabase(chemin) {
@@ -110,9 +110,14 @@ async function poller(user, pass, host) {
     }
   }
 
+  // ---- C5.3 : la colonne corps_html existe-t-elle deja ? -------------------
+  var colonneHtml = true;
+  var rHtml = await fetch(urlSupabase('emails?select=corps_html&limit=1'), { headers: teteSupa() });
+  if (!rHtml.ok) colonneHtml = false;   // PGRST204 : colonne absente -> HTML non stocke
+
   // ---- 2. Lecture boite IMAP --------------------------------------------
   var boite = await imap.ouvrirBoite({ host: host, user: user, pass: pass });
-  var resultat = { dernier_uid_avant: dernierUid, uids: [], importes: 0, doublons: 0, ignores: 0, echecs: 0, colonne_uid: colonneUid };
+  var resultat = { dernier_uid_avant: dernierUid, uids: [], importes: 0, doublons: 0, ignores: 0, echecs: 0, colonne_uid: colonneUid, colonne_html: colonneHtml };
   try {
     var uids;
     if (dernierUid === 0) {
@@ -153,6 +158,7 @@ async function poller(user, pass, host) {
           lu: false
         };
         if (colonneUid) ligne.uid_imap = uid;
+        if (colonneHtml && m.html) ligne.corps_html = m.html;
 
         var rIns = await fetch(urlSupabase('emails'), {
           method: 'POST',
@@ -170,6 +176,17 @@ async function poller(user, pass, host) {
               body: JSON.stringify([ligne])
             });
           } catch (eRe) { resultat.echecs++; continue; }
+        }
+        // C5.3 : deuxi eme repli — le HTML volumineux peut etre le coupable
+        if (!rIns.ok && ligne.corps_html) {
+          delete ligne.corps_html;
+          try {
+            rIns = await fetch(urlSupabase('emails'), {
+              method: 'POST',
+              headers: Object.assign(teteSupa(), { 'Content-Profile': 'agent_sav', 'Prefer': 'return=minimal' }),
+              body: JSON.stringify([ligne])
+            });
+          } catch (eRe2) { resultat.echecs++; continue; }
         }
         if (rIns.ok) resultat.importes++;
         else {
@@ -195,17 +212,21 @@ async function lireEmails(u) {
   var limite = Math.min(parseInt(u.searchParams.get('limite') || '50', 10) || 50, 500);
   var email = (u.searchParams.get('email') || '').trim();
 
-  var chemin;
-  if (email) {
-    chemin = 'emails?select=message_id,sens,from_addr,from_nom,to_addr,sujet,texte,recu_a,lu'
-      + '&or=(from_addr.eq.' + encodeURIComponent(email) + ',to_addr.eq.' + encodeURIComponent(email) + ')'
-      + '&order=id.asc&limit=' + limite;
-  } else {
-    chemin = 'emails?select=message_id,sens,from_addr,from_nom,to_addr,sujet,texte,recu_a,lu'
-      + '&order=id.desc&limit=' + limite;
+  var selBase = 'message_id,sens,from_addr,from_nom,to_addr,sujet,texte,recu_a,lu';
+  function cheminAvec(sel) {
+    if (email) {
+      return 'emails?select=' + sel
+        + '&or=(from_addr.eq.' + encodeURIComponent(email) + ',to_addr.eq.' + encodeURIComponent(email) + ')'
+        + '&order=id.asc&limit=' + limite;
+    }
+    return 'emails?select=' + sel + '&order=id.desc&limit=' + limite;
   }
 
-  var r = await fetch(urlSupabase(chemin), { headers: teteSupa() });
+  // C5.3 : corps_html en premier ; si la colonne manque (PGRST204) -> sans
+  var r = await fetch(urlSupabase(cheminAvec(selBase + ',corps_html')), { headers: teteSupa() });
+  if (!r.ok) {
+    r = await fetch(urlSupabase(cheminAvec(selBase)), { headers: teteSupa() });
+  }
   if (!r.ok) return { code: 502, corps: { ok: false, erreur: 'Supabase ' + r.status } };
 
   var messages = await r.json();
