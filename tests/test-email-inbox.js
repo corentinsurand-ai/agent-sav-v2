@@ -242,6 +242,51 @@ test('decoderB64 maison : accents + emoji', function () {
   assert.equal(mail.decoderB64('8J+btQ=='), String.fromCodePoint(0x1F6F5));
 });
 
+// ---- FIX CHARSET 02/11 : Windows-1252 / ISO-8859-1 honorés --------------------
+test('quoted-printable windows-1252 : accents + euro décodés (pas de mojibake)', function () {
+  var brut = [
+    'From: a@b.fr', 'Subject: Signe',
+    'Content-Type: text/plain; charset=Windows-1252',
+    'Content-Transfer-Encoding: quoted-printable', '',
+    'Caf=E9 co=FBte 1500=80'
+  ].join('\r\n');
+  var m = mail.parseMessage(brut);
+  assert.ok(m.texte.indexOf('Café') !== -1, 'accent 1252');
+  assert.ok(m.texte.indexOf('coûte') !== -1, '^ 1252 (0xFB = u circumflex)');
+  assert.ok(m.texte.indexOf('1500€') !== -1, 'euro 0x80 en 1252 (0x80 en utf8 = suite invalide)');
+});
+
+test('base64 iso-8859-1 : octets simples décodés selon le charset déclaré', function () {
+  var brut = [
+    'From: a@b.fr', 'Subject: B64 latin1',
+    'Content-Type: text/plain; charset=iso-8859-1',
+    'Content-Transfer-Encoding: base64', '',
+    '6Q==' // octet 0xE9 = é en latin1
+  ].join('\r\n');
+  var m = mail.parseMessage(brut);
+  assert.equal(m.texte, 'é');
+});
+
+test('encoded-word en-tete windows-1252 : =?windows-1252?Q?...?= décodé', function () {
+  assert.equal(mail.decoderMot('=?iso-8859-1?Q?J=E9r=F4me_Martin?='), 'Jérôme Martin');
+  assert.equal(mail.decoderMot('=?windows-1252?Q?Paiement_de_1500=80?='), 'Paiement de 1500€');
+});
+
+test('multipart html windows-1252 : repli détagé lisible, entités html', function () {
+  var brut = [
+    'From: a@b.fr', 'Subject: Outlook',
+    'Content-Type: multipart/alternative; boundary="W"', '',
+    '--W', 'Content-Type: text/html; charset=Windows-1252',
+    'Content-Transfer-Encoding: quoted-printable', '',
+    '<p>Une demande relative =E0 vos scooters&nbsp;? Cliquez =94&nbsp;ici=85</p>',
+    '--W--'
+  ].join('\r\n');
+  var m = mail.parseMessage(brut);
+  assert.ok(m.texte.indexOf('à vos scooters') !== -1, 'accent corps html 1252');
+  assert.ok(m.texte.indexOf('“') !== -1 || m.texte.indexOf('ici') !== -1, 'typo 1252');
+  assert.ok(m.texte.indexOf('<') === -1 && m.texte.indexOf('&nbsp;') === -1, 'dété et entités nettoyées');
+});
+
 // ---- Unitaires lib/imap.js ----------------------------------------------------
 test('extraireReponse : faux OK dans un litteral ignore (octets), complet vs tronque', function () {
   var corps = 'From: a@b.fr\r\nSujet: contient A5 OK au milieu\r\n\r\nligne avec accents éà';
