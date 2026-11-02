@@ -271,7 +271,16 @@ async function debugRaw(uid, user, pass, host) {
       });
     }
   });
-  return { uid: uid, taille: brut.length, boundaries: boundaries, parties: parties, brut: brut };
+  // Validation en prod : le parseur doit inliner les cid: (C5.3b)
+  var pm = mail.parseMessage(brut);
+  var hParse = pm.html || '';
+  var parse = {
+    sujet: pm.sujet,
+    html_len: hParse.length,
+    cid_residuels: (hParse.match(/cid:/g) || []).length,
+    data_uris: (hParse.match(/data:image/g) || []).length
+  };
+  return { uid: uid, taille: brut.length, boundaries: boundaries, parties: parties, parse: parse, brut: brut };
 }
 
 // ----------------------------------------------------------------------------

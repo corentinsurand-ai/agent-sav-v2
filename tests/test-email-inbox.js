@@ -465,3 +465,33 @@ test('teardown : restaure ouvrirBoite et fetch', function () {
   global.fetch = fetchReel;
   assert.equal(typeof imapLib.ouvrirBoite, 'function');
 });
+
+test('C5.3c parseMessage : signature VOLUMINEUSE (gif Outlook 585 Ko = 752k chars b64) acceptee', function () {
+  var b64 = new Array(700001).join('A');           // ~700k chars > ancienne cap 600k
+  var brut = [
+    'From: Corentin Surand <corentin.surand@umob.fr>',
+    'To: service.technique@umob.fr',
+    'Subject: TEST',
+    'Date: Mon, 02 Nov 2026 12:44:42 +0000',
+    'Message-ID: <vol@test.umob.fr>',
+    'Content-Type: multipart/related; boundary="_002_test_"',
+    '',
+    '--_002_test_',
+    'Content-Type: text/html; charset="iso-8859-1"',
+    'Content-Transfer-Encoding: quoted-printable',
+    '',
+    '<html><body>Retest bg <img src="cid:image001.gif@01DD6AAB.B30C9100"> fin</body></html>',
+    '--_002_test_',
+    'Content-Type: image/gif; name="image001.gif"',
+    'Content-Transfer-Encoding: base64',
+    'Content-ID: <image001.gif@01DD6AAB.B30C9100>',
+    '',
+    b64,
+    '--_002_test_--',
+    ''
+  ].join('\r\n');
+  var m = mail.parseMessage(brut);
+  assert.ok(m.html.indexOf('data:image/gif;base64,') !== -1, 'image 700k chars inlinee en data URI');
+  assert.strictEqual((m.html.match(/cid:/g) || []).length, 0, 'plus aucun cid residuel');
+  assert.ok(m.html.length > 700000, 'html contient la data URI complete (cap relevee)');
+});
