@@ -134,7 +134,7 @@ module.exports = async function handler(req, res) {
   var etapesCopie = [];
   var boiteImap = null;
   if (env('EMAIL_SANS_COPIE') !== '1' && result.message) {
-    var delaiCopie = Number(env('EMAIL_COPIE_DELAI_MS') || 8000);
+    var delaiCopie = Number(env('EMAIL_COPIE_DELAI_MS') || 12000);
     var copie = (async function () {
       var imap = require('../lib/imap');
       etapesCopie.push('ouverture');
@@ -143,7 +143,7 @@ module.exports = async function handler(req, res) {
       var dossier = await boiteImap.dossierEnvoyes();
       etapesCopie.push('LIST -> ' + (dossier || 'introuvable'));
       if (dossier) {
-        await boiteImap.envoyerCopie(dossier, result.message);
+        await boiteImap.envoyerCopie(dossier, result.message, function (et) { etapesCopie.push('append: ' + et); });
         etapesCopie.push('APPEND ok');
       }
       await boiteImap.finir();
@@ -159,7 +159,8 @@ module.exports = async function handler(req, res) {
       ]);
       await journaliser('email_send : copie deposee dans Elements envoyes', { etapes: etapesCopie.join(' | '), a: a });
     } catch (eC) {
-      etapesCopie.push('ERREUR : ' + String((eC && eC.message) || eC).substring(0, 150));
+      etapesCopie.push('ERREUR : ' + String((eC && eC.message) || eC).substring(0, 400));
+      try { if (boiteImap && boiteImap.api && boiteImap.api.accu) etapesCopie.push('ACCU : [' + boiteImap.api.accu() + ']'); } catch (eAccu) {}
       await journaliser('email_send : copie Elements envoyes echouee (email bien parti)', { etapes: etapesCopie.join(' | '), a: a });
     } finally {
       try { if (boiteImap && boiteImap.api && boiteImap.api.detruire) boiteImap.api.detruire(); } catch (eD) {}
