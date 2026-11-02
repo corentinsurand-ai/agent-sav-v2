@@ -244,6 +244,37 @@ async function lireEmails(u) {
 }
 
 // ----------------------------------------------------------------------------
+// MODE DEBUG TEMPORAIRE C5.3b : ?debugraw=<uid> -> MIME brut + inventaire parties
+// (a retirer apres diagnostic)
+// ----------------------------------------------------------------------------
+async function debugRaw(uid, user, pass, host) {
+  var boite = await imap.ouvrirBoite({ host: host, user: user, pass: pass });
+  var brut = '';
+  try { brut = await boite.lireMessage(uid); } finally { try { await boite.finir(); } catch (e) {} }
+  var parties = [];
+  var boundaries = [];
+  var re = /boundary="?([^";\r\n]+)"?/gi, mB;
+  while ((mB = re.exec(brut)) !== null) if (boundaries.indexOf(mB[1]) === -1) boundaries.push(mB[1]);
+  boundaries.forEach(function (b) {
+    var morceaux = brut.split('--' + b);
+    for (var i = 1; i < morceaux.length; i++) {
+      var p = morceaux[i].replace(/^\r?\n/, '');
+      if (!p || p.indexOf('--') === 0) continue;
+      var finTete = p.indexOf('\r\n\r\n') !== -1 ? p.indexOf('\r\n\r\n') : p.indexOf('\n\n');
+      var ptetes = p.slice(0, finTete).replace(/\r?\n[ \t]+/g, ' ');
+      var pcorps = p.slice(finTete + (p.indexOf('\r\n\r\n') !== -1 ? 4 : 2));
+      parties.push({
+        boundary: b,
+        tete: ptetes.substring(0, 400),
+        taille_corps: pcorps.length,
+        debut_corps: pcorps.substring(0, 60)
+      });
+    }
+  });
+  return { uid: uid, taille: brut.length, boundaries: boundaries, parties: parties, brut: brut };
+}
+
+// ----------------------------------------------------------------------------
 // Handler unique
 // ----------------------------------------------------------------------------
 module.exports = async function (req, res) {
@@ -255,6 +286,15 @@ module.exports = async function (req, res) {
     var secretFourni = req.headers['x-webhook-secret'] || u.searchParams.get('secret') || corps.secret || '';
     if (String(secretFourni) !== String(process.env.WEBHOOK_SECRET || '')) {
       return repondre(res, 401, { ok: false, erreur: 'secret invalide' });
+    }
+
+    // ---- MODE DEBUG TEMPORAIRE C5.3b (a retirer) ---------------------------
+    var uidDebug = u.searchParams.get('debugraw');
+    if (uidDebug) {
+      var hD = process.env.SMTP_HOST, uD = process.env.SMTP_USER, pD = process.env.SMTP_PASS;
+      if (!hD || !uD || !pD) return repondre(res, 500, { ok: false, erreur: 'config SMTP absente' });
+      try { return repondre(res, 200, await debugRaw(uidDebug, uD, pD, hD)); }
+      catch (eD) { return repondre(res, 502, { ok: false, erreur: String(eD && eD.message || eD).substring(0, 300) }); }
     }
 
     var veutPoll = u.searchParams.get('poll') === '1' || corps.poll === 1 || corps.poll === '1';
