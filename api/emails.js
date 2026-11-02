@@ -311,6 +311,19 @@ module.exports = async function (req, res) {
       return repondre(res, 401, { ok: false, erreur: 'secret invalide' });
     }
 
+    // ---- MODE DEBUG : lister les dossiers IMAP (verification folder envoyes)
+    if (u.searchParams.get('dossiers') === '1') {
+      var hL = process.env.SMTP_HOST, uL = process.env.SMTP_USER, pL = process.env.SMTP_PASS;
+      if (!hL || !uL || !pL) return repondre(res, 500, { ok: false, erreur: 'config SMTP absente' });
+      try {
+        var imapL = require('../lib/imap');
+        var boiteL = await imapL.ouvrirBoite({ host: hL, user: uL, pass: pL });
+        var listeL = null;
+        try { listeL = await boiteL.api.command('LIST "" "*"'); } finally { try { if (boiteL.api.detruire) boiteL.api.detruire(); } catch (eL) {} }
+        return repondre(res, 200, { ok: true, user: uL, list: listeL });
+      } catch (eLst) { return repondre(res, 502, { ok: false, erreur: String(eLst && eLst.message || eLst).substring(0, 300) }); }
+    }
+
     // ---- MODE DEBUG TEMPORAIRE C5.3b (a retirer) ---------------------------
     var uidDebug = u.searchParams.get('debugraw');
     if (uidDebug) {
