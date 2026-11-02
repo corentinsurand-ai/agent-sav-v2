@@ -25,6 +25,9 @@ create index if not exists emails_uid_imap_idx on agent_sav.emails (uid_imap);
 alter table agent_sav.emails add column if not exists statut_reception text;
 alter table agent_sav.emails add column if not exists from_nom text;
 
+-- C5.3 stockage HTML : corps text/html décodé (images cid: inlinées en data URI)
+alter table agent_sav.emails add column if not exists corps_html text;
+
 -- ----------------------------------------------------------------------------
 -- GRANTS service_role (OBLIGATOIRES pour toute NOUVELLE table du schéma
 -- agent_sav : le « grant all on all tables » déjà joué ne s'applique qu'aux
