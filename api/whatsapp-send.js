@@ -10,6 +10,9 @@
 //   POST /api/whatsapp-send
 //   { secret, tel, texte }        (secret accepté : query, header, body)
 //   → { ok:true, wamid, statut:'envoye' }
+//   MODE MODÈLE (C7-PROP-1, message proactif hors fenêtre 24 h — modèle
+//   APPROUVÉ WhatsApp obligatoire) :
+//   { secret, tel, template: { nom, langue: 'fr', params: ['…', '…'] } }
 //
 // APRÈS l'envoi réussi : le message est enregistré dans agent_sav.wa_messages
 // avec sens='sortant' et statut_reception='sent' — les accusés Meta
@@ -26,7 +29,7 @@
 // 500 config manquante ; 502 erreur Meta.
 // ============================================================================
 
-var VERSION = 'C4-ENV-1';
+var VERSION = 'C7-PROP-1';
 var SCHEMA = 'agent_sav';
 
 function env(nom) { return process.env[nom] || ''; }
@@ -100,11 +103,58 @@ module.exports = async function handler(req, res) {
   if (!d) {
     return res.status(400).json({ ok: false, erreur: 'tel requis (chiffres seuls, ex 33620476040)' });
   }
-  if (!texte) {
-    return res.status(400).json({ ok: false, erreur: 'texte requis' });
-  }
-  if (texte.length > 4096) {
-    return res.status(400).json({ ok: false, erreur: 'texte trop long (max 4096 caracteres)' });
+
+  // ---- C7-PROP-1 : MODE MODÈLE WHATSAPP (template approuvé) -----------------
+  // Un message PROACTIF (hors fenêtre de 24 h après un message du client) doit
+  // impérativement partir d'un MODÈLE APPROUVÉ par WhatsApp (règle Meta).
+  //   { tel, template: { nom: 'passage_secteur', langue: 'fr', params: ['Marine', '2 passages'] } }
+  // → Meta : type='template', components[body] avec les paramètres en texte.
+  var tpl = (corps && corps.template && typeof corps.template === 'object') ? corps.template : null;
+  var params = [];
+  var message = null;
+  if (tpl) {
+    var nomTpl = String(tpl.nom || '').trim();
+    if (!nomTpl) {
+      return res.status(400).json({ ok: false, erreur: 'template.nom requis (nom EXACT du modèle approuvé WhatsApp)' });
+    }
+    if (Array.isArray(tpl.params)) {
+      params = tpl.params.map(function (p) { return String(p === undefined || p === null ? '' : p); });
+    }
+    if (params.length > 10) {
+      return res.status(400).json({ ok: false, erreur: 'trop de parametres de modele (max 10)' });
+    }
+    for (var ip = 0; ip < params.length; ip++) {
+      if (params[ip].length > 1024) {
+        return res.status(400).json({ ok: false, erreur: 'parametre ' + (ip + 1) + ' trop long (max 1024 caracteres)' });
+      }
+    }
+    message = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: d,
+      type: 'template',
+      template: {
+        name: nomTpl,
+        language: { code: String(tpl.langue || 'fr').trim() || 'fr' },
+        components: params.length ? [{ type: 'body', parameters: params.map(function (p) { return { type: 'text', text: p }; }) }] : []
+      }
+    };
+    // aperçu lisible côté historique (wa_messages) — le corps réel vit chez Meta
+    texte = '[modèle ' + nomTpl + '] ' + params.join(' | ');
+  } else {
+    if (!texte) {
+      return res.status(400).json({ ok: false, erreur: 'texte requis' });
+    }
+    if (texte.length > 4096) {
+      return res.status(400).json({ ok: false, erreur: 'texte trop long (max 4096 caracteres)' });
+    }
+    message = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: d,
+      type: 'text',
+      text: { body: texte, preview_url: false }
+    };
   }
 
   if (!env('WA_TOKEN') || !env('WA_PHONE_NUMBER_ID')) {
@@ -125,13 +175,7 @@ module.exports = async function handler(req, res) {
         'Authorization': 'Bearer ' + env('WA_TOKEN'),
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: d,
-        type: 'text',
-        text: { body: texte, preview_url: false }
-      })
+      body: JSON.stringify(message)
     });
   } catch (e) {
     await journaliser('wa_send ERREUR reseau Meta', { tel: d, erreur: String((e && e.message) || e) });

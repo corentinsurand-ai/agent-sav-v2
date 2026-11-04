@@ -202,3 +202,104 @@ test('C2-ENV : WA_API_VERSION personnalisée utilisée dans l’URL Meta', async
   assert.strictEqual(r.code, 200);
   assert.ok(String(FETCH_LOG[0].url).indexOf('/v23.0/PNID/messages') !== -1);
 });
+
+// ---------------------------------------------------------------------------
+// C7-PROP-1 : mode MODÈLE (template approuvé WhatsApp)
+// ---------------------------------------------------------------------------
+
+test('C7-PROP-1 : template sans nom → 400', async function() {
+  poserEnv(ENVS_OK);
+  var r = resMock();
+  await handler(reqMock('POST', { secret: 'S', tel: '33612345678', template: { params: ['a'] } }, {}), r);
+  assert.strictEqual(r.code, 400);
+  assert.ok(String(r.corps.erreur).indexOf('template.nom') !== -1);
+});
+
+test('C7-PROP-1 : template sans params (modèle sans variables) → 200 + components vides', async function() {
+  poserEnv(ENVS_OK);
+  FETCH_REPONSES.push(function() {
+    return { ok: true, status: 200,
+      text: async function() { return JSON.stringify({ messages: [{ id: 'wamid.NP' }] }); } };
+  });
+  FETCH_REPONSES.push(function() { return { ok: true, status: 201, text: async function() { return ''; } }; });
+  var r = resMock();
+  await handler(reqMock('POST', { secret: 'S', tel: '33612345678', template: { nom: 'passage_secteur' } }, {}), r);
+  assert.strictEqual(r.code, 200);
+  var corpsMeta = JSON.parse(FETCH_LOG[0].opts.body);
+  assert.strictEqual(corpsMeta.type, 'template');
+  assert.deepStrictEqual(corpsMeta.template.components, []);
+  var lot = JSON.parse(FETCH_LOG[1].opts.body);
+  assert.strictEqual(lot[0].texte, '[modèle passage_secteur] ');
+});
+
+test('C7-PROP-1 : plus de 10 params → 400', async function() {
+  poserEnv(ENVS_OK);
+  var r = resMock();
+  var params = [];
+  for (var i = 0; i < 11; i++) params.push('p' + i);
+  await handler(reqMock('POST', { secret: 'S', tel: '33612345678', template: { nom: 'passage_secteur', params: params } }, {}), r);
+  assert.strictEqual(r.code, 400);
+});
+
+test('C7-PROP-1 : param trop long (1025) → 400', async function() {
+  poserEnv(ENVS_OK);
+  var r = resMock();
+  await handler(reqMock('POST', { secret: 'S', tel: '33612345678', template: { nom: 'passage_secteur', params: ['x'.repeat(1025)] } }, {}), r);
+  assert.strictEqual(r.code, 400);
+});
+
+test('C7-PROP-1 : template valide → 200 + corps Meta type=template + enregistrement', async function() {
+  poserEnv(ENVS_OK);
+  FETCH_REPONSES.push(function() {
+    return { ok: true, status: 200,
+      text: async function() { return JSON.stringify({ messages: [{ id: 'wamid.TPL' }] }); } };
+  });
+  FETCH_REPONSES.push(function() {
+    return { ok: true, status: 201, text: async function() { return ''; } };
+  });
+  var r = resMock();
+  await handler(reqMock('POST', { secret: 'S', tel: '+33 6 12 34 56 78', template: { nom: 'passage_secteur', langue: 'fr', params: ['Marine', '2 passages'] } }, {}), r);
+  assert.strictEqual(r.code, 200);
+  assert.strictEqual(r.corps.wamid, 'wamid.TPL');
+  // corps Meta : type template, nom, langue, params en texte dans le body
+  var corpsMeta = JSON.parse(FETCH_LOG[0].opts.body);
+  assert.strictEqual(corpsMeta.type, 'template');
+  assert.strictEqual(corpsMeta.to, '33612345678');
+  assert.strictEqual(corpsMeta.template.name, 'passage_secteur');
+  assert.strictEqual(corpsMeta.template.language.code, 'fr');
+  assert.deepStrictEqual(corpsMeta.template.components,
+    [{ type: 'body', parameters: [{ type: 'text', text: 'Marine' }, { type: 'text', text: '2 passages' }] }]);
+  assert.ok(!corpsMeta.text, 'pas de champ text en mode template');
+  // enregistrement wa_messages : aperçu lisible [modèle …]
+  var lot = JSON.parse(FETCH_LOG[1].opts.body);
+  assert.strictEqual(lot[0].wa_id, '33612345678');
+  assert.strictEqual(lot[0].sens, 'sortant');
+  assert.strictEqual(lot[0].statut_reception, 'sent');
+  assert.strictEqual(lot[0].texte, '[modèle passage_secteur] Marine | 2 passages');
+});
+
+test('C7-PROP-1 : langue absente → défaut fr ; langue vide → défaut fr', async function() {
+  poserEnv(ENVS_OK);
+  FETCH_REPONSES.push(function() {
+    return { ok: true, status: 200,
+      text: async function() { return JSON.stringify({ messages: [{ id: 'wamid.L1' }] }); } };
+  });
+  FETCH_REPONSES.push(function() { return { ok: true, status: 201, text: async function() { return ''; } }; });
+  var r = resMock();
+  await handler(reqMock('POST', { secret: 'S', tel: '33612345678', template: { nom: 'passage_secteur', langue: '  ', params: ['a', 'b'] } }, {}), r);
+  assert.strictEqual(r.code, 200);
+  var corpsMeta = JSON.parse(FETCH_LOG[0].opts.body);
+  assert.strictEqual(corpsMeta.template.language.code, 'fr');
+});
+
+test('C7-PROP-1 : erreur Meta (modèle non approuvé) → 502 + détail', async function() {
+  poserEnv(ENVS_OK);
+  FETCH_REPONSES.push(function() {
+    return { ok: false, status: 403,
+      text: async function() { return JSON.stringify({ error: { message: 'template not found' } }); } };
+  });
+  var r = resMock();
+  await handler(reqMock('POST', { secret: 'S', tel: '33612345678', template: { nom: 'inconnu', params: ['a'] } }, {}), r);
+  assert.strictEqual(r.code, 502);
+  assert.ok(String(r.corps.detail).indexOf('template not found') !== -1);
+});
