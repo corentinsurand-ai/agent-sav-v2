@@ -458,8 +458,8 @@
     <div class="f-sec" id="fsec-canaux">
       <h3 onclick="basculeFiltreSec('canaux')"><span class="fs-f">▾</span> Canaux</h3>
       <div class="f-sec-chips">
-      <div class="chip wa on" data-fc="tous" onclick="filtre('canal','tous',this)">Tous <span class="n">16</span></div>
-      <div class="chip wa" data-fc="WhatsApp" onclick="filtre('canal','WhatsApp',this)">WhatsApp <span class="n">16</span></div>
+      <div class="chip wa on" data-fc="tous" onclick="filtre('canal','tous',this)">Tous <span class="n">0</span></div>
+      <div class="chip wa" data-fc="WhatsApp" onclick="filtre('canal','WhatsApp',this)">WhatsApp <span class="n">0</span></div>
       <div class="chip mail" data-fc="Email" onclick="filtre('canal','Email',this)">Email <span class="n">0</span></div>
       </div>
     </div>
@@ -467,16 +467,16 @@
     <div class="f-sec" id="fsec-cycles">
       <h3 onclick="basculeFiltreSec('cycles')"><span class="fs-f">▾</span> Cycles</h3>
       <div class="f-sec-chips">
-      <div class="chip on" data-fx="tous" onclick="filtre('cycle','tous',this)">Tous <span class="n">16</span></div>
-      <div class="chip" data-fx="Nouvelle Demande" onclick="filtre('cycle','Nouvelle Demande',this)"><span class="cy nouvelle">Nouvelle Demande</span> <span class="n">2</span></div>
-      <div class="chip" data-fx="A qualifier" onclick="filtre('cycle','A qualifier',this)"><span class="cy qualifier">A qualifier</span> <span class="n">3</span></div>
-      <div class="chip" data-fx="A créer dans Praxedo" onclick="filtre('cycle','A créer dans Praxedo',this)"><span class="cy praxedo">A créer dans Praxedo</span> <span class="n">1</span></div>
-      <div class="chip" data-fx="En cours de réalisation" onclick="filtre('cycle','En cours de réalisation',this)"><span class="cy encours">En cours de réalisation</span> <span class="n">1</span></div>
-      <div class="chip" data-fx="Traitée" onclick="filtre('cycle','Traitée',this)"><span class="cy traitee">Traitée</span> <span class="n">2</span></div>
-      <div class="chip" data-fx="Attente client" onclick="filtre('cycle','Attente client',this)"><span class="cy attente">Attente client</span> <span class="n">1</span></div>
-      <div class="chip" data-fx="DE Commerciales" onclick="filtre('cycle','DE Commerciales',this)"><span class="cy qualifier">DE Commerciales</span> <span class="n">1</span></div>
-      <div class="chip" data-fx="Bloquée Impayé" onclick="filtre('cycle','Bloquée Impayé',this)"><span class="cy impaye">Bloquée Impayé</span> <span class="n">3</span></div>
-      <div class="chip" data-fx="Attente Paiement ou pré-auto CB" onclick="filtre('cycle','Attente Paiement ou pré-auto CB',this)"><span class="cy attente">Attente Paiement</span> <span class="n">2</span></div>
+      <div class="chip on" data-fx="tous" onclick="filtre('cycle','tous',this)">Tous <span class="n">0</span></div>
+      <div class="chip" data-fx="Nouvelle Demande" onclick="filtre('cycle','Nouvelle Demande',this)"><span class="cy nouvelle">Nouvelle Demande</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="A qualifier" onclick="filtre('cycle','A qualifier',this)"><span class="cy qualifier">A qualifier</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="A créer dans Praxedo" onclick="filtre('cycle','A créer dans Praxedo',this)"><span class="cy praxedo">A créer dans Praxedo</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="En cours de réalisation" onclick="filtre('cycle','En cours de réalisation',this)"><span class="cy encours">En cours de réalisation</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="Traitée" onclick="filtre('cycle','Traitée',this)"><span class="cy traitee">Traitée</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="Attente client" onclick="filtre('cycle','Attente client',this)"><span class="cy attente">Attente client</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="DE Commerciales" onclick="filtre('cycle','DE Commerciales',this)"><span class="cy qualifier">DE Commerciales</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="Bloquée Impayé" onclick="filtre('cycle','Bloquée Impayé',this)"><span class="cy impaye">Bloquée Impayé</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="Attente Paiement ou pré-auto CB" onclick="filtre('cycle','Attente Paiement ou pré-auto CB',this)"><span class="cy attente">Attente Paiement</span> <span class="n">0</span></div>
       </div>
     </div>
 
@@ -488,9 +488,9 @@
     <div class="f-sec" id="fsec-assignation">
       <h3 onclick="basculeFiltreSec('assignation')"><span class="fs-f">▾</span> Assignation</h3>
       <div class="f-sec-chips">
-      <div class="chip on" data-fa="tous" onclick="filtre('ass','tous',this)">Toutes <span class="n">16</span></div>
-      <div class="chip" data-fa="moi" onclick="filtre('ass','moi',this)">👤 Mes conversations <span class="n">2</span></div>
-      <div class="chip" data-fa="aucun" onclick="filtre('ass','aucun',this)">Non assignées <span class="n">10</span></div>
+      <div class="chip on" data-fa="tous" onclick="filtre('ass','tous',this)">Toutes <span class="n">0</span></div>
+      <div class="chip" data-fa="moi" onclick="filtre('ass','moi',this)">👤 Mes conversations <span class="n">0</span></div>
+      <div class="chip" data-fa="aucun" onclick="filtre('ass','aucun',this)">Non assignées <span class="n">0</span></div>
       </div>
     </div>
 
@@ -2737,7 +2737,33 @@ function cocheHtml(st) {
   var col = st === "lu" ? "#53bdeb" : "#9aa4b1";
   return '<span style="color:' + col + ';font-weight:700;font-size:10px;letter-spacing:-1.5px;margin-left:5px;white-space:nowrap;display:inline-block;vertical-align:0;" title="' + LIB[st] + '">' + (st === "envoye" ? "✓" : "✓✓") + '</span>';
 }
+/* ===== v38 : compteurs des volets Canaux/Cycles/Assignation recalculés =====
+   Les chiffres de la démo étaient figés dans le HTML (16, 2, 3…) : ils sont
+   désormais recomptés sur les conversations réelles à chaque rendu. */
+function majCompteursFiltres() {
+  var actives = CONVS.filter(function(c){ return !c.archive && !RATTACHE[c.id]; });
+  function majSel(attr, compte) {
+    document.querySelectorAll(".chip[" + attr + "]").forEach(function(ch){
+      var n = ch.querySelector(".n");
+      if (n) n.textContent = String(compte(ch.getAttribute(attr)));
+    });
+  }
+  majSel("data-fc", function(v){
+    return v === "tous" ? actives.length
+      : actives.filter(function(c){ return c.canal === v; }).length;
+  });
+  majSel("data-fx", function(v){
+    return v === "tous" ? actives.length
+      : actives.filter(function(c){ return c.cycle === v; }).length;
+  });
+  majSel("data-fa", function(v){
+    if (v === "tous") return actives.length;
+    if (v === "moi") return actives.filter(function(c){ return c.assigne === MOI; }).length;
+    return actives.filter(function(c){ return !c.assigne; }).length;
+  });
+}
 function renduListe() {
+  majCompteursFiltres();
   var el = document.getElementById("convs"); el.innerHTML = "";
   var liste = CONVS.filter(visible);
   var n = liste.length;
