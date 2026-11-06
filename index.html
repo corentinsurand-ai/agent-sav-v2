@@ -447,7 +447,6 @@
   <button class="btn-nouv" id="btn-comptes" style="display:none;" onclick="ouvrirComptes()" title="Admin : créer, activer/désactiver les comptes de l'équipe (table agent_sav.utilisateurs)">🛡️ Comptes</button>
   <select class="badge-ver" id="sel-moi" title="Qui suis-je ? (pour les commentaires internes et le filtre « Mes conversations »)" onchange="MOI = this.value; renduListe(); renduMesCycles();"></select>
   <button class="btn-nouv" id="btn-auto" onclick="basculerAuto()" title="Rafraîchissement automatique : toutes les minutes, la plateforme relit les messages WhatsApp et les emails réels (tant que les vraies données sont chargées et l'onglet visible). Clique pour activer/désactiver.">🔄 Auto : arrêt</button>
-  <div class="badge-ver">brique C1 · v0</div>
 </header>
 
 <div class="layout" id="layout">
@@ -500,8 +499,6 @@
       <div class="f-sec-chips">
       <div class="chip" onclick="ouvrirCarnet()">📇 Carnet d'adresses</div>
       <div class="chip" onclick="document.getElementById('rech-conv').focus()">🔎 Rechercher (liste)</div>
-      <div class="chip" onclick="chargerVraisClients()" title="Remplace les données de démo par les vrais clients du miroir Supabase (route /api/clients-import?liste=1)">🔌 Vrais clients (Supabase)</div>
-      <div class="chip" onclick="chargerEmailsManuel()" title="Charge les emails réels de la boîte SAV (route /api/emails?liste=1 — poll IMAP OVH via Supabase) et crée les conversations Email">📧 Emails réels (C5.2)</div>
       </div>
     </div>
     </div>
