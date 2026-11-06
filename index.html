@@ -477,6 +477,9 @@
       <div class="chip" data-fx="En cours de réalisation" onclick="filtre('cycle','En cours de réalisation',this)"><span class="cy encours">En cours de réalisation</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Traitée" onclick="filtre('cycle','Traitée',this)"><span class="cy traitee">Traitée</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Attente client" onclick="filtre('cycle','Attente client',this)"><span class="cy attente">Attente client</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="Attente interne" onclick="filtre('cycle','Attente interne',this)"><span class="cy attente">Attente interne</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="Annulée sans réponse" onclick="filtre('cycle','Annulée sans réponse',this)"><span class="cy traitee">Annulée sans réponse</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="Annulée par le client" onclick="filtre('cycle','Annulée par le client',this)"><span class="cy traitee">Annulée par le client</span> <span class="n">0</span></div>
       <div class="chip" data-fx="DE Commerciales" onclick="filtre('cycle','DE Commerciales',this)"><span class="cy qualifier">DE Commerciales</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Bloquée Impayé" onclick="filtre('cycle','Bloquée Impayé',this)"><span class="cy impaye">Bloquée Impayé</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Attente Paiement ou pré-auto CB" onclick="filtre('cycle','Attente Paiement ou pré-auto CB',this)"><span class="cy attente">Attente Paiement</span> <span class="n">0</span></div>
@@ -1311,7 +1314,9 @@ function chargerVraisClients() {
       appliquerVraisClients(rep.clients);
       /* Emails chargés APRÈS WhatsApp (chained) : la fusion multi-canal
          suppose que la conversation du contact existe déjà. */
-      chargerMessagesWhatsApp(base, s.jeton, function() { chargerEmails(base, s.jeton); AUTO_DERNIERE = Date.now(); majBadgeAuto(); demarrerAuto(); });
+      chargerCyclesRio(base, s.jeton, function() {
+        chargerMessagesWhatsApp(base, s.jeton, function() { chargerEmails(base, s.jeton); AUTO_DERNIERE = Date.now(); majBadgeAuto(); demarrerAuto(); });
+      });
     })
     .catch(function(e) { pushNotif("⚠️ Chargement impossible (" + e.message + ") — vérifie ta connexion et recharge la page."); });
 }
@@ -1419,6 +1424,37 @@ function heureWa(iso) {
 var TEST_WA = {
   "33613886756": { ent: "CORENTIN (TEST C4)", nom: "Corentin Surand", plaque: "", email: "corentin.surand@gmail.com" }
 };
+/* ===== C8-CYC-1 : cycles de vie respond.io (table respondio_contacts) =====
+   GET ?respondio=1 renvoie cycle_vie par contact — on indexe par téléphone
+   (chiffres seuls) et par email pour qualifier les conversations au moment
+   de leur création (les noms de cycles respond.io = CYCLES_LISTE du canvas).
+   Chargé AVANT les messages ; silencieux si la brique est absente. */
+var RIO_CYCLES_TEL = {}, RIO_CYCLES_MEL = {};
+function chargerCyclesRio(base, jeton, cb) {
+  fetch(base + "/api/clients-import?jeton=" + encodeURIComponent(jeton) + "&respondio=1")
+    .then(function(r) { return r.json(); })
+    .then(function(rep) {
+      (rep && rep.contacts || []).forEach(function(c) {
+        var cy = String(c.cycle_vie || "").trim();
+        if (!cy) return;
+        var d = String(c.tel || "").replace(/\D/g, "");
+        if (d) RIO_CYCLES_TEL[d] = cy;
+        var m = normMel(c.email);
+        if (m) RIO_CYCLES_MEL[m] = cy;
+      });
+    })
+    .catch(function(e) { /* brique absente — silencieux */ })
+    .then(function() { if (cb) cb(); });
+}
+function cycleRioTel(tel) { return RIO_CYCLES_TEL[String(tel || "").replace(/\D/g, "")] || null; }
+function cycleRioMel(mel) { return RIO_CYCLES_MEL[normMel(mel)] || null; }
+/* applique le cycle respond.io à une conversation (création OU fusion) —
+   les cycles inconnus de CYCLES_LISTE sont ignorés (cycle inchangé). */
+function qualifierCycleRio(c, cy) {
+  if (!c || !cy || CYCLES_LISTE.indexOf(cy) < 0) return;
+  c.cycle = cy;
+  c.classe = classeCycle(cy) || "nouvelle";
+}
 function chargerMessagesWhatsApp(base, secret, cb) {
   /* email du carnet correspondant à un numéro (repli : 9 derniers chiffres) */
   function emailParTel(tel) {
@@ -1463,11 +1499,12 @@ function chargerMessagesWhatsApp(base, secret, cb) {
           /* conversation existante du même contact (ex. créée par un chargement
              Email arrivé avant) → fusion, pas de nouvelle conversation */
           var ex = convDuContact(v.tel);
-          if (ex) { fusionnerFil(ex, fil); creees++; return; }
+          if (ex) { fusionnerFil(ex, fil); qualifierCycleRio(ex, cycleRioTel(v.tel)); creees++; return; }
+          var cyRio = cycleRioTel(v.tel);            /* C8-CYC-1 : cycle de vie respond.io */
           nid++;
           CONVS.push({
             id: nid, nom: nomProfilOu(dernier.nom_profil, v.nom), entreprise: s.ent, canal: "WhatsApp",
-            cycle: "Nouvelle Demande", classe: "nouvelle", tags: [], heure: "—", delai: "",
+            cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
             lu: false, wa: true, extrait: String(dernier.texte || ""),
             contact: { tel: v.tel, plaque: v.plaque, email: emailParTel(v.tel) }, fil: fil, comms: []
           });
@@ -1500,11 +1537,12 @@ function chargerMessagesWhatsApp(base, secret, cb) {
           return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a };
         });
         var ex = convDuContact("+" + d);
-        if (ex) { fusionnerFil(ex, fil); creees++; return; }
+        if (ex) { fusionnerFil(ex, fil); qualifierCycleRio(ex, cycleRioTel(d)); creees++; return; }
+        var cyRio = cycleRioTel(d);                 /* C8-CYC-1 : cycle de vie respond.io */
         nid++;
         CONVS.push({
           id: nid, nom: nomProfilOu(dernier.nom_profil, t.nom), entreprise: t.ent, canal: "WhatsApp",
-          cycle: "Nouvelle Demande", classe: "nouvelle", tags: [], heure: "—", delai: "",
+          cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
           lu: false, wa: true, extrait: String(dernier.texte || ""),
           contact: { tel: "+" + d, plaque: t.plaque, email: emailParTel("+" + d) }, fil: fil, comms: []
         });
@@ -1747,11 +1785,12 @@ function chargerEmails(base, secret) {
             if (normMel(c.contact && c.contact.email) === addr) existante = c;
           });
         }
-        if (existante) { fusionnerFil(existante, fil); creees++; return; }
+        if (existante) { fusionnerFil(existante, fil); qualifierCycleRio(existante, cycleRioMel(addr)); creees++; return; }
+        var cyRio = cycleRioMel(addr);              /* C8-CYC-1 : cycle de vie respond.io */
         nid++;
         CONVS.push({
           id: nid, nom: v.nom, entreprise: s.ent, canal: "Email",
-          cycle: "Nouvelle Demande", classe: "nouvelle", tags: [], heure: "—", delai: "",
+          cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
           lu: false, extrait: nettoyerMailTxt(dernier.texte),
           contact: { tel: v.tel, plaque: v.plaque, email: addr }, fil: fil, comms: []
         });
@@ -1830,9 +1869,10 @@ function lancerConvVrai(ent, i) {
   if (!s || !s.vraisContacts || !s.vraisContacts[i]) return;
   var v = s.vraisContacts[i];
   var id = (CONVS.length ? Math.max.apply(null, CONVS.map(function(c) { return c.id; })) + 1 : 1);
+  var cyRio = cycleRioTel(v.tel) || cycleRioMel(v.email);   /* C8-CYC-1 */
   CONVS.push({
     id: id, nom: v.nom, entreprise: ent, canal: "WhatsApp",
-    cycle: "Nouvelle Demande", classe: "nouvelle", tags: [],
+    cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [],
     heure: "—", delai: "", lu: true,
     extrait: "Conversation lancée par l'équipe U'mob (vraie fiche client)",
     contact: { tel: v.tel, plaque: v.plaque, email: v.email || "" }, fil: [], comms: []
@@ -2686,11 +2726,12 @@ function basculeFiltreSec(id) {
 }
 
 /* ===== « Mes conversations par cycle » : uniquement les convs assignées à MOI ===== */
-var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Attente client","Traitée","DE Commerciales","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
+var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Attente client","Attente interne","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
 var MESCY_ON = null;
 var CLASSE_CYCLE = {
   "Nouvelle Demande": "nouvelle", "A qualifier": "qualifier", "A créer dans Praxedo": "praxedo",
   "En cours de réalisation": "encours", "Traitée": "traitee", "Attente client": "attente",
+  "Attente interne": "attente", "Annulée sans réponse": "traitee", "Annulée par le client": "traitee",
   "DE Commerciales": "qualifier", "Bloquée Impayé": "impaye", "Attente Paiement ou pré-auto CB": "attente"
 };
 function classeCycle(cy) { return CLASSE_CYCLE[cy] || null; }
