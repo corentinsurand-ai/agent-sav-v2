@@ -313,6 +313,52 @@ module.exports = async function (req, res) {
       return repondre(res, 401, { ok: false, erreur: 'secret invalide' });
     }
 
+    // ---- C8-IMP-1 : POST {importer:[…]} → import des emails historiques
+    // respond.io (pré-vérification message_id — pas de contrainte unique
+    // en base ; max 200 par appel ; upsert non requis : insert sans doublon)
+    if (Array.isArray(corps.importer)) {
+      if (!corps.importer.length) return repondre(res, 400, { ok: false, erreur: 'importer vide' });
+      if (corps.importer.length > 200) return repondre(res, 400, { ok: false, erreur: 'trop d emails (max 200 par appel)' });
+      if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+        return repondre(res, 500, { ok: false, erreur: 'config Supabase absente' });
+      }
+      var ecrits = 0, ignores = 0, erreurs = [];
+      for (var iImp = 0; iImp < corps.importer.length; iImp++) {
+        var em = corps.importer[iImp];
+        if (!em || typeof em !== 'object' || !em.message_id) { continue; }
+        var mid = String(em.message_id);
+        try {
+          var deja = await fetch(urlSupabase('emails?select=id&message_id=eq.' + encodeURIComponent(mid)), { headers: teteSupa() });
+          if (deja.ok) {
+            var dj = ''; try { dj = await deja.text(); } catch (e) { dj = ''; }
+            if (dj && JSON.parse(dj).length) { ignores++; continue; }
+          }
+          var ligne = {
+            message_id: mid,
+            sens: em.sens === 'sortant' ? 'sortant' : 'entrant',
+            from_addr: String(em.from_addr || ''),
+            to_addr: String(em.to_addr || ''),
+            sujet: String(em.sujet || '').substring(0, 500),
+            texte: String(em.texte || '').substring(0, 100000),
+            brut: (em.brut && typeof em.brut === 'object') ? em.brut : { source: 'respond.io' },
+            recu_a: em.recu_a || new Date().toISOString(),
+            lu: em.lu === true
+          };
+          var rIns2 = await fetch(urlSupabase('emails'), {
+            method: 'POST',
+            headers: Object.assign({}, teteSupa(), { 'Content-Profile': 'agent_sav', 'Prefer': 'return=minimal' }),
+            body: JSON.stringify(ligne)
+          });
+          if (rIns2.ok) ecrits++;
+          else erreurs.push(mid + ':' + rIns2.status);
+        } catch (eImp) { erreurs.push(mid + ':' + String(eImp && eImp.message || eImp).substring(0, 100)); }
+      }
+      return repondre(res, 200, {
+        ok: true, brique: 'C8-IMP', mode: 'import',
+        recus: corps.importer.length, ecrits: ecrits, ignores: ignores, erreurs: erreurs.slice(0, 10)
+      });
+    }
+
     // ---- MODE DEBUG : lister les dossiers IMAP (verification folder envoyes)
     if (u.searchParams.get('dossiers') === '1') {
       var hL = process.env.SMTP_HOST, uL = process.env.SMTP_USER, pL = process.env.SMTP_PASS;

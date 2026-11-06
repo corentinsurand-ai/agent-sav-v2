@@ -186,6 +186,29 @@ async function utilisateurDuJeton(jeton) {
 // POST /rest/v1/comptages_maintenance?on_conflict=code_client avec
 // Prefer resolution=merge-duplicates → régénérable sans doublon (une ligne
 // PAR code_client, un import complet remplace l'ancien comptage).
+// --- C8-IMP-1 : upsert des contacts respond.io -------------------------------
+// Table agent_sav.respondio_contacts — miroir des contacts respond.io avec
+// cycle de vie, tags, assignation, statut et champs personnalisés (société,
+// code_client, plaques, panne signalée…). Upsert PAR id → régénérable.
+async function respondioEcrire(lignes) {
+  var res = await fetch(urlSupabase('respondio_contacts', 'on_conflict=id'), {
+    method: 'POST',
+    headers: {
+      'apikey': env('SUPABASE_SERVICE_KEY'),
+      'Authorization': 'Bearer ' + env('SUPABASE_SERVICE_KEY'),
+      'Content-Type': 'application/json',
+      'Accept-Profile': SCHEMA,
+      'Content-Profile': SCHEMA,
+      'Prefer': 'resolution=merge-duplicates,return=minimal'
+    },
+    body: JSON.stringify(lignes)
+  });
+  var texte = '';
+  try { texte = await res.text(); } catch (e) { texte = ''; }
+  if (!res.ok) throw new Error('Supabase ' + res.status + ' — ' + texte.substring(0, 300));
+  return lignes.length;
+}
+
 async function comptagesEcrire(lignes) {
   var res = await fetch(urlSupabase('comptages_maintenance', 'on_conflict=code_client'), {
     method: 'POST',
@@ -492,13 +515,34 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // GET ?respondio=1[&limite=N] → contacts respond.io importés (plateforme)
+    if (paramDe(req, 'respondio') === '1') {
+      if (!env('SUPABASE_URL') || !env('SUPABASE_SERVICE_KEY')) {
+        return res.status(500).json({ ok: false, erreur: 'configuration Supabase manquante' });
+      }
+      try {
+        var limiteR = parseInt(paramDe(req, 'limite'), 10) || 2000;
+        if (limiteR < 1) limiteR = 1;
+        if (limiteR > 5000) limiteR = 5000;
+        var listeR = await supabaseGet('respondio_contacts',
+          'select=id,prenom,nom,tel,email,statut,cycle_vie,tags,assignee,champs,cree_a&order=id.asc&limit=' + limiteR);
+        return res.status(200).json({
+          ok: true, brique: 'C8-IMP', version: VERSION,
+          limite: limiteR, trouves: listeR.length, contacts: listeR
+        });
+      } catch (e) {
+        return res.status(500).json({ ok: false, erreur: 'table respondio_contacts inexistante ? ' + String((e && e.message) || e).substring(0, 250) });
+      }
+    }
+
     return res.status(200).json({
       ok: true, brique: 'C1-IMP', version: VERSION,
       role: 'import manuel de clients dans agent_sav.clients (meme ecriture que la synchro Sheet B2.2)',
       post: '{ clients: [ { telephone, plaques: [immat], enseigne, statut_risque, lignes: [lignes du Sheet] } ] }',
       verifier: 'GET ?verifier=1&prefixe=TEST',
       liste: 'GET ?liste=1&limite=1000 — liste complete du miroir (plateforme C1, comptages maintenances fusionnes)',
-      maintenances: 'GET ?maintenances=1 — comptages maintenance | POST {maintenances:[{code_client,nom,donnees}]} — import des comptages'
+      maintenances: 'GET ?maintenances=1 — comptages maintenance | POST {maintenances:[{code_client,nom,donnees}]} — import des comptages',
+      respondio: 'GET ?respondio=1 — contacts respond.io importes | POST {respondio:[…]} — import (cycle de vie, tags, assignation, champs personnalises)'
     });
   }
 
@@ -557,6 +601,48 @@ module.exports = async function handler(req, res) {
       });
     } catch (e) {
       return res.status(500).json({ ok: false, erreur: 'table comptages_maintenance inexistante ? ' + String((e && e.message) || e).substring(0, 250) });
+    }
+  }
+
+  // --- C8-IMP-1 : POST {respondio:[…]} → import des contacts respond.io ----
+  // (cycle de vie, tags, assignation, statut, champs personnalisés — upsert
+  //  par id : régénérable sans doublons, max 200 par appel)
+  if (Array.isArray(corps.respondio)) {
+    if (!corps.respondio.length) {
+      return res.status(400).json({ ok: false, erreur: 'corps invalide : respondio vide' });
+    }
+    if (corps.respondio.length > 200) {
+      return res.status(400).json({ ok: false, erreur: 'trop de contacts (max 200 par appel)' });
+    }
+    var lignesRio = [];
+    for (var rI = 0; rI < corps.respondio.length; rI++) {
+      var rc = corps.respondio[rI];
+      if (!rc || typeof rc !== 'object' || !rc.id) {
+        return res.status(400).json({ ok: false, erreur: 'contact ' + (rI + 1) + ' : id requis' });
+      }
+      lignesRio.push({
+        id: Number(rc.id) || String(rc.id),
+        prenom: String(rc.prenom || ''),
+        nom: String(rc.nom || ''),
+        tel: String(rc.tel || ''),
+        email: String(rc.email || ''),
+        statut: String(rc.statut || 'open'),
+        cycle_vie: rc.cycle_vie || null,
+        tags: Array.isArray(rc.tags) ? rc.tags : [],
+        assignee: rc.assignee || null,
+        champs: rc.champs || {},
+        cree_a: rc.cree_a || new Date().toISOString()
+      });
+    }
+    try {
+      var ecritsRio = await respondioEcrire(lignesRio);
+      await journaliser('import respond.io de ' + ecritsRio + ' contact(s)', { version: VERSION });
+      return res.status(200).json({
+        ok: true, brique: 'C8-IMP', version: VERSION,
+        recus: corps.respondio.length, ecrits: ecritsRio
+      });
+    } catch (e) {
+      return res.status(500).json({ ok: false, erreur: 'table respondio_contacts inexistante ? ' + String((e && e.message) || e).substring(0, 250) });
     }
   }
 

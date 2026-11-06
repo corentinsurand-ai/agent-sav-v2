@@ -11,6 +11,7 @@
 //
 //   GET ?secret=<WEBHOOK_SECRET>                  → info
 //   GET ?secret=…&liste=1&limite=1000             → les derniers messages
+//   POST {importer:[…]} (secret) → import historique respond.io (upsert wamid)
 //        (toutes les conversations confondues, ordre chronologique croissant,
 //         limité aux plus récents : le canvas groupe par téléphone)
 //   GET ?secret=…&tel=33620476040                  → l'historique d'un numéro
@@ -25,7 +26,7 @@
 // Réponses : 200 ; 401 secret ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C4-LEC-2';
+var VERSION = 'C4-IMP-1';
 var SCHEMA = 'agent_sav';
 
 // null tant que la présence des colonnes C2 n'est pas confirmée ;
@@ -114,6 +115,15 @@ async function supabaseGetAvecC2(params) {
   return corps ? JSON.parse(corps) : [];
 }
 
+// Assainit un texte avant écriture Supabase (jsonb n'accepte ni \u0000
+// ni les contrôles bruts ; surrogats isolés interdits en JSON).
+function nettoyerImport(s) {
+  s = String(s == null ? '' : s);
+  s = s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ' ').replace(/\t/g, ' ');
+  s = s.replace(/[\uD800-\uDFFF]/g, '');
+  return s.substring(0, 4000).trim();
+}
+
 module.exports = async function handler(req, res) {
   // CORS — la plateforme (navigateur) lit cette route en direct.
   try { res.setHeader('Access-Control-Allow-Origin', '*'); } catch (e) {}
@@ -128,6 +138,73 @@ module.exports = async function handler(req, res) {
   var authA = require('../lib/auth');
   if (!authA.authentifierRequete(secretDe(req), jetonDe(req)).ok) {
     return res.status(401).json({ ok: false, erreur: 'secret invalide' });
+  }
+
+  // ---- C4-IMP-1 : POST {importer:[…]} → import de l'historique respond.io
+  // (messages WhatsApp historiques récupérés de l'API Platform respond.io ;
+  //  upsert sur wamid → régénérable sans doublons, max 200 par appel)
+  if (req.method === 'POST') {
+    var corpsI = req.body;
+    if (!corpsI || typeof corpsI !== 'object') {
+      try { corpsI = JSON.parse(String(req.body || '{}')); } catch (e) { corpsI = null; }
+    }
+    if (!corpsI || !Array.isArray(corpsI.importer)) {
+      return res.status(400).json({ ok: false, erreur: 'corps invalide : JSON {importer:[…]} attendu' });
+    }
+    if (!corpsI.importer.length) {
+      return res.status(400).json({ ok: false, erreur: 'corps invalide : importer vide' });
+    }
+    if (corpsI.importer.length > 200) {
+      return res.status(400).json({ ok: false, erreur: 'trop de messages (max 200 par appel)' });
+    }
+    if (!env('SUPABASE_URL') || !env('SUPABASE_SERVICE_KEY')) {
+      return res.status(500).json({ ok: false, erreur: 'configuration Supabase manquante' });
+    }
+    var lignesI = [];
+    for (var iI = 0; iI < corpsI.importer.length; iI++) {
+      var im = corpsI.importer[iI];
+      if (!im || typeof im !== 'object' || !im.wa_id || !im.wamid) continue;
+      lignesI.push({
+        wa_id: String(im.wa_id).replace(/\D/g, ''),
+        nom_profil: nettoyerImport(im.nom_profil || ''),
+        texte: nettoyerImport(im.texte || ''),
+        type: String(im.type || 'text'),
+        wamid: String(im.wamid),
+        brut: (im.brut && typeof im.brut === 'object') ? im.brut : { source: 'respond.io' },
+        recu_a: im.recu_a || new Date().toISOString(),
+        sens: im.sens === 'sortant' ? 'sortant' : 'entrant',
+        statut: im.statut === 'non_lu' ? 'non_lu' : 'lu',
+        statut_reception: im.statut_reception || null
+      });
+    }
+    if (!lignesI.length) {
+      return res.status(400).json({ ok: false, erreur: 'aucun message valide (wa_id + wamid requis)' });
+    }
+    try {
+      var resI = await fetch(urlSupabase('wa_messages', 'on_conflict=wamid'), {
+        method: 'POST',
+        headers: {
+          'apikey': env('SUPABASE_SERVICE_KEY'),
+          'Authorization': 'Bearer ' + env('SUPABASE_SERVICE_KEY'),
+          'Content-Type': 'application/json',
+          'Accept-Profile': SCHEMA,
+          'Content-Profile': SCHEMA,
+          'Prefer': 'resolution=merge-duplicates,return=minimal'
+        },
+        body: JSON.stringify(lignesI)
+      });
+      var corpsR = '';
+      try { corpsR = await resI.text(); } catch (e) { corpsR = ''; }
+      if (!resI.ok) {
+        return res.status(500).json({ ok: false, erreur: 'Supabase wa_messages ' + resI.status + ' — ' + corpsR.substring(0, 300) });
+      }
+      return res.status(200).json({
+        ok: true, brique: 'C4', version: VERSION, mode: 'import',
+        recus: corpsI.importer.length, ecrits: lignesI.length
+      });
+    } catch (e) {
+      return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
+    }
   }
 
   if (req.method !== 'GET') {

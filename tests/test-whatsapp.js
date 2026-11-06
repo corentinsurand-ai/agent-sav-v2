@@ -262,11 +262,40 @@ test('lecture : 401 sans secret', async () => {
   assert.strictEqual(res.statusCode, 401);
 });
 
-test('lecture : 405 en POST', async () => {
+test('import : 400 en POST sans {importer:[…]}', async () => {
   raz();
   const res = faireRes();
   await handlerMessages({ method: 'POST', url: '/api/whatsapp-messages?secret=secret-de-test-c4', query: { secret: 'secret-de-test-c4' }, headers: {}, body: null }, res);
-  assert.strictEqual(res.statusCode, 405);
+  assert.strictEqual(res.statusCode, 400);
+});
+
+test('import respond.io : upsert des messages (max 200, wamid requis)', async () => {
+  raz();
+  const res = faireRes();
+  await handlerMessages({ method: 'POST', url: '/api/whatsapp-messages?secret=secret-de-test-c4', query: { secret: 'secret-de-test-c4' }, headers: {}, body: { importer: [
+    { wa_id: '+33 6 01 02 03 04', nom_profil: 'B K', texte: 'Bonjour\x01bonjour', type: 'text', wamid: 'rio_1', recu_a: '2026-09-01T10:00:00Z', sens: 'entrant', brut: { source: 'respond.io' } },
+    { wa_id: '33601020304', texte: 'Réponse', wamid: 'rio_2', sens: 'sortant', statut_reception: 'read' },
+    { wa_id: '33601020304', texte: 'sans wamid' }
+  ] } }, res);
+  assert.strictEqual(res.statusCode, 200);
+  assert.strictEqual(res.corps.ok, true);
+  assert.strictEqual(res.corps.recus, 3);
+  assert.strictEqual(res.corps.ecrits, 2);
+  const ins = appelsFetch.find(a => (a.options.method || '') === 'POST' && a.url.indexOf('on_conflict=wamid') !== -1);
+  assert.ok(ins, 'insert avec on_conflict=wamid');
+  const ligne = JSON.parse(ins.options.body)[0];
+  assert.strictEqual(ligne.wa_id, '33601020304');           // chiffres seuls
+  assert.strictEqual(ligne.texte, 'Bonjour bonjour');     // contrôles nettoyés
+  assert.strictEqual(ligne.sens, 'entrant');
+  assert.strictEqual(ligne.statut, 'lu');
+});
+
+test('import respond.io : refus au-delà de 200 messages', async () => {
+  raz();
+  const res = faireRes();
+  const trop = []; for (let i = 0; i < 201; i++) trop.push({ wa_id: '33', wamid: 'x' + i });
+  await handlerMessages({ method: 'POST', url: '/api/whatsapp-messages?secret=secret-de-test-c4', query: { secret: 'secret-de-test-c4' }, headers: {}, body: { importer: trop } }, res);
+  assert.strictEqual(res.statusCode, 400);
 });
 
 test('lecture liste : renvoie les messages et le nombre de conversations', async () => {
