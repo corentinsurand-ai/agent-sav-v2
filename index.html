@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>U'mob — Plateforme SAV (prototype C1)</title>
+<style>
+  :root {
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    --lime: #0e5aa7; --lime-hov: #0b4a8c; --lime-soft: #E8F1FB; --lime-bord: #C9DFF5;
+    --anthra: #32373C; --anthra2: #4A5158; --ink: #22262B; --mut: #7A8079; --grey: #9D9E9D;
+    --bg: #F5F6F3; --card: #fff; --bord: #E7E9E2; --bord2: #D9DCD1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--ink); font-size: 14px; }
+
+  .proto { background: var(--lime-soft); color: var(--mut); font-size: 11.5px; text-align: center; padding: 4px 10px; border-bottom: 1px solid var(--lime-bord); }
+
+  header.topbar { display: flex; align-items: center; gap: 12px; background: #0e5aa7; color: #fff; padding: 9px 16px; }
+  header.topbar .logo { font-size: 18px; font-weight: 800; letter-spacing: .4px; color: #fff; }
+  header.topbar .logo span { color: #9fd6ff; font-weight: 600; }
+  header.topbar .crumb { font-size: 12px; opacity: .85; }
+  header.topbar .spacer { flex: 1; }
+  /* ===== C6-AUTH : connexion équipe + overlay ===== */
+  #btn-auth.conncte { background:#cfe6fb; color:#0e5aa7; font-weight:700; }
+  #auth-overlay { position:fixed; inset:0; background:rgba(16,28,44,.45); z-index:9999; display:flex; align-items:center; justify-content:center; }
+  #auth-overlay.cache { display:none; }
+  #auth-carte { background:#fff; border-radius:14px; width:360px; max-width:92vw; box-shadow:0 18px 50px rgba(10,20,40,.35); overflow:hidden; }
+  #auth-tete { background:linear-gradient(135deg,#0e5aa7,#1c7ed6); color:#fff; padding:16px 20px; }
+  #auth-tete h3 { font-size:16px; font-weight:800; }
+  #auth-tete p { font-size:12px; opacity:.85; margin-top:3px; }
+  #auth-corps { padding:18px 20px; }
+  #auth-corps label { display:block; font-size:11px; font-weight:700; color:#5a6472; text-transform:uppercase; letter-spacing:.4px; margin:10px 0 4px; }
+  #auth-corps input { width:100%; padding:9px 11px; border:1px solid #d4dae3; border-radius:8px; font-size:14px; color:#22262b; }
+  #auth-corps input:focus { outline:none; border-color:#0e5aa7; box-shadow:0 0 0 3px #e2f0fc; }
+  .auth-btns { display:flex; gap:8px; margin-top:16px; }
+  .auth-btns button { flex:1; padding:10px; border-radius:8px; border:none; font-size:13px; font-weight:700; cursor:pointer; }
+  #auth-ok { background:#0e5aa7; color:#fff; }
+  #auth-ok:hover { background:#0b4a8c; }
+  #auth-annule { background:#eef1f5; color:#4a5568; }
+  #auth-msg { font-size:12px; margin-top:10px; color:#c0392b; min-height:16px; }
+  .badge-mode { background: #E8F1FB; color: #0e5aa7; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 999px; border: none; cursor: pointer; font-family: inherit; }
+  .badge-mode.ecriture { background: #16a34a; color: #fff; }
+  .badge-mode:hover { opacity: .85; }
+  .badge-ver { background: rgba(255,255,255,.16); color: #fff; font-size: 11px; padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.22); }
+
+  .layout { display: flex; height: calc(100vh - 58px); min-height: 520px; }
+  .layout > .volet { position: relative; display: flex; flex-direction: column; min-width: 170px; flex: 0 0 auto; }
+  #volet-fil { flex: 1 1 auto; min-width: 300px; }
+  /* Largeurs par défaut confortables (redimensionnables et mémorisées) */
+  #volet-filtres { flex: 0 0 274px; }
+  #volet-liste { flex: 0 0 360px; min-width: 300px; }
+  .layout.avec-fiche .layout-fiche { display: flex; }
+
+  /* Barre de titre de chaque volet : glisser-déposer pour réordonner */
+  .volet-bar { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: var(--card); border-bottom: 1px solid var(--bord); font-size: 10px; font-weight: 700; color: var(--mut); text-transform: uppercase; letter-spacing: .5px; cursor: grab; user-select: none; }
+  .volet-bar:active { cursor: grabbing; }
+  .volet-bar .aide { margin-left: auto; font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--grey); font-size: 10px; }
+  .volet.deplace { opacity: .5; outline: 2px dashed var(--lime-hov); outline-offset: -3px; }
+  .volet.cible { box-shadow: inset 4px 0 0 var(--lime); }
+  .volet-corps { flex: 1; overflow-y: auto; }
+
+  /* Poignée de redimensionnement (bord droit de chaque volet) */
+  .rz { position: absolute; top: 0; right: 0; width: 8px; height: 100%; cursor: col-resize; z-index: 6; }
+  .rz::after { content: ""; position: absolute; top: 0; right: 3px; width: 2px; height: 100%; background: transparent; }
+  .rz:hover::after, .rz.actif::after { background: rgba(174,194,0,.55); }
+
+  aside.filters { background: var(--card); border-right: 1px solid var(--bord); }
+  .filters-corps { padding: 14px 12px; }
+  aside.filters h3 { font-size: 10.5px; text-transform: uppercase; color: var(--mut); margin: 16px 0 8px; letter-spacing: .6px; }
+  aside.filters h3:first-child { margin-top: 0; }
+  .chip { display: flex; align-items: center; justify-content: space-between; padding: 6px 9px; border-radius: 8px; cursor: pointer; color: var(--ink); }
+  .chip:hover { background: #F0F1EA; }
+  .chip.on { background: var(--lime); color: #fff; font-weight: 700; }
+  .chip .n { font-size: 11px; color: var(--mut); background: var(--bg); border-radius: 999px; padding: 1px 7px; }
+  .chip.on .n { background: rgba(255,255,255,.25); color: #fff; }
+  .chip .chip-d { display: flex; align-items: center; gap: 5px; }
+  .chip .nl { font-size: 10px; font-weight: 700; color: #fff; background: var(--lime); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+  .chip .nl:empty { display: none; }
+  .chip .wa::before, .mail::before { display: inline-block; width: 14px; text-align: center; margin-right: 6px; }
+  .f-sec h3 { cursor: pointer; user-select: none; display: flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px; color: #1a1e23; padding: 7px 2px 6px; border-bottom: 2px solid #7fb6e8; margin-bottom: 8px; }
+  .f-sec h3:hover { color: #0e5aa7; }
+  .f-sec h3 .fs-f { display: inline-block; width: 12px; text-align: center; color: #0e5aa7; font-size: 9px; }
+  .f-sec.reduit .f-sec-chips { display: none; }
+  .f-sec.reduit h3 { margin-bottom: 4px; }
+  .wa::before { content: "💬"; } .mail::before { content: "✉️"; }
+
+  section.liste { background: var(--card); border-right: 1px solid var(--bord); display: flex; flex-direction: column; }
+  .liste-head { padding: 12px 14px; border-bottom: 1px solid var(--bord); display: flex; align-items: center; gap: 8px; }
+  .liste-head b { font-size: 13px; }
+  .btn { border: 1px solid var(--bord2); background: var(--card); border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; color: var(--ink); }
+  .btn:hover { background: #F0F1EA; }
+  .btn.primaire { background: var(--lime); border-color: var(--lime-hov); color: #fff; font-weight: 700; }
+  .btn.primaire:hover { background: var(--lime-hov); color: #fff; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .compteur { margin-left: auto; font-size: 11px; color: var(--mut); }
+  .convs { overflow-y: auto; flex: 1; }
+  .conv { padding: 11px 14px; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; }
+  .conv + .conv { border-top: 1px solid #EFF0EB; }
+  .conv:hover { background: #F3F4EE; }
+  .conv.on { background: var(--lime-soft); box-shadow: inset 3px 0 0 var(--lime); }
+  .conv .nom { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .conv .heure { grid-column: 2; grid-row: 1; font-size: 11px; color: var(--mut); }
+  .conv .extrait { font-size: 12px; color: #5A6169; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; grid-column: 1 / 3; }
+  .conv .meta { display: flex; gap: 6px; align-items: center; grid-column: 1 / 3; flex-wrap: wrap; }
+  .conv .sousnom { font-size: 10.5px; color: var(--mut); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--lime); }
+  .dot.lu { background: #C9CCC2; }
+  .ic { font-size: 11px; }
+
+  .toggle { display: flex; border: 1px solid var(--bord2); border-radius: 8px; overflow: hidden; }
+  .toggle button { border: none; background: var(--card); font-size: 11px; padding: 4px 8px; cursor: pointer; color: #5A6169; }
+  .toggle button.on { background: var(--lime); color: #fff; font-weight: 600; }
+  .grp { margin: 12px 8px 0; padding: 7px 12px; font-size: 12px; font-weight: 800; color: #fff; text-transform: uppercase; letter-spacing: .4px; background: #0e5aa7; border-radius: 8px 8px 0 0; display: flex; align-items: center; gap: 6px; cursor: pointer; flex-wrap: wrap; }
+  .grp:hover { background: #0b4a8c; }
+  .grp.on { background: #0b4a8c; }
+  .grp .n { font-weight: 700; font-size: 10px; background: rgba(255,255,255,.22); color: #fff; border-radius: 999px; padding: 1px 7px; }
+  .grp .tri { display: inline-block; width: 15px; text-align: center; color: #fff; font-size: 10px; cursor: pointer; }
+  .grp:hover .tri { color: #fff; }
+  .grp .ind { margin-left: auto; color: rgba(255,255,255,.75); font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 10px; }
+  .grp-bloc { margin: 0 8px; border: 1px solid #C9DFF5; border-top: none; border-radius: 0 0 10px 10px; background: #F7FAFE; overflow: hidden; }
+  .grp-bloc .conv { background: transparent; }
+  .grp-bloc .conv.on { background: #E8F1FB; }
+  .grp-bloc .conv:first-child { border-top: none; }
+
+  .cy { font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+  .cy.nouvelle { background: #e0f2fe; color: #075985; }
+  .cy.qualifier { background: #fef3c7; color: #92400e; }
+  .cy.praxedo { background: #ede9fe; color: #5b21b6; }
+  .cy.encours { background: #dcfce7; color: #166534; }
+  .cy.traitee { background: #e2e8f0; color: #475569; }
+  .cy.attente { background: #ffe4e6; color: #9f1239; }
+  .cy.impaye { background: #fee2e2; color: #991b1b; }
+  .cy.cliquable { cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+  .cy.cliquable:hover { outline: 2px solid #0e5aa7; }
+  #menu-cycle .cy { margin-right: 6px; }
+  /* ===== Boîte outils d'envoi (raccourcis / modèles WA) ===== */
+  #boite-outils { display: none; position: fixed; inset: 0; background: rgba(34,38,43,.5); z-index: 70; }
+  #boite-outils.ouvert { display: block; }
+  .bo-fen { max-width: 560px; margin: 70px auto; background: #fff; border-radius: 16px; display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,.3); overflow: hidden; max-height: calc(100vh - 140px); }
+  .bo-head { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--bord); }
+  .bo-tabs { display: flex; gap: 6px; flex: 1; }
+  .bo-tabs button { border: none; background: #F0F1EA; color: #5A6169; border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .bo-tabs button.on { background: #0e5aa7; color: #fff; }
+  .bo-liste { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .bo-item { display: flex; gap: 8px; align-items: center; border: 1px solid var(--bord); border-radius: 10px; padding: 10px 12px; background: #fff; }
+  .bo-item:hover { border-color: #0e5aa7; background: #F6FAFE; }
+  .bo-txt { flex: 1; font-size: 12.5px; color: #383E43; cursor: pointer; line-height: 1.45; }
+  .bo-sp { display: flex; gap: 5px; }
+  .bo-nouveau { border-top: 1px dashed var(--bord2); padding-top: 12px; margin-top: 2px; }
+  .bo-nouveau .lab { font-size: 11px; font-weight: 700; color: var(--mut); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
+  .bo-nouveau textarea { width: 100%; height: 60px; border: 1px solid var(--bord2); border-radius: 10px; padding: 8px 10px; font-size: 12.5px; font-family: inherit; resize: vertical; }
+  .bo-nouveau textarea:focus { outline: none; border-color: #0e5aa7; box-shadow: 0 0 0 2px rgba(14,90,167,.15); }
+  .outils-envoi { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .outil-btn { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--bord2); background: var(--card); border-radius: 99px; padding: 1px 7px 1px 1px; font-size: 10.5px; font-weight: 600; color: var(--ink); cursor: pointer; line-height: 1; transition: border-color .15s, box-shadow .15s; }
+  .outil-btn:hover { border-color: #0e5aa7; box-shadow: 0 1px 4px rgba(14,90,167,.15); }
+  .ob-ico { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 99px; font-size: 9px; flex: none; }
+  .ob-bleu .ob-ico { background: #e2f0fc; }
+  .ob-vert .ob-ico { background: #e0f5ec; }
+  .ob-orange .ob-ico { background: #fdeedd; }
+  .ob-rouge .ob-ico { background: #fbe4e4; }
+  #btn-dictee.rec { border-color: #d64545; background: #fdecea; animation: dictee-pulse 1.2s infinite; }
+  @keyframes dictee-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(214,69,69,.35); } 50% { box-shadow: 0 0 0 5px rgba(214,69,69,0); } }
+  .pj { margin-top: 6px; background: #EDF2F9; border: 1px solid #C6D2E2; border-radius: 8px; padding: 6px 9px; font-size: 11.5px; color: #3A4450; }
+  .canal-envoi { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+  .canal-envoi .lab { font-size: 11px; color: var(--mut); font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+  .tag { font-size: 10.5px; background: #F0F1EA; color: #4A5148; padding: 2px 7px; border-radius: 999px; }
+
+  section.fil { display: flex; flex-direction: column; background: #F6F7F4; }
+  .fil-head { background: var(--card); border-bottom: 1px solid var(--bord); padding: 12px 18px; }
+  .fil-head .l1 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .fil-head .l1 b { font-size: 15px; }
+  .fil-head .l2 { margin-top: 6px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 12px; color: #5A6169; }
+  .messages { flex: 1; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+  .bulle { max-width: 68%; padding: 9px 12px; border-radius: 12px; font-size: 13px; line-height: 1.45; position: relative; white-space: pre-wrap; word-break: break-word; }
+  .bulle .h { font-size: 10.5px; color: var(--mut); margin-bottom: 3px; white-space: nowrap; }
+  .bulle .h .h-qui { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 65%; display: inline-block; vertical-align: bottom; }
+  /* Objet d'un email, distinct du corps (bulles ✉️) — accent bleu de la palette */
+  .bulle .mail-obj { font-size: 12px; font-weight: 700; color: #0e5aa7; background: #e2f0fc; border-left: 3px solid #0e5aa7; padding: 4px 8px; border-radius: 6px; margin: 2px 0 6px 0; white-space: pre-wrap; word-break: break-word; }
+  .bulle.agent .mail-obj { background: #d7e9fa; }
+  /* Historique cité d un email, replié sous le corps */
+  .bulle .mail-frame { width: 100%; height: 300px; border: 1px solid #d4e2f2; border-radius: 8px; background: #fff; margin: 2px 0 4px 0; display: block; }
+  .bulle.can-mail .mail-frame { max-width: 640px; }
+  .bulle .mail-cite { margin-top: 6px; font-size: 12px; }
+  .bulle .mail-cite summary { cursor: pointer; color: #5b6b7f; font-style: italic; user-select: none; }
+  .bulle .mail-cite summary:hover { color: #0e5aa7; }
+  .bulle .mail-cite[open] summary { margin-bottom: 4px; }
+  .bulle .mail-cite > *:not(summary) { color: #5b6b7f; border-left: 2px solid #cfd9e4; padding-left: 8px; white-space: pre-wrap; word-break: break-word; }
+  #btn-descente { position: absolute; right: 24px; bottom: 190px; z-index: 5; display: none; border: 1px solid var(--lime-bord); background: #fff; color: #0e5aa7; font-weight: 700; font-size: 11.5px; border-radius: 999px; padding: 5px 12px; cursor: pointer; box-shadow: 0 3px 10px rgba(14,90,167,.18); }
+  .entrant { align-self: flex-start; background: #EAEFF5; border: 1px solid #C7D2E0; border-top-left-radius: 3px; box-shadow: 0 1px 2px rgba(14,90,167,.08); }
+  .entrant .h { color: #55627A; font-weight: 600; }
+  .agent { align-self: flex-end; background: #D9EAFB; border: 1px solid #A6C9EE; border-top-right-radius: 3px; }
+  .agent .h { color: #0e5aa7; font-weight: 600; }
+  .collab { align-self: flex-end; background: #DDF1EA; border: 1px solid #A7D6C3; border-top-right-radius: 3px; }
+  .collab .h { color: #0e766e; font-weight: 600; }
+  .bulle .mini { max-width: 220px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-top: 6px; background: #E7E9E0; height: 90px; width: 150px; color: var(--mut); font-size: 11px; }
+
+  .commentaires { border-top: 1px solid var(--bord); background: #FFFCF2; padding: 10px 18px 12px; }
+  .commentaires h4 { font-size: 11px; color: #8a6d1a; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+  .comm { font-size: 12.5px; margin-bottom: 6px; color: #4a4534; }
+  .comm b { color: #8a6d1a; }
+
+  .comm-saisie { display: flex; gap: 7px; margin-top: 9px; }
+  .comm-saisie input { flex: 1; border: 1px solid var(--bord2); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; background: #fff; }
+  .comm-saisie input:focus { border-color: var(--lime-hov); outline: none; box-shadow: 0 0 0 2px rgba(188,207,0,.22); }
+  .ass-sel { border: 1px solid var(--bord2); border-radius: 8px; padding: 4px 8px; font-size: 12px; background: var(--card); color: var(--ink); }
+  .saisie { background: var(--card); border-top: 1px solid var(--bord); padding: 12px 18px 14px; }
+  .saisie .barre { display: flex; gap: 8px; align-items: center; background: #F3F5F2; border: 1.5px solid var(--bord2); border-radius: 16px; padding: 6px 6px 6px 14px; transition: border-color .15s, box-shadow .15s, background .15s; }
+  .saisie .barre:focus-within { border-color: var(--lime); background: #fff; box-shadow: 0 0 0 3px rgba(14,90,167,.13); }
+  .saisie input, .saisie textarea { flex: 1; border: none; background: transparent; padding: 9px 2px; font-size: 13.5px; color: var(--ink); }
+  .saisie input:focus, .saisie textarea:focus { outline: none; }
+  .saisie input::placeholder, .saisie textarea::placeholder { color: var(--grey); }
+  .saisie textarea { resize: none; min-height: 37px; max-height: 160px; overflow-y: auto; font-family: inherit; line-height: 1.4; }
+  #btn-dictee { border: none; background: #EDF0EA; padding: 8px 11px; font-size: 14px; border-radius: 12px; flex: 0 0 auto; }
+  #btn-dictee:hover { background: #E4E8E0; box-shadow: none; border: none; }
+  #btn-env { flex: 0 0 auto; border: none; border-radius: 12px; padding: 9px 16px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(14,90,167,.25); }
+  #btn-env:active { transform: translateY(1px); }
+  #btn-env.envoi-en-cours { opacity: .6; cursor: wait; }
+  .note-c2 { margin-top: 7px; font-size: 11px; color: var(--mut); text-align: center; }
+
+  /* ===== Panneau fiche société (droite) — UNIQUEMENT l'entreprise de la conversation ===== */
+  #panneau-fiche { display: none; flex: 0 0 340px; background: var(--card); border-left: 1px solid var(--bord); overflow-y: auto; }
+  .layout.avec-fiche #panneau-fiche { display: flex; }
+  .fiche-entete { padding: 14px 16px 4px; }
+  .fiche-entete h2 { font-size: 15px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .fiche-entete .adresse { margin-top: 5px; font-size: 12px; color: #5A6169; line-height: 1.5; }
+  .bloc { border: 1px solid var(--bord); border-radius: 12px; padding: 12px 14px; margin: 12px 14px 0; background: var(--card); }
+  .bloc h3 { font-size: 11px; text-transform: uppercase; color: var(--mut); letter-spacing: .5px; margin-bottom: 10px; }
+
+  /* ===== Fiche entreprise : sections épurées à bandeau anthracite ===== */
+  #fiche .fiche-entete { margin: 12px 14px 0; padding: 13px 14px; border-radius: 12px; background: #fff; border: 1px solid var(--bord); color: var(--ink); }
+  #fiche .fiche-entete h2 { font-size: 14px; color: var(--ink); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #fiche .fiche-entete .risque { font-size: 12px; font-weight: 800; padding: 4px 12px; border: none; }
+  #fiche .fiche-entete .risque.risque { background: #f59e0b; color: #fff; }
+  #fiche .fiche-entete .risque.impaye { background: #dc2626; color: #fff; }
+  #fiche .fiche-entete .risque.ok { background: #16a34a; color: #fff; }
+  #fiche .risque { font-weight: 800; }
+  #fiche .risque.risque { background: #f59e0b; color: #fff; }
+  #fiche .risque.impaye { background: #dc2626; color: #fff; }
+  #fiche .risque.ok { background: #16a34a; color: #fff; }
+  #fiche .fiche-sec { border: 1px solid var(--bord); border-radius: 12px; margin: 10px 14px 0; background: var(--card); overflow: hidden; }
+  #fiche .fs-tete { display: flex; align-items: center; gap: 8px; padding: 8px 13px; color: #fff; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+  #fiche .fs-tete .ico { font-size: 13.5px; }
+  #fiche .fs-tete .fleche { margin-left: 2px; font-size: 10px; opacity: .85; }
+  #fiche .fs-tete.cliquable { cursor: pointer; user-select: none; }
+  #fiche .fs-tete .btn { margin-left: auto; }
+  #fiche .fs-corps { padding: 11px 13px; }
+  .fs-bleu { background: linear-gradient(90deg, #0e5aa7, #1c7ed6); }
+  .fs-indigo { background: linear-gradient(90deg, #4f46e5, #7c3aed); }
+  .fs-teal { background: linear-gradient(90deg, #0f766e, #14b8a6); }
+  .fs-orange { background: linear-gradient(90deg, #c2410c, #f97316); }
+  .fs-violet { background: linear-gradient(90deg, #7e22ce, #a855f7); }
+  .fiche-ligne { display: flex; gap: 9px; font-size: 12.5px; padding: 4px 0; color: #383E43; flex-wrap: wrap; line-height: 1.5; }
+  .fiche-ligne .k { color: var(--mut); font-size: 11px; min-width: 62px; text-transform: uppercase; letter-spacing: .3px; flex: 0 0 auto; }
+  .ligne-ctc { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #EFF0EB; border-radius: 10px; margin-bottom: 7px; flex-wrap: wrap; }
+  .ligne-ctc .qui { font-weight: 600; font-size: 12.5px; }
+  .ligne-ctc .num { font-size: 12px; color: var(--anthra); font-weight: 700; }
+  .ligne-ctc .petit { font-size: 11px; color: var(--mut); }
+  .btn-voir { margin-left: auto; }
+  .scoot { display: inline-flex; align-items: center; gap: 6px; background: #F0F1EA; border-radius: 10px; padding: 6px 10px; margin: 0 6px 6px 0; font-size: 12px; flex-wrap: wrap; }
+  .scoot b { color: var(--anthra); }
+  .rech-conv { border: 1px solid var(--bord2); border-radius: 8px; padding: 5px 9px; font-size: 12px; width: 160px; }
+  .rech-fil { display: flex; gap: 8px; align-items: center; padding: 8px 18px; background: var(--card); border-bottom: 1px solid var(--bord); }
+  .rech-fil input { flex: 1; border: 1px solid var(--bord2); border-radius: 10px; padding: 7px 12px; font-size: 12.5px; }
+  .rech-fil input:focus { outline: none; border-color: var(--lime-hov); box-shadow: 0 0 0 2px rgba(188,207,0,.22); }
+  .rech-fil .nb { font-size: 11px; color: var(--mut); white-space: nowrap; }
+  mark { background: #FDE96B; border-radius: 3px; padding: 0 1px; }
+  .bulle.sans { opacity: .35; }
+  .risque { display: inline-block; font-size: 11px; font-weight: 800; border-radius: 999px; padding: 3px 10px; letter-spacing: .2px; }
+  /* ⚠️ ORDRE CRITIQUE : .risque.risque matche TOUS les badges (ils ont tous la
+     classe "risque") — à spécificité égale, la DERNIÈRE règle gagne, donc le
+     sélecteur orange doit être écrit en PREMIER pour ne pas écraser ok/impaye. */
+  .risque.risque { background: #f59e0b; color: #fff; }
+  .risque.impaye { background: #dc2626; color: #fff; }
+  .risque.ok { background: #16a34a; color: #fff; }
+
+  .cp-tete .risque { font-weight: 800; border: none; font-size: 11.5px; padding: 3px 11px; }
+  .cp-tete .risque.risque { background: #f59e0b; color: #fff; }
+  .cp-tete .risque.impaye { background: #dc2626; color: #fff; }
+  .cp-tete .risque.ok { background: #16a34a; color: #fff; }
+
+  /* ===== Carnet d'adresses (menu C3) : liste + page de détail ===== */
+  #carnet { display: none; position: fixed; inset: 0; background: rgba(34,38,43,.5); z-index: 50; }
+  #carnet.ouvert { display: block; }
+  .carnet-fen { max-width: 1120px; margin: 26px auto; background: var(--card); border-radius: 16px; height: calc(100vh - 52px); display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,.3); overflow: hidden; }
+  .carnet-head { display: flex; align-items: center; gap: 12px; padding: 13px 20px; background: #0e5aa7; color: #fff; flex-wrap: wrap; }
+  .carnet-head b { font-size: 15px; }
+  .carnet-recherche { flex: 1; min-width: 200px; max-width: 420px; border: 1px solid var(--lime-bord); border-radius: 10px; padding: 9px 14px; font-size: 13px; background: #fff; color: var(--ink); }
+  .carnet-nb { font-size: 11.5px; opacity: .7; }
+  .btn-fermer { border: none; background: rgba(255,255,255,.18); color: #fff; border-radius: 10px; padding: 7px 13px; cursor: pointer; font-size: 12.5px; font-weight: 600; }
+  .btn-fermer:hover { background: rgba(255,255,255,.32); }
+  .carnet-corps { flex: 1; display: flex; min-height: 0; }
+  .carnet-liste { width: 340px; flex: 0 0 340px; border-right: 1px solid var(--bord); overflow-y: auto; background: #FAFAF8; }
+  .cl-vide { padding: 26px 16px; color: var(--mut); font-size: 12.5px; text-align: center; }
+  .cl-soc { padding: 11px 14px 5px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--anthra); letter-spacing: .4px; display: flex; align-items: center; gap: 7px; cursor: pointer; flex-wrap: wrap; }
+  .cl-soc:hover { text-decoration: underline; }
+  .cl-soc .risque { text-transform: none; letter-spacing: 0; }
+  .cl-ctc { display: flex; align-items: center; gap: 10px; padding: 8px 13px 8px 16px; cursor: pointer; border-left: 3px solid transparent; }
+  .cl-ctc:hover { background: var(--lime-soft); }
+  .cl-ctc.on { background: var(--lime-soft); border-left-color: var(--lime); }
+  .avatar { width: 34px; height: 34px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+  .cl-ctc .infos { flex: 1; min-width: 0; }
+  .cl-ctc .infos .n { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cl-ctc .infos .t { font-size: 11px; color: var(--mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .carnet-page { flex: 1; overflow-y: auto; background: #F3F4F0; }
+  .cp-vide { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--mut); gap: 10px; }
+  .cp-vide .ico { font-size: 46px; opacity: .35; }
+  .cp-tete { padding: 22px 28px 18px; background: var(--anthra); color: #fff; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .cp-tete .avatar { width: 58px; height: 58px; font-size: 17px; border: 3px solid var(--lime); }
+  .cp-tete h2 { font-size: 17px; }
+  .cp-tete .sous { font-size: 12.5px; opacity: .92; margin-top: 3px; }
+  .cp-tete .chips { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
+  .cp-tete .chip2 { background: rgba(255,255,255,.18); border-radius: 999px; padding: 3px 11px; font-size: 11px; font-weight: 600; }
+  .cp-actions { display: flex; gap: 10px; padding: 14px 28px; background: var(--card); border-bottom: 1px solid var(--bord); flex-wrap: wrap; }
+  .cp-btn { border: none; border-radius: 10px; padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+  .cp-btn.envoyer { background: var(--lime); color: #fff; } .cp-btn.envoyer:hover { background: var(--lime-hov); color: #fff; }
+  .cp-btn.appeler { background: var(--card); color: var(--ink); border: 1px solid var(--bord2); } .cp-btn.appeler:hover { background: #F0F1EA; }
+  .cp-btn.ouvrir { background: var(--anthra); color: #fff; } .cp-btn.ouvrir:hover { background: #23282D; }
+  .cp-section { margin: 16px 28px; background: var(--card); border-radius: 12px; padding: 16px 18px; }
+  .cp-section h3 { font-size: 12px; text-transform: uppercase; color: var(--mut); letter-spacing: .5px; margin-bottom: 12px; }
+  .cp-ligne { display: flex; gap: 10px; align-items: baseline; font-size: 13px; padding: 5px 0; flex-wrap: wrap; }
+  .cp-ligne .lab { width: 140px; color: var(--mut); font-size: 12px; flex: 0 0 auto; }
+  .cp-ligne .val { color: var(--ink); }
+  .cp-ligne .val b { color: var(--anthra); }
+  .scoot-ligne { padding: 8px 11px; border: 1px solid #EFF0EB; border-radius: 10px; margin-bottom: 7px; font-size: 12.5px; }
+  .scoot-ligne b { color: var(--anthra); }
+  .scoot-ligne .petit { display: block; color: var(--mut); margin-top: 2px; font-size: 11.5px; }
+  .cp-contact { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid #EFF0EB; border-radius: 11px; margin-bottom: 8px; cursor: pointer; }
+  .cp-contact:hover { border-color: var(--lime-hov); background: var(--lime-soft); }
+  .cp-contact .infos { flex: 1; min-width: 0; }
+  .cp-contact .infos .n { font-weight: 600; font-size: 12.5px; }
+  .cp-contact .infos .t { font-size: 11px; color: var(--mut); }
+  .cp-contact .cy { margin-right: 2px; }
+  .cp-retour { border: none; background: none; color: #fff; opacity: .85; font-size: 12px; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+  .cp-retour:hover { background: rgba(255,255,255,.15); opacity: 1; }
+
+  /* ===== Carnet : page société au même modèle que la fiche conversation ===== */
+  #carnet .fiche-entete { margin: 14px 28px 0; padding: 13px 16px; border-radius: 12px; background: #fff; border: 1px solid var(--bord); color: var(--ink); }
+  #carnet .fiche-entete h2 { font-size: 15px; color: var(--ink); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #carnet .fiche-entete .siren-ligne { margin-top: 6px; font-size: 12px; color: #5A6169; line-height: 1.5; }
+  #carnet .fiche-entete .risque { font-size: 12px; font-weight: 800; padding: 4px 12px; border: none; }
+  #carnet .fiche-entete .risque.risque { background: #f59e0b; color: #fff; }
+  #carnet .fiche-entete .risque.impaye { background: #dc2626; color: #fff; }
+  #carnet .fiche-entete .risque.ok { background: #16a34a; color: #fff; }
+  #carnet .fiche-sec { border: 1px solid var(--bord); border-radius: 12px; margin: 10px 28px 0; background: var(--card); overflow: hidden; }
+  #carnet .fs-tete { display: flex; align-items: center; gap: 8px; padding: 8px 14px; color: #fff; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+  #carnet .fs-tete .ico { font-size: 13.5px; }
+  #carnet .fs-tete .fleche { margin-left: 2px; font-size: 10px; opacity: .85; }
+  #carnet .fs-tete.cliquable { cursor: pointer; user-select: none; }
+  #carnet .fs-tete .btn { margin-left: auto; }
+  #carnet .fs-corps { padding: 11px 14px; }
+  #carnet .fs-repli { padding: 9px 14px; font-size: 11.5px; color: #8a93a3; }
+
+  /* ===== Nouveaux messages (bulles, panneau, menu clic droit) ===== */
+  .btn-nouv { background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; padding: 5px 13px; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .btn-nouv:hover { background: rgba(255,255,255,.3); }
+  .btn-nouv .n { background: #ffd166; color: #1b2430; border-radius: 999px; padding: 1px 7px; margin-left: 5px; font-size: 11px; }
+  .badge-new { background: #0e5aa7; color: #fff; font-size: 9.5px; font-weight: 700; border-radius: 999px; padding: 1px 6px; white-space: nowrap; }
+  .wa-flag { background: #25d366; color: #fff; font-size: 9.5px; font-weight: 700; border-radius: 999px; padding: 1px 6px; white-space: nowrap; }
+  /* Logo de canal sur chaque bulle du fil : 💬 = WhatsApp réel, ✉️ = email */
+  .mcan { display: inline-block; width: 17px; height: 17px; line-height: 17px; text-align: center; border-radius: 4px; font-size: 10.5px; vertical-align: -3px; }
+  .mcan.wa { background: #dcf8c6; }
+  .mcan.mail { background: #dbeafe; }
+  #nouveaux { display: none; position: fixed; inset: 0; background: rgba(34,38,43,.5); z-index: 50; }
+  #nouveaux.ouvert { display: block; }
+  .nv-fen { max-width: 640px; margin: 26px auto; background: var(--card); border-radius: 16px; height: calc(100vh - 52px); display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,.3); overflow: hidden; }
+  .nv-corps { flex: 1; overflow-y: auto; padding: 14px 18px 20px; }
+  .nv-cycle { display: flex; align-items: center; gap: 8px; padding: 12px 4px 6px; font-size: 12px; color: var(--mut); font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+  .nv-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid #EFF0EB; border-radius: 12px; margin-bottom: 8px; cursor: pointer; background: var(--card); }
+  .nv-item:hover { border-color: var(--lime-hov); background: var(--lime-soft); }
+  .nv-item .nv-bulle { background: var(--lime-soft); color: #44483D; border-radius: 10px; padding: 7px 10px; font-size: 12px; flex: 1; }
+  .nv-item .infos { min-width: 0; }
+  .nv-item .infos .n { font-weight: 600; font-size: 12.5px; }
+  .nv-item .infos .e { font-size: 11px; color: var(--mut); }
+  .nv-item .h { font-size: 10.5px; color: var(--mut); white-space: nowrap; }
+  .ctx { position: fixed; z-index: 90; background: var(--card); border: 1px solid var(--bord); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); min-width: 190px; display: none; padding: 4px; }
+  .ctx.ouvert { display: block; }
+  .ctx button { display: block; width: 100%; text-align: left; border: none; background: none; padding: 8px 12px; font-size: 12.5px; cursor: pointer; border-radius: 7px; color: var(--ink); }
+  .ctx button:hover { background: var(--lime-soft); }
+
+  /* ===== Sujets : arborescence sur la fiche client + gestion ===== */
+  #sujets { display: none; position: fixed; inset: 0; background: rgba(34,38,43,.5); z-index: 60; }
+  #sujets.ouvert { display: block; }
+  .suj-titre { font-weight: 700; font-size: 12px; margin: 9px 0 4px; color: var(--anthra); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .suj-titre .btn { padding: 2px 8px; font-size: 10.5px; }
+  .suj-enfant { margin-left: 15px; }
+  .suj-conv { display: flex; align-items: center; gap: 7px; padding: 5px 8px; border: 1px solid #EFF0EB; border-radius: 9px; margin: 4px 0; font-size: 12px; flex-wrap: wrap; background: var(--card); }
+  .suj-conv .qui { font-weight: 600; }
+  .suj-conv .sp { margin-left: auto; display: flex; gap: 5px; }
+  .suj-conv.suj-arch { background: #F6F7F3; opacity: .75; }
+  #notifs { display: none; position: fixed; inset: 0; background: rgba(34,38,43,.5); z-index: 60; }
+  #notifs.ouvert { display: block; }
+  .bulle-note { align-self: center; max-width: 82%; background: #fffdf0; border: 1px dashed #d6c66a; border-radius: 10px; padding: 8px 12px; font-size: 12.5px; color: #4a4534; line-height: 1.45; }
+  .bulle-note .h { font-size: 10.5px; color: #8a6d1a; margin-bottom: 3px; font-weight: 700; }
+  /* ===== Avatars / profils ===== */
+  .pav { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; font-size: 11.5px; line-height: 1; vertical-align: -4px; box-shadow: 0 1px 2px rgba(0,0,0,.18); flex: none; }
+  .pav.gd { width: 34px; height: 34px; font-size: 18px; vertical-align: middle; }
+  .prof-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid var(--bord); border-radius: 10px; margin-bottom: 8px; background: var(--card); }
+  .prof-item .prof-nom { font-weight: 700; font-size: 13px; }
+  .prof-item .prof-role { font-size: 11px; color: var(--mut); }
+  .prof-item .btn { padding: 3px 9px; font-size: 11px; }
+  .prof-pick { display: flex; gap: 6px; flex-wrap: wrap; }
+  .prof-pick button { width: 34px; height: 34px; font-size: 18px; border: 1px solid var(--bord); border-radius: 50%; background: var(--card); cursor: pointer; }
+  .prof-pick button:hover { background: var(--lime-soft); border-color: var(--lime-hov); }
+  #rattache { display: none; position: fixed; inset: 0; background: rgba(34,38,43,.5); z-index: 60; }
+  #rattache.ouvert { display: block; }
+  #profils { display: none; position: fixed; inset: 0; background: rgba(34,38,43,.5); z-index: 60; }
+  #profils.ouvert { display: block; }
+  /* ===== C6.3 : panneau admin des comptes équipe ===== */
+  #comptes { display: none; position: fixed; inset: 0; background: rgba(34,38,43,.5); z-index: 60; }
+  #comptes.ouvert { display: block; }
+  .cpt-ligne { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid var(--bord); border-radius: 9px; margin-bottom: 7px; background: #fff; }
+  .cpt-ligne.off { opacity: .55; }
+  .cpt-av { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex: none; }
+  .cpt-infos { flex: 1; min-width: 0; }
+  .cpt-infos .n { font-weight: 700; font-size: 13px; color: var(--ink); }
+  .cpt-infos .e { font-size: 11px; color: var(--mut); }
+  .cpt-btn { border: none; border-radius: 7px; padding: 5px 9px; font-size: 11px; font-weight: 700; cursor: pointer; flex: none; }
+  .cpt-btn.actif { background: #eef1f5; color: #4a5568; }
+  .cpt-btn.actif:hover { background: #e2e6ec; }
+  .cpt-btn.desact { background: #fdecea; color: #b91c1c; }
+  .cpt-btn.desact:hover { background: #f9dcda; }
+  .cpt-badge { font-size: 10px; font-weight: 700; border-radius: 999px; padding: 2px 8px; flex: none; }
+  .cpt-badge.admin { background: #e2f0fc; color: #0e5aa7; }
+  .cpt-badge.collab { background: #f0f1ea; color: #5a626b; }
+  .cpt-form { border: 1px dashed var(--bord2); border-radius: 10px; padding: 12px; margin-top: 12px; background: #fbfcfa; }
+  .cpt-form h4 { font-size: 12px; color: var(--anthra); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .4px; }
+  .cpt-form .lignes2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cpt-form input, .cpt-form select { width: 100%; padding: 7px 9px; border: 1px solid #d4dae3; border-radius: 7px; font-size: 13px; color: var(--ink); background: #fff; margin-top: 4px; }
+  .cpt-form label { font-size: 10px; font-weight: 700; color: #5a6472; text-transform: uppercase; letter-spacing: .3px; }
+  #cpt-msg { font-size: 12px; margin-top: 8px; color: #b91c1c; min-height: 15px; }
+  .suj-conv .btn { white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div class="proto">🧪 PROTOTYPE VISUEL C1 — lecture seule · 12 vrais clients du Google Sheet « Infos Service Client » · échanges fictifs · volets déplaçables (⇄) et redimensionnables (bord droit)</div>
+
+<header class="topbar">
+  <div class="logo">U'mob<span>·</span>Plateforme SAV</div>
+  <div class="crumb">Boîte de réception</div>
+  <div class="spacer"></div>
+  <button class="btn-nouv" id="btn-nouv" onclick="ouvrirNouveaux()">🔔 Nouveaux messages<span class="n" id="btn-nouv-n">0</span></button>
+  <button class="btn-nouv" onclick="ouvrirNotifs()" title="Assignations et tags reçus">🔔 Notifications<span class="n" id="btn-notif-n">0</span></button>
+  <button class="btn-nouv" onclick="ouvrirProfils()" title="Créer et modifier les profils de l'équipe (icônes affichées à côté des messages)">👥 Profils</button>
+  <button class="btn-nouv" id="btn-auth" onclick="ouvrirConnexion()" title="Connexion équipe C6 (compte agent_sav.utilisateurs) — jeton mémorisé dans ce navigateur">👤 Connexion</button>
+  <button class="btn-nouv" id="btn-comptes" style="display:none;" onclick="ouvrirComptes()" title="Admin : créer, activer/désactiver les comptes de l'équipe (table agent_sav.utilisateurs)">🛡️ Comptes</button>
+  <select class="badge-ver" id="sel-moi" title="Qui suis-je ? (pour les commentaires internes et le filtre « Mes conversations »)" onchange="MOI = this.value; renduListe(); renduMesCycles();"></select>
+  <button class="btn-nouv" id="btn-auto" onclick="basculerAuto()" title="Rafraîchissement automatique : toutes les minutes, la plateforme relit les messages WhatsApp et les emails réels (tant que les vraies données sont chargées et l'onglet visible). Clique pour activer/désactiver.">🔄 Auto : arrêt</button>
+  <button class="badge-mode" id="badge-mode" onclick="basculeModeC2()" title="CLIQUE pour basculer lecture (C1) / écriture (C2). En C2 : envoyer un message au client et changer le cycle.">🔒 MODE LECTURE (C1) — clique pour la C2</button>
+  <div class="badge-ver">brique C1 · v0</div>
+</header>
+
+<div class="layout" id="layout">
+
+  <!-- ===== Volet 1 : filtres ===== -->
+  <aside class="filters volet" id="volet-filtres">
+    <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet">⠿ Filtres <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
+    <div class="volet-corps filters-corps">
+    <div class="f-sec" id="fsec-canaux">
+      <h3 onclick="basculeFiltreSec('canaux')"><span class="fs-f">▾</span> Canaux</h3>
+      <div class="f-sec-chips">
+      <div class="chip wa on" data-fc="tous" onclick="filtre('canal','tous',this)">Tous <span class="n">16</span></div>
+      <div class="chip wa" data-fc="WhatsApp" onclick="filtre('canal','WhatsApp',this)">WhatsApp <span class="n">16</span></div>
+      <div class="chip mail" data-fc="Email" onclick="filtre('canal','Email',this)">Email <span class="n">0</span></div>
+      </div>
+    </div>
+
+    <div class="f-sec" id="fsec-cycles">
+      <h3 onclick="basculeFiltreSec('cycles')"><span class="fs-f">▾</span> Cycles</h3>
+      <div class="f-sec-chips">
+      <div class="chip on" data-fx="tous" onclick="filtre('cycle','tous',this)">Tous <span class="n">16</span></div>
+      <div class="chip" data-fx="Nouvelle Demande" onclick="filtre('cycle','Nouvelle Demande',this)"><span class="cy nouvelle">Nouvelle Demande</span> <span class="n">2</span></div>
+      <div class="chip" data-fx="A qualifier" onclick="filtre('cycle','A qualifier',this)"><span class="cy qualifier">A qualifier</span> <span class="n">3</span></div>
+      <div class="chip" data-fx="A créer dans Praxedo" onclick="filtre('cycle','A créer dans Praxedo',this)"><span class="cy praxedo">A créer dans Praxedo</span> <span class="n">1</span></div>
+      <div class="chip" data-fx="En cours de réalisation" onclick="filtre('cycle','En cours de réalisation',this)"><span class="cy encours">En cours de réalisation</span> <span class="n">1</span></div>
+      <div class="chip" data-fx="Traitée" onclick="filtre('cycle','Traitée',this)"><span class="cy traitee">Traitée</span> <span class="n">2</span></div>
+      <div class="chip" data-fx="Attente client" onclick="filtre('cycle','Attente client',this)"><span class="cy attente">Attente client</span> <span class="n">1</span></div>
+      <div class="chip" data-fx="DE Commerciales" onclick="filtre('cycle','DE Commerciales',this)"><span class="cy qualifier">DE Commerciales</span> <span class="n">1</span></div>
+      <div class="chip" data-fx="Bloquée Impayé" onclick="filtre('cycle','Bloquée Impayé',this)"><span class="cy impaye">Bloquée Impayé</span> <span class="n">3</span></div>
+      <div class="chip" data-fx="Attente Paiement ou pré-auto CB" onclick="filtre('cycle','Attente Paiement ou pré-auto CB',this)"><span class="cy attente">Attente Paiement</span> <span class="n">2</span></div>
+      </div>
+    </div>
+
+    <div class="f-sec" id="fsec-mescycles">
+      <h3 onclick="basculeFiltreSec('mescycles')"><span class="fs-f">▾</span> 🗂 Mes conversations par cycle <span class="n" id="mescycles-qui" style="font-size:10px;color:#8a93a3;background:#eef1f5;border-radius:999px;padding:1px 7px;"></span></h3>
+      <div class="f-sec-chips" id="mes-cycles-chips"></div>
+    </div>
+
+    <div class="f-sec" id="fsec-assignation">
+      <h3 onclick="basculeFiltreSec('assignation')"><span class="fs-f">▾</span> Assignation</h3>
+      <div class="f-sec-chips">
+      <div class="chip on" data-fa="tous" onclick="filtre('ass','tous',this)">Toutes <span class="n">16</span></div>
+      <div class="chip" data-fa="moi" onclick="filtre('ass','moi',this)">👤 Mes conversations <span class="n">2</span></div>
+      <div class="chip" data-fa="aucun" onclick="filtre('ass','aucun',this)">Non assignées <span class="n">10</span></div>
+      </div>
+    </div>
+
+    <div class="f-sec" id="fsec-confort">
+      <h3 onclick="basculeFiltreSec('confort')"><span class="fs-f">▾</span> Confort (C3)</h3>
+      <div class="f-sec-chips">
+      <div class="chip" onclick="ouvrirCarnet()">📇 Carnet d'adresses</div>
+      <div class="chip" onclick="document.getElementById('rech-conv').focus()">🔎 Rechercher (liste)</div>
+      <div class="chip" onclick="chargerVraisClients()" title="Remplace les données de démo par les vrais clients du miroir Supabase (route /api/clients-import?liste=1)">🔌 Vrais clients (Supabase)</div>
+      <div class="chip" onclick="chargerEmailsManuel()" title="Charge les emails réels de la boîte SAV (route /api/emails?liste=1 — poll IMAP OVH via Supabase) et crée les conversations Email">📧 Emails réels (C5.2)</div>
+      <div class="chip" onclick="revenirDonneesDemo()" title="Revenir aux 16 conversations de démonstration">↩ Données de démo</div>
+      </div>
+    </div>
+    </div>
+    <div class="rz" title="Glisse pour redimensionner le volet"></div>
+  </aside>
+
+  <!-- ===== Volet 2 : liste conversations ===== -->
+  <section class="liste volet" id="volet-liste">
+    <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet">⠿ Conversations <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
+    <div class="liste-head">
+      <b>Conversations</b>
+      <input class="rech-conv" id="rech-conv" placeholder="🔎 Tél, plaque, nom…" oninput="RECH_TXT = this.value; renduListe();" />
+      <span class="compteur" id="nb"></span>
+      <button class="btn" title="Rafraîchir" onclick="alert('Dans la vraie C1 : recharge via l\u2019API respond.io (lecture seule).')">⟳</button>
+    </div>
+    <div style="padding:8px 14px;border-bottom:1px solid #eef1f5;">
+      <div class="toggle">
+        <button class="on" id="tg-ent" onclick="basculeVue('entreprise')">🏢 Par entreprise</button>
+        <button id="tg-ctc" onclick="basculeVue('contact')">👤 Par contact</button>
+      </div>
+    </div>
+    <div class="convs" id="convs"></div>
+    <div class="rz" title="Glisse pour redimensionner le volet"></div>
+  </section>
+
+  <!-- ===== Volet 3 : fil ===== -->
+  <section class="fil volet" id="volet-fil">
+    <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet">⠿ Conversation <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
+    <div class="fil-head" id="filhead"></div>
+    <div class="rech-fil">
+      <input id="rech-fil" placeholder="🔎 Rechercher dans la conversation (ex. « batt »)…" oninput="RECH_FIL = this.value; renduFil();" />
+      <span class="nb" id="rech-fil-nb"></span>
+      <button class="btn" title="Effacer la recherche" onclick="RECH_FIL=''; document.getElementById('rech-fil').value=''; renduFil();">✕</button>
+    </div>
+    <div class="messages" id="messages"></div>
+    <button id="btn-descente" onclick="descenteFil()" title="Revenir aux derniers messages">↓ Derniers messages</button>
+    <div class="commentaires" id="commzone"></div>
+    <div class="saisie">
+      <div class="canal-envoi" id="canal-envoi" style="display:none;">
+        <span class="lab">Envoyer via</span>
+        <div class="toggle">
+          <button id="tg-can-wa" class="on" onclick="setCanalEnvoi('WhatsApp')">💬 WhatsApp</button>
+          <button id="tg-can-mail" onclick="setCanalEnvoi('Email')">✉️ Email</button>
+        </div>
+      </div>
+      <div class="outils-envoi" id="outils-envoi" style="display:none;">
+        <button class="outil-btn ob-bleu" onclick="ouvrirBoiteOutils('racc')" title="Messages types à insérer (comme les réponses enregistrées de respond.io) — clic : insérer, ➕ : créer les tiens"><span class="ob-ico">⚡</span>Raccourcis</button>
+        <button class="outil-btn ob-vert" onclick="ouvrirBoiteOutils('wa')" title="Modèles WhatsApp Business approuvés, avec champs automatiquement remplis"><span class="ob-ico">📋</span>Modèles WA</button>
+        <button class="outil-btn ob-bleu" onclick="ouvrirBoiteOutils('sig')" title="Signature des emails : logo, coordonnées, activée/désactivée à la demande"><span class="ob-ico">✉️</span>Signature</button>
+        <button class="outil-btn ob-orange" onclick="document.getElementById('pj-input').click()" title="Joindre un fichier (photo, PDF…) — envoyé tel quel au client"><span class="ob-ico">📎</span>Joindre</button>
+        <input type="file" id="pj-input" style="display:none;" onchange="joindreFichier(this)" />
+      </div>
+      <div class="barre" id="barre-objet" style="display:none;">
+        <span class="lab" style="flex:0 0 auto;white-space:nowrap;">Objet :</span>
+        <input id="nv-objet" placeholder="Objet du message (pré-rempli depuis le mail du client — modifiable)" oninput="sujetEnvoiModifie()" />
+      </div>
+      <div class="barre">
+        <textarea id="nv-msg" rows="1" disabled placeholder="Mode lecture — bascule en MODE ÉCRITURE (C2) en haut — Entrée : nouvelle ligne, Ctrl+Entrée : envoyer" onkeydown="if(event.key==='Enter'&&!event.shiftKey&&(event.ctrlKey||event.metaKey)){event.preventDefault();envoyerMessage();}" oninput="majHauteurSaisie()"></textarea>
+        <button class="outil-btn ob-rouge" id="btn-dictee" onclick="dicter()" title="Dicter ton message (reconnaissance vocale du navigateur — Chrome/Edge)"><span class="ob-ico">🎤</span></button>
+        <button class="btn primaire" id="btn-env" disabled onclick="envoyerMessage()">➤ Envoyer</button>
+      </div>
+      <div class="note-c2" id="note-c2">✏️ L'envoi au client et le changement de cycle arrivent en brique <b>C2</b> — clique sur « MODE LECTURE (C1) » en haut pour activer la C2.</div>
+    </div>
+  </section>
+
+  <!-- ===== Panneau droit : fiche société de la conversation courante ===== -->
+  <aside id="panneau-fiche" class="volet layout-fiche">
+    <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet">⠿ Fiche société <span class="aide"><button class="btn" style="padding:2px 8px;font-size:10px;" onclick="basculeFiche()" title="Masquer la fiche">✕</button></span></div>
+    <div class="volet-corps">
+    <div id="fiche"></div>
+    </div>
+    <div class="rz" title="Glisse pour redimensionner le volet"></div>
+  </aside>
+
+</div>
+
+<!-- ===== Carnet d'adresses : toutes les fiches entreprises (C3) ===== -->
+<div id="carnet">
+  <div class="carnet-fen">
+    <div class="carnet-head">
+      <b>📇 Carnet d'adresses</b>
+      <input class="carnet-recherche" id="carnet-q" placeholder="Rechercher une société, un contact, un numéro, une plaque…" oninput="renduCarnet()" />
+      <span class="carnet-nb" id="carnet-nb"></span>
+      <button class="btn-fermer" onclick="fermerCarnet()">✕ Fermer</button>
+    </div>
+    <div class="carnet-corps">
+      <div class="carnet-liste" id="carnet-liste"></div>
+      <div class="carnet-page" id="carnet-page"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Panneau « Nouveaux messages » : groupés par cycle de vie ===== -->
+<div id="nouveaux">
+  <div class="nv-fen">
+    <div class="carnet-head">
+      <b>🔔 Nouveaux messages</b>
+      <span class="carnet-nb" id="nouveaux-nb"></span>
+      <button class="btn-fermer" onclick="fermerNouveaux()">✕ Fermer</button>
+    </div>
+    <div class="nv-corps" id="nv-corps"></div>
+  </div>
+</div>
+
+<!-- Menu clic droit sur une conversation -->
+<!-- ===== Boîte outils d'envoi : raccourcis + modèles WhatsApp ===== -->
+<div id="boite-outils">
+  <div class="bo-fen">
+    <div class="bo-head">
+      <div class="bo-tabs">
+        <button id="bt-racc" class="on" onclick="ongletOutils('racc')">⚡ Raccourcis</button>
+        <button id="bt-wa" onclick="ongletOutils('wa')">📋 Modèles WA</button>
+        <button id="bt-sig" onclick="ongletOutils('sig')">✉️ Signature</button>
+      </div>
+      <button class="btn-fermer" style="background:#F0F1EA;color:#383E43;" onclick="fermerBoiteOutils()">✕ Fermer</button>
+    </div>
+    <div class="nv-corps" id="bo-corps"></div>
+  </div>
+</div>
+
+<div class="ctx" id="menu-cycle"></div>
+<div class="ctx" id="ctxmenu">  <button onclick="actionCtx(true)">💬 Marquer comme non lu</button>
+  <button onclick="actionCtx(false)">👁️ Marquer comme lu</button>
+  <button onclick="actionCtxArchiver()">🗄️ Archiver ⇄ Désarchiver</button>
+  <button onclick="fermerCtx(); ouvrirRattache(CTX_ID);">🔗 Rattacher à une autre conversation…</button>
+  <button onclick="ouvrirCtx()">↗ Ouvrir la conversation</button>
+</div>
+
+<!-- ===== Notifications (assignation, tags dans les commentaires) ===== -->
+<div id="notifs">
+  <div class="nv-fen" style="max-width:560px;">
+    <div class="carnet-head">
+      <b>🔔 Notifications</b>
+      <span class="carnet-nb" id="notifs-nb"></span>
+      <button class="btn-fermer" onclick="fermerNotifs()">✕ Fermer</button>
+    </div>
+    <div class="nv-corps" id="notifs-corps"></div>
+  </div>
+</div>
+
+<!-- ===== Gestion des profils équipe (avatars) ===== -->
+<div id="profils">
+  <div class="nv-fen" style="max-width:520px;">
+    <div class="carnet-head">
+      <b>👥 Profils de l'équipe</b>
+      <span class="carnet-nb" id="profils-nb"></span>
+      <button class="btn-fermer" onclick="fermerProfils()">✕ Fermer</button>
+    </div>
+    <div class="nv-corps" id="profils-corps"></div>
+  </div>
+</div>
+
+<!-- ===== C6.3 : admin des comptes équipe (visible admin seulement) ===== -->
+<div id="comptes">
+  <div class="nv-fen" style="max-width:620px;">
+    <div class="carnet-head">
+      <b>🛡️ Comptes de l'équipe (C6)</b>
+      <span class="carnet-nb" id="comptes-nb"></span>
+      <button class="btn-fermer" onclick="fermerComptes()">✕ Fermer</button>
+    </div>
+    <div class="nv-corps" id="comptes-corps">
+      <div id="comptes-liste">Chargement…</div>
+      <div class="cpt-form" id="cpt-form">
+        <h4>➕ Créer un compte</h4>
+        <div class="lignes2">
+          <div><label>Nom complet</label><input id="cpt-nom" placeholder="Marine Leca" /></div>
+          <div><label>Email</label><input id="cpt-email" type="email" placeholder="prenom.nom@umob.fr" /></div>
+          <div><label>Rôle</label><select id="cpt-role"><option value="collaborateur">Collaborateur</option><option value="admin">Admin</option></select></div>
+          <div><label>Mot de passe (8+ car.)</label><input id="cpt-mdp" type="password" placeholder="••••••••" /></div>
+        </div>
+        <div id="cpt-msg"></div>
+        <div style="margin-top:10px;"><button class="cpt-btn actif" style="background:#0e5aa7;color:#fff;padding:8px 14px;" onclick="creerCompte()">➕ Créer le compte</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Rattacher une conversation à une autre ===== -->
+<div id="rattache">
+  <div class="carnet-fen" style="max-width:640px;">
+    <div class="carnet-head">
+      <b>🔗 Rattacher une conversation</b>
+      <span class="carnet-nb" id="rattache-titre"></span>
+      <button class="btn-fermer" onclick="fermerRattache()">✕ Fermer</button>
+    </div>
+    <div class="nv-corps" id="rattache-corps"></div>
+  </div>
+</div>
+
+<!-- ===== C6-AUTH : overlay de connexion équipe ===== -->
+<div id="auth-overlay" class="cache" onclick="if(event.target===this)fermerConnexion();">
+  <div id="auth-carte">
+    <div id="auth-tete"><h3>👤 Connexion équipe</h3><p>Compte U'mob (agent_sav.utilisateurs) — le jeton reste 12 h.</p></div>
+    <div id="auth-corps">
+      <label>Email pro</label>
+      <input id="auth-email" type="email" placeholder="prenom.nom@umob.fr" autocomplete="username" />
+      <label>Mot de passe</label>
+      <input id="auth-mdp" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')seConnecter();" />
+      <div id="auth-msg"></div>
+      <div class="auth-btns">
+        <button id="auth-annule" onclick="fermerConnexion()">Annuler</button>
+        <button id="auth-ok" onclick="seConnecter()">Se connecter</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   DONNÉES : 16 conversations de DÉMONSTRATION construites sur
+   12 VRAIS CLIENTS du Google Sheet « Infos Service Client »
+   (onglet Client_contacts_risq_contr_prod) — enseignes, adresses,
+   contacts, téléphones, plaques et contrats RÉELS. Seuls les
+   échanges sont fictifs (maquette C1, lecture seule).
+   ============================================================ */
+var CONVS = [
+  {"id": 1, "nom": "Ismail Akdogan (Gérant)", "entreprise": "GAF (BOITE A PIZZA ANNEMASSE)", "canal": "WhatsApp", "cycle": "Bloquée Impayé", "classe": "impaye", "tags": [], "heure": "09:12", "delai": "à l'instant", "lu": false, "extrait": "Le scooter GQ-591-NL ne tient plus la charge…", "contact": {"tel": "06 20 47 60 40", "plaque": "GQ-591-NL / GQ-692-NL"}, "fil": [
+    {"qui": "client", "t": "09:12", "txt": "Bonjour, le scooter GQ-591-NL ne tient plus la charge."},
+    {"qui": "agent", "t": "09:13", "txt": "Bonjour ! Bien noté. Le dossier est actuellement en attente de régularisation — le service comptabilité vous recontacte."}
+  ], "comms": [
+    {"a": "Marine", "t": "29/10 09:15", "txt": "⚠️ Client Impayé — voir avec la comptabilité avant toute intervention."}
+  ]},
+  {"id": 2, "nom": "Kasim Altinel (ancien Dirigeant)", "entreprise": "GAF (BOITE A PIZZA ANNEMASSE)", "canal": "WhatsApp", "cycle": "Nouvelle Demande", "classe": "nouvelle", "tags": [], "heure": "hier", "delai": "1 j", "lu": true, "extrait": "Bonjour, question sur le renouvellement de flotte.", "contact": {"tel": "07 62 74 48 48", "plaque": "GQ-591-NL / GQ-692-NL"}, "fil": [
+    {"qui": "client", "t": "16:40", "txt": "Bonjour, j'aurais une question sur le renouvellement de la flotte."},
+    {"qui": "agent", "t": "16:40", "txt": "Bonjour, comment puis-je vous aider ?"}
+  ], "comms": []},
+  {"id": 3, "nom": "Sofiane Housni (Contact SAV)", "entreprise": "TCHIKO (PIZZA TIME POISSY)", "canal": "WhatsApp", "cycle": "A qualifier", "classe": "qualifier", "tags": [], "heure": "19:04", "delai": "5 h", "lu": false, "extrait": "Pneus à changer sur le GZ-604-WC, vous pouvez passer ?", "contact": {"tel": "06 51 46 51 03", "plaque": "GB-027-QV / GZ-604-WC / GZ-578-WC / GZ-552-WC"}, "fil": [
+    {"qui": "client", "t": "19:04", "txt": "Bonjour, les pneus du GZ-604-WC sont à changer, vous pouvez passer ?"},
+    {"qui": "agent", "t": "19:05", "txt": "Bonsoir ! Merci pour votre retour. Quelle est l'adresse d'intervention, le numéro à contacter ce jour-là, et quels sont vos jours de fermeture éventuels ?"},
+    {"qui": "client", "t": "19:12", "txt": "20 Avenue de Pontoise à Poissy, c'est moi sur place, on ferme le lundi."},
+    {"de": "Marine", "qui": "agent", "t": "19:13", "txt": "Parfait — voici le récapitulatif : pneus avant et arrière sur GZ-604-WC, intervention au 20 Avenue de Pontoise, 78300 Poissy, contact le jour même, fermé le lundi. Est-ce que tout est correct ?"},
+    {"qui": "client", "t": "19:14", "txt": "Oui c'est bon !"},
+    {"de": "Marine", "qui": "agent", "t": "19:14", "txt": "Merci ! Je transmets le dossier au service technique."}
+  ], "comms": [
+    {"a": "Marine", "t": "29/10 10:00", "txt": "Dossier complet — création de l'intervention dans Praxedo."}
+  ]},
+  {"id": 4, "nom": "Mohamed (Gérant)", "entreprise": "TCHIKO (PIZZA TIME POISSY)", "canal": "WhatsApp", "cycle": "En cours de réalisation", "classe": "encours", "tags": ["Prise de main"], "heure": "11:47", "delai": "8 h", "lu": true, "extrait": "Le technicien est passé, tout roule merci !", "contact": {"tel": "06 15 57 06 64", "plaque": "GB-027-QV / GZ-604-WC / GZ-578-WC / GZ-552-WC"}, "fil": [
+    {"qui": "client", "t": "11:40", "txt": "Bonjour, intervention révision des 3 DAILY PRO passée aujourd'hui ?"},
+    {"de": "Marine", "qui": "collab", "t": "11:42", "txt": "(Marine) Oui, le technicien est sur place 🛠️"},
+    {"qui": "client", "t": "11:47", "txt": "Le technicien est passé, tout roule merci !"},
+    {"de": "Nicolas", "qui": "agent", "t": "11:48", "txt": "Merci pour votre retour ! Je clôture le dossier : passez une excellente journée 🙌"}
+  ], "comms": [
+    {"a": "Marine", "t": "29/10 11:42", "txt": "@Agent IA — révision des 3 scooters, en cours sur place."}
+  ]},
+  {"id": 5, "nom": "Karim Ben Othmen (Directeur Général)", "entreprise": "CNKL (DOMINO'S PIZZA MONTARGIS)", "canal": "WhatsApp", "cycle": "A créer dans Praxedo", "classe": "praxedo", "tags": ["Prise de main"], "heure": "18:20", "delai": "16 h", "lu": true, "extrait": "Freins qui grince sur le HJ-447-AN.", "contact": {"tel": "07 68 27 00 87", "plaque": "HJ-447-AN / HJ-480-AN"}, "fil": [
+    {"qui": "client", "t": "17:55", "txt": "Bonjour, les freins du HJ-447-AN grince fort."},
+    {"qui": "agent", "t": "17:56", "txt": "Bonjour ! Merci — le bruit se fait-il à l'avant ou à l'arrière ?"},
+    {"qui": "client", "t": "18:02", "txt": "À l'avant je pense."},
+    {"de": "Léa", "qui": "agent", "t": "18:20", "txt": "Merci ! Je transmets le dossier au service technique."}
+  ], "comms": [
+    {"a": "Nicolas", "t": "29/10 18:25", "txt": "Dossier complet — intervention à créer dans Praxedo, secteur Montargis."}
+  ]},
+  {"id": 6, "nom": "Nathalie Ben Othmen (PDG)", "entreprise": "CNKL (DOMINO'S PIZZA MONTARGIS)", "canal": "WhatsApp", "cycle": "DE Commerciales", "classe": "qualifier", "tags": ["Demande Commerciale"], "heure": "lundi", "delai": "4 j", "lu": true, "extrait": "Possible d'avoir un devis pour 2 scooters supplémentaires ?", "contact": {"tel": "06 23 75 57 35", "plaque": "HJ-447-AN / HJ-480-AN"}, "fil": [
+    {"qui": "client", "t": "10:05", "txt": "Bonjour, possible d'avoir un devis pour 2 scooters supplémentaires ?"},
+    {"qui": "agent", "t": "10:06", "txt": "Bonjour ! Votre demande est transmise à un conseiller commercial qui vous recontactera 📋"}
+  ], "comms": [
+    {"a": "Nicolas", "t": "28/10 10:10", "txt": "Demande commerciale — transmise au commercial, cycle DE posé."}
+  ]},
+  {"id": 7, "nom": "Van Nam (Gérant)", "entreprise": "SBN (SUSHI BY NAM)", "canal": "WhatsApp", "cycle": "Bloquée Impayé", "classe": "impaye", "tags": [], "heure": "lundi", "delai": "4 j", "lu": true, "extrait": "La béquille du GB-523-TF est cassée.", "contact": {"tel": "06 52 95 76 75", "plaque": "FT-081-XY / FV-768-DZ / FV-937-DZ / GB-523-TF"}, "fil": [
+    {"qui": "client", "t": "14:30", "txt": "Bonjour, la béquille du GB-523-TF est cassée."},
+    {"qui": "agent", "t": "14:31", "txt": "Bonjour ! Bien noté. Le dossier est actuellement en attente de régularisation — le service comptabilité vous recontacte."}
+  ], "comms": [
+    {"a": "Marine", "t": "27/10 14:35", "txt": "⚠️ Client Impayé — comptabilité en cours, ne pas intervenir avant régularisation."}
+  ]},
+  {"id": 8, "nom": "Guanggui (Gérant)", "entreprise": "MEV (ALLO JAPONAIS)", "canal": "WhatsApp", "cycle": "Attente Paiement ou pré-auto CB", "classe": "attente", "tags": [], "heure": "16:12", "delai": "4 h", "lu": false, "extrait": "D'accord pour le devis des plaquettes sur les 3 scooters.", "contact": {"tel": "06 23 77 67 38", "plaque": "GT-511-DN / HM-129-KS / HM-116-KS"}, "fil": [
+    {"qui": "client", "t": "16:10", "txt": "D'accord pour le devis des plaquettes sur les 3 scooters."},
