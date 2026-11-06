@@ -447,7 +447,6 @@
   <button class="btn-nouv" id="btn-comptes" style="display:none;" onclick="ouvrirComptes()" title="Admin : créer, activer/désactiver les comptes de l'équipe (table agent_sav.utilisateurs)">🛡️ Comptes</button>
   <select class="badge-ver" id="sel-moi" title="Qui suis-je ? (pour les commentaires internes et le filtre « Mes conversations »)" onchange="MOI = this.value; renduListe(); renduMesCycles();"></select>
   <button class="btn-nouv" id="btn-auto" onclick="basculerAuto()" title="Rafraîchissement automatique : toutes les minutes, la plateforme relit les messages WhatsApp et les emails réels (tant que les vraies données sont chargées et l'onglet visible). Clique pour activer/désactiver.">🔄 Auto : arrêt</button>
-  <button class="badge-mode" id="badge-mode" onclick="basculeModeC2()" title="CLIQUE pour basculer lecture (C1) / écriture (C2). En C2 : envoyer un message au client et changer le cycle.">🔒 MODE LECTURE (C1) — clique pour la C2</button>
   <div class="badge-ver">brique C1 · v0</div>
 </header>
 
@@ -560,11 +559,11 @@
         <input id="nv-objet" placeholder="Objet du message (pré-rempli depuis le mail du client — modifiable)" oninput="sujetEnvoiModifie()" />
       </div>
       <div class="barre">
-        <textarea id="nv-msg" rows="1" disabled placeholder="Mode lecture — bascule en MODE ÉCRITURE (C2) en haut — Entrée : nouvelle ligne, Ctrl+Entrée : envoyer" onkeydown="if(event.key==='Enter'&&!event.shiftKey&&(event.ctrlKey||event.metaKey)){event.preventDefault();envoyerMessage();}" oninput="majHauteurSaisie()"></textarea>
+        <textarea id="nv-msg" rows="1" placeholder="Écrire au client… — Entrée : nouvelle ligne, Ctrl+Entrée : envoyer" onkeydown="if(event.key==='Enter'&&!event.shiftKey&&(event.ctrlKey||event.metaKey)){event.preventDefault();envoyerMessage();}" oninput="majHauteurSaisie()"></textarea>
         <button class="outil-btn ob-rouge" id="btn-dictee" onclick="dicter()" title="Dicter ton message (reconnaissance vocale du navigateur — Chrome/Edge)"><span class="ob-ico">🎤</span></button>
         <button class="btn primaire" id="btn-env" disabled onclick="envoyerMessage()">➤ Envoyer</button>
       </div>
-      <div class="note-c2" id="note-c2">✏️ L'envoi au client et le changement de cycle arrivent en brique <b>C2</b> — clique sur « MODE LECTURE (C1) » en haut pour activer la C2.</div>
+      <div class="note-c2" id="note-c2">✅ Écriture active — envoi réel WhatsApp/Email selon le canal choisi.</div>
     </div>
   </section>
 
@@ -2006,17 +2005,8 @@ function assignerConv(id, val) {
 }
 
 /* ===== Brique C2 : écriture — drapeau, envoi de message, changement de cycle ===== */
-var ACTIF = false; /* false = C1 lecture seule ; true = C2 écriture */
-function basculeModeC2() {
-  ACTIF = !ACTIF;
-  var b = document.getElementById("badge-mode");
-  if (b) {
-    b.textContent = ACTIF ? "MODE ÉCRITURE (C2)" : "MODE LECTURE (C1)";
-    b.classList.toggle("ecriture", ACTIF);
-  }
-  majSaisieC2();
-  renduListe(); renduFil(); renduMesCycles(); rafraichirFiche();
-}
+var ACTIF = true; /* v33 : écriture (C2) permanente — le MODE LECTURE (C1) est supprimé */
+function basculeModeC2() { /* conservée pour compat : plus rien à basculer */ }
 function majSaisieC2() {
   var inp = document.getElementById("nv-msg"), btn = document.getElementById("btn-env");
   var cn = document.getElementById("canal-envoi");
@@ -2024,12 +2014,10 @@ function majSaisieC2() {
   if (cn) cn.style.display = ACTIF ? "flex" : "none";
   if (ot) ot.style.display = ACTIF ? "flex" : "none";
   if (!inp || !btn) return;
-  inp.disabled = !ACTIF; btn.disabled = !ACTIF;
-  inp.placeholder = ACTIF ? "Écrire au client…" : "Mode lecture — bascule en MODE ÉCRITURE (C2) en haut";
+  inp.disabled = false; btn.disabled = false;
+  inp.placeholder = "Écrire au client…";
   var note = document.getElementById("note-c2");
-  if (note) note.innerHTML = ACTIF
-    ? "✅ C2 active : ton message part en tant que <b>" + iconeDe(MOI) + " " + MOI + "</b> (prototype : le message s'ajoute au fil — l'envoi réel via l'API respond.io viendra avec le branchement)."
-    : "✏️ L'envoi au client et le changement de cycle arrivent en brique <b>C2</b> — clique sur « MODE LECTURE (C1) » en haut pour activer la C2.";
+  if (note) note.innerHTML = "✅ Écriture active : ton message part en tant que <b>" + iconeDe(MOI) + " " + MOI + "</b> — envoi réel WhatsApp/Email selon le canal choisi.";
 }
 var CANAL_ENVOI = "WhatsApp";
 function setCanalEnvoi(v) {
