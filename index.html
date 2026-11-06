@@ -1479,6 +1479,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
       });
       inconnus = restants.filter(function(d) { return !TEST_WA[d]; }).length;
       if (creees) {
+        majLusDepuisStockage();
         renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
         pushNotif("💬 " + creees + " conversation(s) WhatsApp réelle(s)" + (inconnus ? " (" + inconnus + " numéro(s) hors carnet ignorés)" : "") + ".");
       }
@@ -1537,6 +1538,46 @@ function convDuContact(tel) {
   });
   return ex;
 }
+/* ===== v36 : persistance de l'état LU (localStorage umob_lus) =============
+   Clé = canal | contact (tel ou email) — stable d'un rechargement à l'autre
+   même si l'id de conversation change. Une conversation reste LUE au
+   rechargement ; elle ne repasse en non lu QUE si un message plus récent
+   que la dernière lecture arrive. */
+function cleConvDe(c) {
+  var ct = (c && c.contact) || {};
+  return String(c.canal || "") + "|" + String(ct.tel || ct.email || c.entreprise || (c && c.id) || "");
+}
+function lecturesStockees() {
+  try { return JSON.parse(localStorage.getItem("umob_lus") || "{}") || {}; } catch (e) { return {}; }
+}
+function lectureStockeeDe(c) {
+  var e = lecturesStockees()[cleConvDe(c)];
+  return (e && e.ts) || 0;
+}
+function marquerLecture(c) {
+  if (!c) return;
+  var L = lecturesStockees();
+  L[cleConvDe(c)] = { ts: Date.now() };
+  try { localStorage.setItem("umob_lus", JSON.stringify(L)); } catch (e) {}
+  c.lu = true;
+}
+function marquerNonLecture(c) {
+  if (!c) return;
+  var L = lecturesStockees();
+  delete L[cleConvDe(c)];
+  try { localStorage.setItem("umob_lus", JSON.stringify(L)); } catch (e) {}
+  c.lu = false;
+}
+function majLusDepuisStockage() {
+  CONVS.forEach(function(c) {
+    if (c.lu) return;
+    var luStocke = lectureStockeeDe(c);
+    if (!luStocke) return;
+    var der = (c.fil && c.fil[c.fil.length - 1]) || null;
+    var tsDer = (der && der.ts) ? new Date(der.ts).getTime() : 0;
+    if (luStocke >= tsDer) c.lu = true;
+  });
+}
 function fusionnerFil(c, fil) {
   c.fil = c.fil.concat(fil);
   c.fil.sort(function(a, b) {
@@ -1544,7 +1585,11 @@ function fusionnerFil(c, fil) {
   });
   var der = c.fil[c.fil.length - 1];
   if (der && der.txt) c.extrait = String(der.txt);
-  c.lu = false;
+  /* v36 : déjà lue + aucun message plus récent que la dernière lecture
+     → reste lue (plus de « tout redevient non lu » au rechargement). */
+  var luStocke = lectureStockeeDe(c);
+  var tsDer = (der && der.ts) ? new Date(der.ts).getTime() : 0;
+  c.lu = (!luStocke || tsDer > luStocke) ? false : true;
   if (der && der.canal) c.canal = der.canal;
 }
 /* Objet d'un email affiché DISTINCT du corps : bandeau bleu au-dessus du
@@ -1680,6 +1725,7 @@ function chargerEmails(base, secret) {
       });
       var ignores = Object.keys(parAddr).filter(function(a) { return !parMel[a] && !TEST_MEL[a]; });
       if (creees) {
+        majLusDepuisStockage();
         renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
         pushNotif("✉️ " + creees + " conversation(s) Email réelle(s)" + (ignores.length ? " (" + ignores.length + " adresse(s) hors carnet ignorées : " + ignores.join(", ") + ")" : "") + ".");
       } else if (ignores.length) {
@@ -2999,6 +3045,7 @@ function rafraichirFiche() {
 }
 
 function voirConv(id) {
+  marquerLecture(convParId(id));
   SELID = id; SELSENT = null; renduListe(); renduFil();
 }
 
@@ -3060,6 +3107,7 @@ function fermerCarnet() {
 }
 function voirConvCarnet(id) {
   fermerCarnet();
+  marquerLecture(convParId(id));
   SELID = id; SELSENT = null; renduListe(); renduFil();
 }
 function lancerConversation() {
@@ -3396,7 +3444,7 @@ function majBadgeNouveaux() {
 }
 function ouvrirConvLu(id) {
   var c = CONVS.filter(function(x) { return x.id === id; })[0];
-  if (c) c.lu = true;
+  if (c) marquerLecture(c);
   voirConv(id);
   majBadgeNouveaux();
 }
@@ -3457,7 +3505,7 @@ function fermerCtx() {
 }
 function actionCtx(nonLu) {
   var c = CONVS.filter(function(x) { return x.id === CTX_ID; })[0];
-  if (c) c.lu = !nonLu;
+  if (c) { if (nonLu) marquerNonLecture(c); else marquerLecture(c); }
   fermerCtx();
   renduListe();
   renduNouveauxSiOuvert();
