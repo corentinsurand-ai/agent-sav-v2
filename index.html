@@ -1102,6 +1102,26 @@ var PROFILS = {
   "Corentin":{ ic: "🧔",    col: "#e11d48" },
   "Agent IA":{ ic: "🤖",    col: "#0e5aa7", ia: true }
 };
+/* ===== v37 : profils persistés (icône/couleur/renom./suppression/création) ====
+   Toute personnalisation du panneau 👥 Profils est gardée au rechargement. */
+var PROFILS_BASE = ["Marine", "Nicolas", "Corentin", "Agent IA"];
+function sauvegarderProfils() {
+  var supprimes = PROFILS_BASE.filter(function(n){ return !PROFILS[n]; });
+  try {
+    localStorage.setItem("umob_profils", JSON.stringify({ profils: PROFILS, supprimes: supprimes }));
+  } catch (e) {}
+}
+function restaurerProfils() {
+  try {
+    var st = JSON.parse(localStorage.getItem("umob_profils") || "null");
+    if (!st || !st.profils) return;
+    Object.keys(st.profils).forEach(function(n) {
+      if (PROFILS_BASE.indexOf(n) >= 0 || st.profils[n]) PROFILS[n] = st.profils[n];
+    });
+    (st.supprimes || []).forEach(function(n) { delete PROFILS[n]; });
+  } catch (e) {}
+}
+restaurerProfils();
 var ICONES_PROFILS = ["👩","🧑","👨","🧔","👩‍🎤","🧑‍🔧","👩‍🔧","🧑‍💻","👩‍💻","🧑‍🏫","👮","🕵️","🦸","🧙","🤖","🦁","🐬","🦊","🦉","🐝"];
 var COULEURS_PROFILS = ["#f97316","#0d9488","#e11d48","#4f46e5","#15803d","#b45309","#7c3aed","#0369a1"];
 var EQUIPE = ["Marine", "Nicolas", "Corentin"];
@@ -1144,7 +1164,12 @@ function fermerMenuCycles() { var m = document.getElementById("menu-cycle"); if 
 document.addEventListener("click", function(){ fermerMenuCycles(); }, false);
 
 /* ===== Boîte outils d'envoi : raccourcis (CRUD) + modèles WA ===== */
-var MES_RACCOURCIS = []; /* raccourcis créés par l'utilisateur */
+var MES_RACCOURCIS = (function () {  /* v37 : raccourcis persistés */
+  try { return JSON.parse(localStorage.getItem("umob_raccourcis") || "[]") || []; } catch (e) { return []; }
+})();
+function sauvegarderRaccourcis() {
+  try { localStorage.setItem("umob_raccourcis", JSON.stringify(MES_RACCOURCIS)); } catch (e) {}
+}
 var ONGLET_OUTILS = "racc";
 function ouvrirBoiteOutils(o) { ONGLET_OUTILS = o; document.getElementById("boite-outils").classList.add("ouvert"); renduBoiteOutils(); }
 function fermerBoiteOutils() { document.getElementById("boite-outils").classList.remove("ouvert"); }
@@ -1202,16 +1227,18 @@ function creerRaccourci() {
   var v = ((t && t.value) || "").trim();
   if (!v) return;
   MES_RACCOURCIS.push(v);
+  sauvegarderRaccourcis();
   renduBoiteOutils();
 }
 function editerRaccourci(i) {
   var v = prompt("Modifier le raccourci :", MES_RACCOURCIS[i]);
   if (!v) return;
   MES_RACCOURCIS[i] = v.trim();
+  sauvegarderRaccourcis();
   renduBoiteOutils();
 }
 function supprimerRaccourci(i) {
-  if (confirm("Supprimer ce raccourci ?")) { MES_RACCOURCIS.splice(i, 1); renduBoiteOutils(); }
+  if (confirm("Supprimer ce raccourci ?")) { MES_RACCOURCIS.splice(i, 1); sauvegarderRaccourcis(); renduBoiteOutils(); }
 }
 
 /* ===== Onglet ✉️ Signature (C5-ENV-2) : édition + aperçu + insertion ===== */
@@ -2003,8 +2030,8 @@ function renduProfils() {
   '<button class="btn primaire" style="margin-top:6px;" onclick="nouveauProfil()">➕ Créer un profil</button>' +
   '<div style="color:#a3a08f;font-size:11px;margin-top:10px;">Les profils apparaissent dans « Qui suis-je », l\'assignation, les @mentions et les filtres. L\'icône s\'affiche à côté de chaque message, commentaire et dans la liste.</div>';
 }
-function setIcone(n, ic) { PROFILS[n].ic = ic; renduProfils(); toutRafraichirProfils(); }
-function setCouleur(n, co) { PROFILS[n].col = co; renduProfils(); toutRafraichirProfils(); }
+function setIcone(n, ic) { PROFILS[n].ic = ic; sauvegarderProfils(); renduProfils(); toutRafraichirProfils(); }
+function setCouleur(n, co) { PROFILS[n].col = co; sauvegarderProfils(); renduProfils(); toutRafraichirProfils(); }
 function renommerProfil(n) {
   var v = prompt("Nouveau nom du profil :", n); if (!v || v === n) return;
   v = v.trim(); if (!v || PROFILS[v]) { alert("Nom vide ou déjà utilisé."); return; }
@@ -2015,6 +2042,7 @@ function renommerProfil(n) {
     c.comms.forEach(function(k){ if (k.a === n) k.a = v; });
   });
   if (MOI === n) MOI = v;
+  sauvegarderProfils();
   toutRafraichirProfils(); renduProfils();
 }
 function supprimerProfil(n) {
@@ -2025,12 +2053,14 @@ function supprimerProfil(n) {
     c.fil.forEach(function(m){ if (m.de === n) m.de = null; });
     c.comms.forEach(function(k){ if (k.a === n) k.a = "Marine"; });
   });
+  sauvegarderProfils();
   toutRafraichirProfils(); renduProfils();
 }
 function nouveauProfil() {
   var v = prompt("Prénom du nouveau profil :"); if (!v) return;
   v = v.trim(); if (!v || PROFILS[v]) { alert("Nom vide ou déjà utilisé."); return; }
   PROFILS[v] = { ic: "🧑", col: COULEURS_PROFILS[Object.keys(PROFILS).length % COULEURS_PROFILS.length] };
+  sauvegarderProfils();
   toutRafraichirProfils(); renduProfils();
 }
 function toutRafraichirProfils() {
@@ -3900,6 +3930,7 @@ function appliquerMoiSession(nomComplet) {
       ic: ICONES_PROFILS[Object.keys(PROFILS).length % ICONES_PROFILS.length],
       col: COULEURS_PROFILS.filter(function(c){ return utilisees.indexOf(c) < 0; })[0] || COULEURS_PROFILS[0]
     };
+    sauvegarderProfils();
   }
   if (MOI !== prenom) {
     MOI = prenom;
