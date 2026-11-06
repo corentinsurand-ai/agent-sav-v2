@@ -503,7 +503,6 @@
       <div class="chip" onclick="document.getElementById('rech-conv').focus()">🔎 Rechercher (liste)</div>
       <div class="chip" onclick="chargerVraisClients()" title="Remplace les données de démo par les vrais clients du miroir Supabase (route /api/clients-import?liste=1)">🔌 Vrais clients (Supabase)</div>
       <div class="chip" onclick="chargerEmailsManuel()" title="Charge les emails réels de la boîte SAV (route /api/emails?liste=1 — poll IMAP OVH via Supabase) et crée les conversations Email">📧 Emails réels (C5.2)</div>
-      <div class="chip" onclick="revenirDonneesDemo()" title="Revenir aux 16 conversations de démonstration">↩ Données de démo</div>
       </div>
     </div>
     </div>
@@ -1274,30 +1273,22 @@ function renduOngletSignature() {
 /* ===== VRAIES DONNÉES (miroir Supabase via /api/clients-import?liste=1) ===== */
 var CONVS_DEMO = null, SOCIETES_DEMO = null, VRAIES_DONNEES = false;
 function chargerVraisClients() {
-  var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
-  base = (prompt("URL de base du backend (Vercel) :", base) || "").trim().replace(/\/+$/, "");
-  if (!base) return;
-  var secret = localStorage.getItem("umob_api_secret") || "";
-  secret = (prompt("Secret du backend (WEBHOOK_SECRET) — stocké uniquement dans ce navigateur :", secret) || "").trim();
-  if (!secret) return;
-  var nb = localStorage.getItem("umob_api_nb") || "300";
-  nb = (prompt("Combien de contacts charger ? (les plus récemment mis à jour — la base en contient des centaines)", nb) || "300").trim();
-  nb = parseInt(nb, 10) || 300;
+  var s = sessionDe();
+  if (!s || !s.jeton) { afficherPorte(); return; }   // v32 : session obligatoire
+  var base = (localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app").replace(/\/+$/, "");
+  var nb = parseInt(localStorage.getItem("umob_api_nb") || "300", 10) || 300;
   if (nb > 5000) nb = 5000;
-  localStorage.setItem("umob_api_base", base);
-  localStorage.setItem("umob_api_secret", secret);
-  localStorage.setItem("umob_api_nb", String(nb));
-  pushNotif("🔌 Chargement des vrais clients…");
-  fetch(base + "/api/clients-import?secret=" + encodeURIComponent(secret) + "&liste=1&limite=" + nb)
+  pushNotif("🔌 Chargement des vraies conversations…");
+  fetch(base + "/api/clients-import?jeton=" + encodeURIComponent(s.jeton) + "&liste=1&limite=" + nb)
     .then(function(r) { return r.json(); })
     .then(function(rep) {
       if (!rep || rep.ok !== true || !Array.isArray(rep.clients)) throw new Error((rep && rep.erreur) || "réponse invalide");
       appliquerVraisClients(rep.clients);
       /* Emails chargés APRÈS WhatsApp (chained) : la fusion multi-canal
          suppose que la conversation du contact existe déjà. */
-      chargerMessagesWhatsApp(base, secret, function() { chargerEmails(base, secret); demarrerAuto(); });
+      chargerMessagesWhatsApp(base, s.jeton, function() { chargerEmails(base, s.jeton); demarrerAuto(); });
     })
-    .catch(function(e) { alert("Chargement impossible (" + e.message + ").\n\nVérifie :\n1. le déploiement Vercel est terminé (attends 1-2 min après le push) ;\n2. tu es bien sur l'URL de base du backend (sans /api à la fin) ;\n3. si tu es dans l'aperçu intégré du canvas et que ça persiste, ouvre la page en plein écran dans un onglet navigateur et réessaie."); });
+    .catch(function(e) { pushNotif("⚠️ Chargement impossible (" + e.message + ") — vérifie ta connexion puis réessaie via 🔌."); });
 }
 /* Téléphone des vrais clients → format E.164 WhatsApp (+33620476040) :
    la synchro/API renvoie des chiffres nus avec indicatif (33620476040) ;
@@ -1414,7 +1405,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
     }); });
     return m;
   }
-  fetch(base + "/api/whatsapp-messages?secret=" + encodeURIComponent(secret) + "&liste=1&limite=1000")
+  fetch(base + "/api/whatsapp-messages?jeton=" + encodeURIComponent(secret) + "&liste=1&limite=1000")
     .then(function(r) { return r.json(); })
     .then(function(rep) {
       if (!rep || rep.ok !== true || !Array.isArray(rep.messages)) return;  // brique C4 absente → silencieux
@@ -1622,7 +1613,7 @@ function formaterMailTxt(t) {
   return r;
 }
 function chargerEmails(base, secret) {
-  fetch(base + "/api/emails?secret=" + encodeURIComponent(secret) + "&liste=1&limite=1000")
+  fetch(base + "/api/emails?jeton=" + encodeURIComponent(secret) + "&liste=1&limite=1000")
     .then(function(r) { return r.json(); })
     .then(function(rep) {
       if (!rep || rep.ok !== true || !Array.isArray(rep.messages)) return;  // brique C5.2 absente → silencieux
@@ -1731,7 +1722,7 @@ function rafraichirAuto() {
   if (!VRAIES_DONNEES || !autoActif()) return;
   if (typeof document !== "undefined" && document.hidden) return;  // onglet masqué : on saute ce tour
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
-  var secret = localStorage.getItem("umob_api_secret") || "";
+  var secret = (sessionDe() || {}).jeton || "";
   if (!secret) return;
   chargerMessagesWhatsApp(base, secret, function() { chargerEmails(base, secret); });
   AUTO_DERNIERE = Date.now();
@@ -1753,11 +1744,8 @@ function basculerAuto() {
 }
 function chargerEmailsManuel() {
   var base = localStorage.getItem("umob_api_base") || "";
-  var secret = localStorage.getItem("umob_api_secret") || "";
-  if (!base || !secret) {
-    pushNotif("⚠️ Charge d'abord les vrais clients via 🔌 (l'URL et le secret sont mémorisés dans ce navigateur).");
-    return;
-  }
+  var secret = (sessionDe() || {}).jeton || "";
+  if (!base || !secret) { afficherPorte(); return; }
   pushNotif("📧 Chargement des emails réels…");
   chargerEmails(String(base).replace(/\/+$/, ""), secret);
 }
@@ -2187,12 +2175,13 @@ function envoyerMessageWaReel(c, inp, v) {
     majSaisieC2();
   };
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
-  var secret = localStorage.getItem("umob_api_secret") || "";
+  var secret = (sessionDe() || {}).jeton || "";
+  if (!secret) { afficherPorte(); finEnvoi(); return; }
   var h = new Date().toTimeString().slice(0, 5);
   fetch(base + "/api/whatsapp-send", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-webhook-secret": secret },
-    body: JSON.stringify({ secret: secret, tel: (c.contact && c.contact.tel) || "", texte: v })
+    headers: { "Content-Type": "application/json", "x-jeton": secret },
+    body: JSON.stringify({ jeton: secret, tel: (c.contact && c.contact.tel) || "", texte: v })
   })
   .then(function(r) {
     return r.json().then(function(j) { return { okHttp: r.ok, j: j }; })
@@ -2230,7 +2219,8 @@ function envoyerMessageEmailReel(c, inp, v, mail) {
     majSaisieC2();
   };
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
-  var secret = localStorage.getItem("umob_api_secret") || "";
+  var secret = (sessionDe() || {}).jeton || "";
+  if (!secret) { afficherPorte(); finEnvoi(); return; }
   var h = new Date().toTimeString().slice(0, 5);
   // C5-ENV-2 : objet de réponse (RE: pré-rempli, modifiable) + signature HTML
   var sujet = sujetCourant(c);
@@ -2239,9 +2229,9 @@ function envoyerMessageEmailReel(c, inp, v, mail) {
   var htmlFinal = sig ? corpsHtmlEmail(v, sig) : null;
   fetch(base + "/api/email-send", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-webhook-secret": secret },
+    headers: { "Content-Type": "application/json", "x-jeton": secret },
     body: JSON.stringify(Object.assign(
-      { secret: secret, a: mail, sujet: sujet, texte: texteFinal },
+      { jeton: secret, a: mail, sujet: sujet, texte: texteFinal },
       htmlFinal ? { html: htmlFinal } : {}
     ))
   })
@@ -2393,7 +2383,8 @@ function envoyerProposition(idx, canal) {
     || (s.vraisContacts || [])[0] || null;
   if (!contact) { fermerProposition(); return; }
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
-  var secret = localStorage.getItem("umob_api_secret") || "";
+  var secret = (sessionDe() || {}).jeton || "";
+  if (!secret) { afficherPorte(); return; }
   var estWa = canal === "wa";
   var dest = estWa ? ((contact.tel || "").replace(/\D/g, "")) : (contact.email || "");
   if (!dest) { pushNotif("⚠️ Destinataire manquant."); return; }
@@ -2402,7 +2393,7 @@ function envoyerProposition(idx, canal) {
     var p1 = document.getElementById("prop-param1");
     var modeleW = MODELES_WA.filter(function(mo) { return mo.nom === WA_MODELE_MAINTENANCE.nom; })[0] || {};
     var avecVars = modeleW.variables === true;
-    corps = { secret: secret, tel: dest,
+    corps = { jeton: secret, tel: dest,
       template: { nom: WA_MODELE_MAINTENANCE.nom, langue: WA_MODELE_MAINTENANCE.langue,
         params: avecVars ? [((p1 && p1.value) || "").trim() || prenomContact(s) || ""] : [] } };
   } else {
@@ -2410,7 +2401,7 @@ function envoyerProposition(idx, canal) {
     var tx = document.getElementById("prop-texte");
     var texte = ((tx && tx.value) || "").trim();
     if (!texte) { pushNotif("⚠️ Le message est vide."); return; }
-    corps = { secret: secret, a: dest, sujet: ((sj && sj.value) || "Proposition de passage maintenance U'mob").trim(), texte: texte };
+    corps = { jeton: secret, a: dest, sujet: ((sj && sj.value) || "Proposition de passage maintenance U'mob").trim(), texte: texte };
   }
   PROP_ENVOI = true;
   var btn = document.getElementById("prop-env");
@@ -2418,7 +2409,7 @@ function envoyerProposition(idx, canal) {
   var url = estWa ? "/api/whatsapp-send" : "/api/email-send";
   fetch(base + url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-webhook-secret": secret },
+    headers: { "Content-Type": "application/json", "x-jeton": secret },
     body: JSON.stringify(corps)
   })
   .then(function(r) {
@@ -3893,7 +3884,7 @@ function seConnecter() {
     localStorage.setItem("umob_session", JSON.stringify({ jeton: rep.jeton, utilisateur: rep.utilisateur }));
     fermerConnexion();
     document.getElementById("auth-mdp").value = "";
-    majBadgeAuth(); majBadgeAuto();
+    apresConnexion();
     pushNotif("👤 Connecté : " + rep.utilisateur.nom + " (" + rep.utilisateur.role + ")");
   }).catch(function(e){
     msg.textContent = "Réseau injoignable : " + e;
@@ -3901,7 +3892,9 @@ function seConnecter() {
 }
 function seDeconnecter() {
   localStorage.removeItem("umob_session");
-  majBadgeAuth();
+  arreterAuto();
+  majBadgeAuth(); majBadgeAuto();
+  afficherPorte();
   pushNotif("👤 Déconnecté.");
 }
 function verifierSession() {
@@ -3911,18 +3904,89 @@ function verifierSession() {
   fetch(base + "/api/clients-import?auth=1&jeton=" + encodeURIComponent(s.jeton))
     .then(function(r){ return r.json(); })
     .then(function(rep){
-      if (!rep.ok) { localStorage.removeItem("umob_session"); majBadgeAuth(); }
-      else { localStorage.setItem("umob_session", JSON.stringify({ jeton: s.jeton, utilisateur: rep.utilisateur })); majBadgeAuth(); }
-    }).catch(function(e){ /* réseau KO : session conservée */ });
+      if (!rep.ok) { localStorage.removeItem("umob_session"); majBadgeAuth(); afficherPorte(); }
+      else {
+        localStorage.setItem("umob_session", JSON.stringify({ jeton: s.jeton, utilisateur: rep.utilisateur }));
+        majBadgeAuth();
+        apresConnexion();
+      }
+    }).catch(function(e){ /* réseau KO : session conservée */ if (!sessionDe()) afficherPorte(); });
+}
+
+/* ==================== v32 : PORTE DE CONNEXION (gate) =======================
+   La plateforme n'affiche plus de données de démo : sans session valide,
+   un écran de connexion plein écran bloque l'accès. Une fois connecté, les
+   vraies conversations (Supabase) sont chargées automatiquement et le
+   rafraîchissement auto démarre. Plus de secret partagé dans le navigateur :
+   toutes les requêtes partent avec le JETON de session (12 h). */
+var CHARGEMENT_AUTO_FAIT = false;
+function apresConnexion() {
+  fermerPorte();
+  majBadgeAuth(); majBadgeAuto();
+  if (!CHARGEMENT_AUTO_FAIT) {
+    CHARGEMENT_AUTO_FAIT = true;
+    chargerVraisClients();
+  }
+}
+var PORTE_OUVERTE = false;
+function fermerPorte() {
+  PORTE_OUVERTE = false;
+  var g = document.getElementById("porte-connexion");
+  if (g && g.parentNode) g.parentNode.removeChild(g);
+  var g2 = document.getElementById("porte-connexion");
+  if (g2 && g2.remove) g2.remove();
+}
+function afficherPorte() {
+  if (PORTE_OUVERTE) return;
+  PORTE_OUVERTE = true;
+  var g = document.createElement("div");
+  g.id = "porte-connexion";
+  g.className = "porte";
+  g.style.cssText = "position:fixed;inset:0;z-index:99999;background:linear-gradient(160deg,#0b3560 0%,#0e5aa7 100%);display:flex;align-items:center;justify-content:center;font-family:inherit;";
+  g.innerHTML = '<div style="background:#fff;border-radius:14px;padding:34px 38px;max-width:400px;width:calc(100% - 48px);box-shadow:0 18px 50px rgba(0,0,0,.35);">'
+    + '<div style="text-align:center;font-size:34px;margin-bottom:6px;">🛵</div>'
+    + '<div style="text-align:center;font-weight:700;font-size:19px;color:#12232f;">Plateforme SAV U&#39;mob</div>'
+    + '<div style="text-align:center;font-size:12.5px;color:#5A626B;margin:6px 0 20px;">Connexion requise — les vraies conversations sont chargées après identification.</div>'
+    + '<input id="porte-email" type="email" placeholder="Email (ex. prenom.nom@umob.fr)" style="width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid #d5dbe1;border-radius:8px;font-size:14px;margin-bottom:10px;"/>'
+    + '<input id="porte-mdp" type="password" placeholder="Mot de passe" style="width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid #d5dbe1;border-radius:8px;font-size:14px;margin-bottom:10px;"/>'
+    + '<div id="porte-msg" style="font-size:12.5px;color:#c0392b;min-height:17px;margin-bottom:8px;"></div>'
+    + '<button id="porte-btn" onclick="porteConnexion()" style="width:100%;padding:12px;border:0;border-radius:8px;background:#0e5aa7;color:#fff;font-weight:700;font-size:15px;cursor:pointer;">Se connecter</button>'
+    + '</div>';
+  document.body.appendChild(g);
+  setTimeout(function() { var e = document.getElementById("porte-email"); if (e) e.focus(); }, 60);
+}
+function porteConnexion() {
+  var email = (document.getElementById("porte-email") || {}).value || "";
+  var mdp = (document.getElementById("porte-mdp") || {}).value || "";
+  var msg = document.getElementById("porte-msg");
+  if (!email.trim() || !mdp) { if (msg) msg.textContent = "Email et mot de passe requis."; return; }
+  if (msg) msg.textContent = "Connexion…";
+  var btn = document.getElementById("porte-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "Connexion…"; }
+  var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
+  fetch(base + "/api/clients-import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ connexion: { email: email.trim(), mot_de_passe: mdp } })
+  }).then(function(r){ return r.json(); }).then(function(rep){
+    if (!rep.ok) {
+      if (msg) msg.textContent = rep.erreur || "Connexion refusée.";
+      if (btn) { btn.disabled = false; btn.textContent = "Se connecter"; }
+      return;
+    }
+    localStorage.setItem("umob_session", JSON.stringify({ jeton: rep.jeton, utilisateur: rep.utilisateur }));
+    apresConnexion();
+    pushNotif("👤 Connecté : " + rep.utilisateur.nom + " (" + rep.utilisateur.role + ")");
+  }).catch(function(e){
+    if (msg) msg.textContent = "Réseau injoignable : " + e;
+    if (btn) { btn.disabled = false; btn.textContent = "Se connecter"; }
+  });
 }
 
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
+if (!sessionDe()) afficherPorte();   /* v32 : sans session → porte de connexion */
 renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux();
-/* notifications de démonstration (reçues par Marine, l'utilisateur connecté par défaut) */
-pushNotif("📌 Nicolas t'a tagué dans un commentaire interne — demande commerciale Domino's Montargis", 6);
-pushNotif("👤 Léa t'a assigné la conversation de Sofiane Housni (pneus TCHIKO)", 3);
-majBadgeNotifs();
 </script>
 </body>
 </html>
