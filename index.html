@@ -1097,15 +1097,14 @@ var FX = { canal: "tous", cycle: "tous", ass: "tous" };
 /* ===== Équipe, « Qui suis-je », assignation ===== */
 /* ===== Profils équipe : icône + couleur affichées à côté de chaque message envoyé ===== */
 var PROFILS = {
-  "Marine":  { ic: "👩",    col: "#7c3aed" },
-  "Nicolas": { ic: "🧑‍🔧", col: "#0e7490" },
-  "Léa":     { ic: "👩‍🎤", col: "#be185d" },
-  "David":   { ic: "🧔",    col: "#b45309" },
+  "Marine":  { ic: "👩",    col: "#f97316" },
+  "Nicolas": { ic: "🧑‍🔧", col: "#0d9488" },
+  "Corentin":{ ic: "🧔",    col: "#e11d48" },
   "Agent IA":{ ic: "🤖",    col: "#0e5aa7", ia: true }
 };
 var ICONES_PROFILS = ["👩","🧑","👨","🧔","👩‍🎤","🧑‍🔧","👩‍🔧","🧑‍💻","👩‍💻","🧑‍🏫","👮","🕵️","🦸","🧙","🤖","🦁","🐬","🦊","🦉","🐝"];
-var COULEURS_PROFILS = ["#7c3aed","#0e7490","#be185d","#b45309","#5A626B","#15803d","#b91c1c","#4f46e5"];
-var EQUIPE = ["Marine", "Nicolas", "Léa", "David"];
+var COULEURS_PROFILS = ["#f97316","#0d9488","#e11d48","#4f46e5","#15803d","#b45309","#7c3aed","#0369a1"];
+var EQUIPE = ["Marine", "Nicolas", "Corentin"];
 var MOI = "Marine";
 CONVS.forEach(function(c){ if (c.assigne === undefined) c.assigne = null; });
 [[3, "Marine"], [4, "Marine"], [5, "Nicolas"], [6, "Nicolas"], [8, "Léa"], [9, "David"]]
@@ -1282,9 +1281,9 @@ function chargerVraisClients() {
       appliquerVraisClients(rep.clients);
       /* Emails chargés APRÈS WhatsApp (chained) : la fusion multi-canal
          suppose que la conversation du contact existe déjà. */
-      chargerMessagesWhatsApp(base, s.jeton, function() { chargerEmails(base, s.jeton); demarrerAuto(); });
+      chargerMessagesWhatsApp(base, s.jeton, function() { chargerEmails(base, s.jeton); AUTO_DERNIERE = Date.now(); majBadgeAuto(); demarrerAuto(); });
     })
-    .catch(function(e) { pushNotif("⚠️ Chargement impossible (" + e.message + ") — vérifie ta connexion puis réessaie via 🔌."); });
+    .catch(function(e) { pushNotif("⚠️ Chargement impossible (" + e.message + ") — vérifie ta connexion et recharge la page."); });
 }
 /* Téléphone des vrais clients → format E.164 WhatsApp (+33620476040) :
    la synchro/API renvoie des chiffres nus avec indicatif (33620476040) ;
@@ -1707,12 +1706,12 @@ function majBadgeAuto() {
   var act = autoActif() && VRAIES_DONNEES;
   var h = AUTO_DERNIERE ? new Date(AUTO_DERNIERE).toTimeString().slice(0, 5) : null;
   b.innerHTML = act
-    ? '🔄 Auto ✓' + (h ? ' · maj ' + h : '')
-    : (autoActif() ? '🔄 Auto (attend les vraies données)' : '🔄 Auto : arrêt');
+    ? '🔄 Auto ✓ · maj ' + (h || 'en cours…')
+    : (autoActif() ? '🔄 Auto (attend les vraies données)' : '⏸️ Auto arrêt') + (h ? ' · maj ' + h : '');
   b.style.opacity = (VRAIES_DONNEES && autoActif()) ? "1" : ".55";
   b.title = act
     ? "Rafraîchissement automatique actif : toutes les " + Math.round(AUTO_MS / 1000) + " s (onglet visible). Clique pour arrêter."
-    : "Rafraîchissement automatique inactif. Clique pour activer (nécessite les vraies données chargées via 🔌).";
+    : "Rafraîchissement automatique inactif. Clique pour activer (nécessite d'être connecté).";
 }
 function rafraichirAuto() {
   if (!VRAIES_DONNEES || !autoActif()) return;
@@ -3847,7 +3846,13 @@ function creerCompte() {
 function appliquerMoiSession(nomComplet) {
   var prenom = String(nomComplet || "").trim().split(/\s+/)[0] || "";
   if (!prenom) return;
-  if (!PROFILS[prenom]) PROFILS[prenom] = { ic: "🧑‍💻", col: "#5A626B" };
+  if (!PROFILS[prenom]) {
+    var utilisees = Object.keys(PROFILS).map(function(n){ return PROFILS[n].col; });
+    PROFILS[prenom] = {
+      ic: ICONES_PROFILS[Object.keys(PROFILS).length % ICONES_PROFILS.length],
+      col: COULEURS_PROFILS.filter(function(c){ return utilisees.indexOf(c) < 0; })[0] || COULEURS_PROFILS[0]
+    };
+  }
   if (MOI !== prenom) {
     MOI = prenom;
     try { majEquipe(); renduListe(); renduMesCycles(); } catch (e) {}
