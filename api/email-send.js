@@ -43,6 +43,19 @@ function secretDe(req, corps) {
   return secret;
 }
 
+function jetonDe(req, corps) {
+  var j = '';
+  try { if (req.query && req.query.jeton) j = String(req.query.jeton); } catch (e) {}
+  if (!j) {
+    var u = (req.url || '').indexOf('?') !== -1 ? req.url.slice((req.url || '').indexOf('?') + 1) : '';
+    var m = u.match(/(?:^|&)jeton=([^&]*)/);
+    if (m) j = decodeURIComponent(m[1]);
+  }
+  if (!j && req.headers && req.headers['x-jeton']) j = String(req.headers['x-jeton']);
+  if (!j && corps && corps.jeton) j = String(corps.jeton);
+  return j;
+}
+
 function emailValide(s) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(s || '').trim());
 }
@@ -75,7 +88,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     try {
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-webhook-secret');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-webhook-secret, x-jeton');
     } catch (e) {}
     return res.status(204).end();
   }
@@ -85,7 +98,8 @@ module.exports = async function handler(req, res) {
     try { corps = JSON.parse(String(req.body || '{}')); } catch (e) { corps = {}; }
   }
 
-  if (secretDe(req, corps) !== env('WEBHOOK_SECRET') || !env('WEBHOOK_SECRET')) {
+  var authA = require('../lib/auth');
+  if (!authA.authentifierRequete(secretDe(req, corps), jetonDe(req, corps)).ok) {
     return res.status(401).json({ ok: false, erreur: 'secret invalide' });
   }
 

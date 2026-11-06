@@ -63,7 +63,7 @@ function repondre(res, code, corps) {
   res.writeHead(code, {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, x-webhook-secret',
+    'Access-Control-Allow-Headers': 'Content-Type, x-webhook-secret, x-jeton',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
   });
   res.end(JSON.stringify(corps));
@@ -307,7 +307,9 @@ module.exports = async function (req, res) {
     var u = new URL(req.url, 'http://localhost');
     var corps = req.method === 'POST' ? await lireCorps(req) : {};
     var secretFourni = req.headers['x-webhook-secret'] || u.searchParams.get('secret') || corps.secret || '';
-    if (String(secretFourni) !== String(process.env.WEBHOOK_SECRET || '')) {
+    var jetonFourni = req.headers['x-jeton'] || u.searchParams.get('jeton') || corps.jeton || '';
+    var authE = require('../lib/auth');
+    if (!authE.authentifierRequete(secretFourni, jetonFourni).ok) {
       return repondre(res, 401, { ok: false, erreur: 'secret invalide' });
     }
 
