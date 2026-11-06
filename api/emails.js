@@ -331,7 +331,24 @@ module.exports = async function (req, res) {
           var deja = await fetch(urlSupabase('emails?select=id&message_id=eq.' + encodeURIComponent(mid)), { headers: teteSupa() });
           if (deja.ok) {
             var dj = ''; try { dj = await deja.text(); } catch (e) { dj = ''; }
-            if (dj && JSON.parse(dj).length) { ignores++; continue; }
+            if (dj && JSON.parse(dj).length) {
+              // C8-IMP-2 : le message existe déjà → PATCH (from_nom, sujet,
+              // texte, brut) au lieu d'ignorer : migration du VRAI expéditeur
+              // (le 1er import ne stockait pas l'userId de l'expéditeur).
+              var rPatch = await fetch(urlSupabase('emails?message_id=eq.' + encodeURIComponent(mid)), {
+                method: 'PATCH',
+                headers: Object.assign({}, teteSupa(), { 'Content-Profile': 'agent_sav' }),
+                body: JSON.stringify({
+                  from_nom: (em.from_nom == null) ? null : String(em.from_nom).substring(0, 300),
+                  sujet: String(em.sujet || '').substring(0, 500),
+                  texte: String(em.texte || '').substring(0, 100000),
+                  brut: (em.brut && typeof em.brut === 'object') ? em.brut : { source: 'respond.io' }
+                })
+              });
+              if (rPatch.ok) ecrits++;
+              else erreurs.push(mid + ':patch' + rPatch.status);
+              continue;
+            }
           }
           var ligne = {
             message_id: mid,

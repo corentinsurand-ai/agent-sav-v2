@@ -77,7 +77,9 @@ function urlSupabase(table, params) {
   return base + '/rest/v1/' + table + (params ? '?' + params : '');
 }
 
-var SELECT_BASE = 'wa_id,nom_profil,texte,type,wamid,recu_a';
+// C8-IMP-2 : brut->>sender_nom / sender / sender_id exposent le VRAI
+// expéditeur des messages importés respond.io (léger — pas le brut entier).
+var SELECT_BASE = 'wa_id,nom_profil,texte,type,wamid,recu_a,brut->>sender_nom,brut->>sender,brut->>sender_id';
 var SELECT_C2 = SELECT_BASE + ',sens,statut_reception';
 
 // Lecture avec repli : tente d'abord select avec les colonnes C2
