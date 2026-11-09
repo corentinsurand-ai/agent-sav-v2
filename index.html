@@ -772,6 +772,20 @@
   /* --- commentaires internes : cadre plus doux --- */
   .commentaires h4 { color: #a08430; letter-spacing: .7px; }
   .comm-saisie input { border-radius: 999px; }
+
+  /* ============================================================
+     C8-VOLET-1 : bouton réduire/agrandir les volets Filtres et
+     Conversations (état mémorisé par navigateur, comme les largeurs).
+     ============================================================ */
+  .volet-pli { border: none; background: #EEF4FB; color: #3a4a60; width: 20px; height: 20px; border-radius: 6px; cursor: pointer; font-size: 13px; line-height: 1; display: flex; align-items: center; justify-content: center; flex: none; transition: background .15s, transform .2s; }
+  .volet-pli:hover { background: #DDEBF9; }
+  .volet.replie { flex: 0 0 46px !important; width: 46px !important; min-width: 46px !important; }
+  .volet.replie .volet-corps, .volet.replie .rz, .volet.replie .vt, .volet.replie .aide { display: none; }
+  .volet.replie .volet-bar { flex-direction: column; padding: 10px 0; justify-content: flex-start; gap: 0; cursor: default; }
+  .volet.replie .volet-pli { transform: rotate(180deg); width: 26px; height: 26px; font-size: 15px; }
+  .volet.replie .volet-bar::before { content: ""; margin-right: 0; }
+  .volet.replie aside.filters, .volet.replie section.liste { border-right: none; }
+  .volet-pli:focus-visible { outline: 2px solid #1273d1; outline-offset: 1px; }
 </style>
 </head>
 <body>
@@ -798,7 +812,7 @@
 
   <!-- ===== Volet 1 : filtres ===== -->
   <aside class="filters volet" id="volet-filtres">
-    <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet">⠿ Filtres <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
+    <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet"><button class="volet-pli" onclick="event.stopPropagation();plierVolet('volet-filtres')" title="Réduire / agrandir ce volet">‹</button><span class="vt">Filtres</span> <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
     <div class="volet-corps filters-corps">
     <div class="f-sec" id="fsec-canaux">
       <h3 onclick="basculeFiltreSec('canaux')"><span class="fs-f">▾</span> Canaux</h3>
@@ -854,7 +868,7 @@
 
   <!-- ===== Volet 2 : liste conversations ===== -->
   <section class="liste volet" id="volet-liste">
-    <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet">⠿ Conversations <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
+    <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet"><button class="volet-pli" onclick="event.stopPropagation();plierVolet('volet-liste')" title="Réduire / agrandir ce volet">‹</button><span class="vt">Conversations</span> <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
     <div class="liste-head">
       <b>Conversations</b>
       <input class="rech-conv" id="rech-conv" placeholder="🔎 Tél, plaque, nom…" oninput="RECH_TXT = this.value; renduListe();" />
@@ -873,7 +887,7 @@
 
   <!-- ===== Volet 3 : fil ===== -->
   <section class="fil volet" id="volet-fil">
-    <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet">⠿ Conversation <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
+    <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet"><span class="vt">Conversation</span> <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
     <div class="fil-head" id="filhead"></div>
     <div class="rech-fil">
       <input id="rech-fil" placeholder="🔎 Rechercher dans la conversation (ex. « batt »)…" oninput="RECH_FIL = this.value; renduFil();" />
@@ -3849,6 +3863,26 @@ function renduPageCarnet() {
 function initVolets() {
   var LAYOUT = document.getElementById("layout");
 
+  /* --- C8-VOLET-1 : réduire/agrandir les volets (état mémorisé) --- */
+  window.plierVolet = function(id) {
+    var v = document.getElementById(id);
+    if (!v) return;
+    var replie = v.classList.toggle("replie");
+    try {
+      var mem = JSON.parse(localStorage.getItem("umob_volets_replies") || "{}");
+      mem[id] = replie;
+      localStorage.setItem("umob_volets_replies", JSON.stringify(mem));
+    } catch (e) {}
+  };
+  (function() {
+    try {
+      var mem = JSON.parse(localStorage.getItem("umob_volets_replies") || "{}");
+      ["volet-filtres", "volet-liste"].forEach(function(id) {
+        if (mem[id]) { var v = document.getElementById(id); if (v) v.classList.add("replie"); }
+      });
+    } catch (e) {}
+  })();
+
   /* --- Redimensionnement : poignée .rz sur le bord droit de chaque volet --- */
   document.querySelectorAll(".volet .rz").forEach(function(h) {
     var v = h.parentElement;
@@ -3896,6 +3930,7 @@ function initVolets() {
     if (!bar) return;
     bar.setAttribute("draggable", "true");
     bar.addEventListener("dragstart", function(e) {
+      if (e.target && e.target.classList && e.target.classList.contains("volet-pli")) { e.preventDefault(); return; }  /* le bouton réduire n'entraîne pas de drag */
       SRC = v;
       e.dataTransfer.setData("text/plain", "volet");
       e.dataTransfer.effectAllowed = "move";
