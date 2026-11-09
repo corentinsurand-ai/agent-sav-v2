@@ -242,9 +242,17 @@ async function assemblerDonnees(conv, _, question) {
       ' | plaques ' + (c.plaque || '?') + ' | risque ' + (c.statut_risque || '?'));
   });
 
-  // 1. Contacts respond.io : identité + cycle + assignation (le plus utile)
+  // 1. Contacts respond.io : identité + cycle + assignation — filtrés sur le
+  // client détecté s'il y en a un (sinon bruit → confusions entre clients)
   try {
     var rc = await supabaseSelect('respondio_contacts?select=prenom,nom,tel,email,cycle_vie,assignee&order=id.asc&limit=1000', []);
+    if (clientDetecte && clientDetecte.telephone) {
+      var telDet = String(clientDetecte.telephone).replace(/\D/g, '');
+      rc = rc.filter(function (c) {
+        var t = String(c.tel || '').replace(/\D/g, '');
+        return t && (t === telDet || telDet.indexOf(t) !== -1 || t.indexOf(telDet) !== -1);
+      });
+    }
     rc.forEach(function (c) {
       var t = [];
       var nm = String(c.prenom || '') + ' ' + String(c.nom || '');
@@ -257,10 +265,10 @@ async function assemblerDonnees(conv, _, question) {
     });
   } catch (e) {}
 
-  // 2. Derniers messages WhatsApp (fenêtre récente réduite : le bruit causait
-  // des confusions entre clients — la fiche ciblée ci-dessus est prioritaire)
+  // 2. Derniers messages WhatsApp (fenêtre récente réduite : seulement si AUCUN
+  // client n'est détecté — sinon le bruit causait des confusions entre clients)
   try {
-    var wm = await supabaseSelect('wa_messages?select=wa_id,nom_profil,texte,sens,sender_nom,recu_a&order=recu_a.desc&limit=120', []);
+    var wm = clientDetecte ? [] : await supabaseSelect('wa_messages?select=wa_id,nom_profil,texte,sens,sender_nom,recu_a&order=recu_a.desc&limit=120', []);
     wm.slice().reverse().forEach(function (m) {
       lignes.push('- WA ' + (m.recu_a || '') + ' | tel ' + m.wa_id + ' | ' + (m.nom_profil || '') +
         ' | ' + (m.sens === 'sortant' ? ('sortant par ' + (m.sender_nom || 'l\'équipe')) : 'entrant') +
@@ -268,9 +276,9 @@ async function assemblerDonnees(conv, _, question) {
     });
   } catch (e) {}
 
-  // 3. Derniers emails
+  // 3. Derniers emails (pareil : seulement sans client détecté)
   try {
-    var em = await supabaseSelect('emails?select=from_addr,from_nom,to_addr,sujet,texte,sens,recu_a&order=recu_a.desc&limit=60', []);
+    var em = clientDetecte ? [] : await supabaseSelect('emails?select=from_addr,from_nom,to_addr,sujet,texte,sens,recu_a&order=recu_a.desc&limit=60', []);
     em.slice().reverse().forEach(function (m) {
       lignes.push('- EMAIL ' + (m.recu_a || '') + ' | ' + (m.sens === 'sortant'
         ? ('à ' + m.to_addr + (m.from_nom ? ' par ' + m.from_nom : ''))
@@ -345,7 +353,7 @@ async function repondreAssistant(req, res) {
       'Deux types de questions : (1) le FONCTIONNEMENT de la plateforme → réponds avec la documentation ci-dessous ; ' +
       '(2) les DONNÉES (clients, échanges, cycles, assignations, MAINTENANCES) → appuie-toi UNIQUEMENT sur les données réelles listées. ' +
       'RÈGLES ABSOLUES :\n' +
-      '- S\'il y a une section « ### CLIENT CONCERNÉ » dans les données, elle prime sur TOUT le reste : la question porte sur CE client, ignore les autres clients et les messages génériques.\n' +
+      '- S\'il y a une section « ### CLIENT CONCERNÉ » dans les données, elle prime sur TOUT le reste : la question porte sur CE client, ignore les autres clients et les messages génériques. Seul l\'historique étiqueté « (client concerné) » est pertinent pour lui.\n' +
       '- Les questions de maintenances / entretiens (restants, consommés, dates de passage, contrat) se répondent UNIQUEMENT avec la section MAINTENANCES du client concerné. « Année en cours » = l\'entrée ANNEE EN COURS (période glissante du contrat, pas l\'année civile) ; « restants » = champ restants. Si aucune donnée de maintenance n\'existe pour ce client, dis-le clairement.\n' +
       '- N\'invente JAMAIS une donnée, un chiffre, un nom ou une date. Si l\'information n\'est ni dans la doc ni dans les données, réponds franchement : « cette information n\'est pas disponible dans la plateforme ».\n' +
       '- Ne confonds jamais deux clients : vérifie toujours que la réponse concerne bien le client demandé (nom/enseigne/téléphone).\n' +
