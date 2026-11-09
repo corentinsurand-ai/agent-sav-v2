@@ -714,6 +714,11 @@
   /* --- topbar : plus affirmée --- */
   header.topbar { padding: 10px 20px; box-shadow: 0 3px 14px rgba(10,40,80,.3), inset 0 1px 0 rgba(255,255,255,.15); }
   header.topbar .crumb { border: 1px solid rgba(255,255,255,.25); }
+  /* C8-THEME-3 : anti-compression — les boutons gardent leur taille, la topbar
+     passe sur 2 lignes proprement si la fenêtre est étroite (plus de collage) */
+  header.topbar { flex-wrap: wrap; row-gap: 8px; }
+  header.topbar .logo, header.topbar .crumb, header.topbar .btn-nouv,
+  header.topbar .badge-ver, header.topbar select { flex: 0 0 auto; white-space: nowrap; }
 
   /* --- volet fil : pas de double bord --- */
   section.fil { background: transparent; }
