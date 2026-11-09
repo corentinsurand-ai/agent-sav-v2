@@ -484,6 +484,149 @@
   .cpt-form label { font-size: 10px; font-weight: 700; color: #5a6472; text-transform: uppercase; letter-spacing: .3px; }
   #cpt-msg { font-size: 12px; margin-top: 8px; color: #b91c1c; min-height: 15px; }
   .suj-conv .btn { white-space: nowrap; }
+
+  /* ============================================================
+     C8-DESIGN-1 : REFONTE VISUELLE GLOBALE — couche de surcharge
+     Palette moderne bleu ardoise, dégradés, ombres douces, micro-
+     transitions. Aucune logique touchée : uniquement du CSS, placé
+     en dernier pour la cascade.
+     ============================================================ */
+  :root {
+    --lime: #0e5aa7; --lime-hov: #0b4a8c; --lime-soft: #E8F1FB; --lime-bord: #C9DFF5;
+    --anthra: #2b3442; --anthra2: #45526a; --ink: #1a2433; --mut: #64748b; --grey: #94a3b8;
+    --bg: #EDF2F8; --card: #ffffff; --bord: #E2E9F1; --bord2: #D3DDE9;
+    --grad-bleu: linear-gradient(135deg, #1273d1 0%, #0e5aa7 55%, #0a3f77 100%);
+    --ombre: 0 1px 3px rgba(15,35,70,.06), 0 4px 14px rgba(15,35,70,.06);
+    --ombre-lg: 0 12px 40px rgba(15,35,70,.16), 0 2px 8px rgba(15,35,70,.08);
+  }
+  * { scrollbar-width: thin; scrollbar-color: #c3d2e4 transparent; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: #c3d2e4; border-radius: 99px; border: 2px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: #9fb8d4; background-clip: padding-box; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::selection { background: #cfe3f8; }
+  input, textarea, select, button { font-family: inherit; }
+  body { background: var(--bg); }
+
+  /* --- bandeau prototype --- */
+  .proto { background: #1a2433; color: #8fa3bd; border-bottom: none; letter-spacing: .2px; padding: 5px 12px; }
+
+  /* --- topbar : dégradé bleu, ombre, boutons translucides --- */
+  header.topbar { background: var(--grad-bleu); padding: 9px 18px; box-shadow: 0 2px 10px rgba(10,40,80,.25), inset 0 1px 0 rgba(255,255,255,.15); }
+  header.topbar .logo { font-size: 17px; letter-spacing: .3px; }
+  header.topbar .crumb { background: rgba(255,255,255,.14); padding: 4px 12px; border-radius: 999px; font-size: 11.5px; opacity: 1; }
+  .btn-nouv { background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22); transition: background .15s, transform .15s; }
+  .btn-nouv:hover { background: rgba(255,255,255,.26); transform: translateY(-1px); }
+  .badge-ver { background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.2); }
+  #btn-auth.conncte { background: #cfe6fb; color: #0e5aa7; }
+
+  /* --- volets : barres de titre claires, poignée bleue --- */
+  .volet-bar { background: linear-gradient(180deg, #fbfdff, #f4f7fb); color: var(--mut); border-bottom: 1px solid var(--bord); padding: 8px 14px; }
+  .rz:hover::after, .rz.actif::after { background: rgba(14,90,167,.5); }
+  .volet.deplace { outline-color: var(--lime-hov); }
+
+  /* --- filtres : chips arrondies + dégradé actif --- */
+  aside.filters { background: var(--card); border-right: 1px solid var(--bord); }
+  .chip { border-radius: 10px; padding: 7px 10px; transition: background .13s, color .13s, box-shadow .13s; }
+  .chip:hover { background: #EEF4FB; }
+  .chip.on { background: var(--grad-bleu); box-shadow: 0 2px 8px rgba(14,90,167,.35); }
+  .chip .n { background: #EDF2F8; }
+  .f-sec h3 { color: #3a4a60; border-bottom: 2px solid #b9d3ee; }
+  .toggle button.on { background: var(--lime); }
+
+  /* --- boutons --- */
+  .btn { border: 1px solid var(--bord2); border-radius: 10px; background: #fff; padding: 6px 12px; box-shadow: 0 1px 2px rgba(15,35,70,.05); transition: background .15s, border-color .15s, box-shadow .15s; }
+  .btn:hover { background: #EEF4FB; border-color: #b9d3ee; }
+  .btn.primaire { background: var(--grad-bleu); border: none; box-shadow: 0 2px 8px rgba(14,90,167,.35); }
+  .btn.primaire:hover { background: var(--grad-bleu); filter: brightness(1.1); color: #fff; }
+
+  /* --- liste des conversations --- */
+  section.liste { background: var(--card); border-right: 1px solid var(--bord); }
+  .liste-head { padding: 13px 15px; border-bottom: 1px solid var(--bord); }
+  .conv { padding: 11px 15px; transition: background .13s; }
+  .conv + .conv { border-top: 1px solid #F0F4F9; }
+  .conv:hover { background: #F1F6FC; }
+  .conv.on { background: #E8F1FB; box-shadow: inset 3px 0 0 var(--lime); }
+  .conv.on:hover { background: #DDEBF9; }
+  .dot { background: #0e5aa7; box-shadow: 0 0 0 2px rgba(14,90,167,.18); }
+  .dot.lu { background: #cbd5e1; box-shadow: none; }
+
+  /* --- bandes enseignes (vue Par entreprise) --- */
+  .grp { background: var(--grad-bleu); border-radius: 10px 10px 0 0; margin: 14px 8px 0; padding: 8px 13px; box-shadow: 0 2px 6px rgba(14,90,167,.25); }
+  .grp:hover, .grp.on { background: linear-gradient(135deg, #0b4a8c, #0a3f77); }
+  .grp-bloc { border-color: #C9DFF5; background: #F5F9FE; border-radius: 0 0 12px 12px; }
+
+  /* --- badges cycles : coins pleins + liseré discret --- */
+  .cy { border-radius: 999px; padding: 2.5px 9px; }
+  .cy.cliquable:hover { outline-color: #1273d1; }
+
+  /* --- le fil : fond clair, bulles modernes asymétriques --- */
+  section.fil { background: linear-gradient(180deg, #F0F5FA, #F4F7FA); }
+  .fil-head { border-bottom: 1px solid var(--bord); }
+  .messages { gap: 12px; padding: 18px 20px; }
+  .bulle { border-radius: 14px; box-shadow: 0 1px 3px rgba(15,35,70,.07); }
+  .entrant { background: #fff; border: 1px solid #E2E9F1; border-top-left-radius: 4px; }
+  .entrant .h { color: #64748b; }
+  .agent { background: linear-gradient(135deg, #E4F0FC, #D7E8FA); border: 1px solid #BCD9F2; border-top-right-radius: 4px; }
+  .agent .h { color: #0b5394; }
+  .collab { background: #E4F6F0; border: 1px solid #BFE3D4; border-top-right-radius: 4px; }
+  .bulle .mail-obj { background: #e8f2fd; }
+  .bulle.agent .mail-obj { background: #d9eaf9; }
+  .pj { background: #EEF4FB; border: 1px solid #D5E3F2; }
+
+  /* --- commentaires internes : jaune crème adouci --- */
+  .commentaires { background: #FFFBEA; border-top: 1px solid #F0E6C0; }
+  .bulle-note { background: #fffdf0; border: 1px dashed #d6c66a; }
+
+  /* --- barre de saisie : blanc + anneau bleu --- */
+  .saisie { background: var(--card); border-top: 1px solid var(--bord); }
+  .saisie .barre { background: #fff; border: 1.5px solid var(--bord2); border-radius: 18px; box-shadow: 0 1px 4px rgba(15,35,70,.05); }
+  .saisie .barre:focus-within { border-color: #0e5aa7; box-shadow: 0 0 0 3px rgba(14,90,167,.12); }
+  #btn-dictee { background: #EDF2F8; border-radius: 12px; }
+  #btn-dictee:hover { background: #E1E9F2; }
+  .comm-saisie input:focus { border-color: #0e5aa7; box-shadow: 0 0 0 3px rgba(14,90,167,.12); }
+  .rech-fil input:focus { border-color: #0e5aa7; box-shadow: 0 0 0 3px rgba(14,90,167,.12); }
+  .rech-fil input, .rech-conv { border-color: var(--bord2); }
+
+  /* --- fiche société --- */
+  #panneau-fiche { background: var(--card); border-left: 1px solid var(--bord); }
+  #fiche .fiche-entete { border-radius: 14px; border-color: var(--bord); box-shadow: var(--ombre); }
+  #fiche .fiche-sec { border-radius: 14px; border-color: var(--bord); box-shadow: 0 1px 3px rgba(15,35,70,.04); }
+  .bloc { border-radius: 14px; border-color: var(--bord); }
+  .ligne-ctc { border-color: #EDF2F8; border-radius: 12px; }
+  .scoot { background: #EEF4FB; }
+  .cp-contact:hover { border-color: #7fb6e8; background: #EEF4FB; }
+  .scoot-ligne { border-color: #EDF2F8; border-radius: 12px; }
+
+  /* --- fenêtres modales : flou, coins larges, têtes dégradées --- */
+  #boite-outils, #carnet, #nouveaux, #sujets, #notifs, #profils, #rattache, #comptes, #auth-overlay { background: rgba(15,23,42,.55); backdrop-filter: blur(2px); }
+  .bo-fen, .carnet-fen, .nv-fen { border-radius: 18px; box-shadow: 0 30px 80px rgba(10,25,50,.35); }
+  .carnet-head { background: var(--grad-bleu); box-shadow: 0 2px 10px rgba(10,40,80,.25); }
+  .carnet-liste { background: #FAFCFE; }
+  .cl-ctc:hover { background: #EEF4FB; }
+  .cl-ctc.on { background: #E8F1FB; }
+  .bo-item { border-color: var(--bord); border-radius: 12px; }
+  .bo-item:hover { border-color: #0e5aa7; background: #F4F9FE; }
+  .bo-tabs button { background: #EEF2F7; color: #5a6a80; }
+  .nv-item { border-color: #EDF2F8; border-radius: 12px; }
+  .nv-item:hover { border-color: #0e5aa7; background: #EEF4FB; }
+  .ctx { border: 1px solid var(--bord); border-radius: 12px; box-shadow: 0 12px 32px rgba(10,25,50,.2); }
+  .ctx button { border-radius: 8px; }
+  .cp-tete { background: linear-gradient(135deg, #1e293b, #0f1a2b); }
+  .cp-tete .avatar { border-color: #1273d1; }
+  .cp-section { border-radius: 14px; box-shadow: var(--ombre); }
+  .cp-btn.envoyer { background: var(--grad-bleu); box-shadow: 0 2px 8px rgba(14,90,167,.3); }
+  .cp-btn.envoyer:hover { background: linear-gradient(135deg, #0b4a8c, #0a3f77); color: #fff; }
+  #auth-carte { border-radius: 18px; box-shadow: 0 30px 80px rgba(10,25,50,.35); }
+  #auth-tete { background: var(--grad-bleu); }
+  #auth-ok { background: var(--grad-bleu); }
+  .prof-item, .cpt-ligne, .suj-conv { border-color: var(--bord); }
+  .prof-pick button:hover { background: #EEF4FB; border-color: #b9d3ee; }
+  .cpt-badge.admin { background: #e2f0fc; color: #0e5aa7; }
+
+  /* --- connexion (porte) : entrées arrondies sur fonds bleus --- */
+  #auth-corps input { border-radius: 10px; }
+  .auth-btns button { border-radius: 10px; }
 </style>
 </head>
 <body>
@@ -491,7 +634,10 @@
 <div class="proto">🧪 PROTOTYPE VISUEL C1 — lecture seule · 12 vrais clients du Google Sheet « Infos Service Client » · échanges fictifs · volets déplaçables (⇄) et redimensionnables (bord droit)</div>
 
 <header class="topbar">
-  <div class="logo">U'mob<span>·</span>Plateforme SAV</div>
+  <div class="logo" style="display:flex;align-items:center;gap:9px;">
+    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 1px 2px rgba(0,20,50,.3));"><circle cx="5.5" cy="17.5" r="3"/><circle cx="18.5" cy="17.5" r="3"/><path d="M8.5 17.5h7l-1.5-4.5H9.5L8.5 17.5z"/><path d="M11 13L9 7.5h-2.5"/><path d="M12.5 7.5H15l2.5 6"/><path d="M15.5 9.5l2 .5"/></svg>
+    <span style="font-weight:800;">U'mob <b style="font-weight:500;color:#9fd6ff;">Plateforme SAV</b></span>
+  </div>
   <div class="crumb">Boîte de réception</div>
   <div class="spacer"></div>
   <button class="btn-nouv" id="btn-nouv" onclick="ouvrirNouveaux()">🔔 Nouveaux messages<span class="n" id="btn-nouv-n">0</span></button>
@@ -4194,15 +4340,20 @@ function afficherPorte() {
   var g = document.createElement("div");
   g.id = "porte-connexion";
   g.className = "porte";
-  g.style.cssText = "position:fixed;inset:0;z-index:99999;background:linear-gradient(160deg,#0b3560 0%,#0e5aa7 100%);display:flex;align-items:center;justify-content:center;font-family:inherit;";
-  g.innerHTML = '<div style="background:#fff;border-radius:14px;padding:34px 38px;max-width:400px;width:calc(100% - 48px);box-shadow:0 18px 50px rgba(0,0,0,.35);">'
-    + '<div style="text-align:center;font-size:34px;margin-bottom:6px;">🛵</div>'
-    + '<div style="text-align:center;font-weight:700;font-size:19px;color:#12232f;">Plateforme SAV U&#39;mob</div>'
-    + '<div style="text-align:center;font-size:12.5px;color:#5A626B;margin:6px 0 20px;">Connexion requise — les vraies conversations sont chargées après identification.</div>'
-    + '<input id="porte-email" type="email" placeholder="Email (ex. prenom.nom@umob.fr)" style="width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid #d5dbe1;border-radius:8px;font-size:14px;margin-bottom:10px;"/>'
-    + '<input id="porte-mdp" type="password" placeholder="Mot de passe" style="width:100%;box-sizing:border-box;padding:11px 13px;border:1px solid #d5dbe1;border-radius:8px;font-size:14px;margin-bottom:10px;"/>'
+  g.style.cssText = "position:fixed;inset:0;z-index:99999;background:linear-gradient(160deg,#0b3560 0%,#0e5aa7 60%,#1273d1 100%);display:flex;align-items:center;justify-content:center;font-family:inherit;";
+  g.innerHTML = '<div style="background:#fff;border-radius:20px;padding:0;max-width:400px;width:calc(100% - 48px);box-shadow:0 30px 80px rgba(0,20,50,.45);overflow:hidden;">'
+    + '<div style="background:linear-gradient(135deg,#1273d1 0%,#0e5aa7 55%,#0a3f77 100%);padding:26px 34px;text-align:center;">'
+    + '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 2px 4px rgba(0,20,50,.35));"><circle cx="5.5" cy="17.5" r="3"/><circle cx="18.5" cy="17.5" r="3"/><path d="M8.5 17.5h7l-1.5-4.5H9.5L8.5 17.5z"/><path d="M11 13L9 7.5h-2.5"/><path d="M12.5 7.5H15l2.5 6"/><path d="M15.5 9.5l2 .5"/></svg>'
+    + '<div style="font-weight:800;font-size:20px;color:#fff;letter-spacing:.3px;margin-top:8px;">Plateforme SAV U&#39;mob</div>'
+    + '<div style="font-size:12.5px;color:#cfe3f8;margin-top:4px;">Service technique — scooters électriques</div>'
+    + '</div>'
+    + '<div style="padding:24px 34px 28px;">'
+    + '<div style="font-size:12.5px;color:#5A626B;margin:0 0 16px;text-align:center;">Connexion requise — les vraies conversations sont chargées après identification.</div>'
+    + '<input id="porte-email" type="email" placeholder="Email (ex. prenom.nom@umob.fr)" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #d5dbe1;border-radius:12px;font-size:14px;margin-bottom:10px;transition:border-color .15s, box-shadow .15s;"/>'
+    + '<input id="porte-mdp" type="password" placeholder="Mot de passe" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1.5px solid #d5dbe1;border-radius:12px;font-size:14px;margin-bottom:10px;"/>'
     + '<div id="porte-msg" style="font-size:12.5px;color:#c0392b;min-height:17px;margin-bottom:8px;"></div>'
-    + '<button id="porte-btn" onclick="porteConnexion()" style="width:100%;padding:12px;border:0;border-radius:8px;background:#0e5aa7;color:#fff;font-weight:700;font-size:15px;cursor:pointer;">Se connecter</button>'
+    + '<button id="porte-btn" onclick="porteConnexion()" style="width:100%;padding:13px;border:0;border-radius:12px;background:linear-gradient(135deg,#1273d1,#0e5aa7);color:#fff;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 14px rgba(14,90,167,.4);transition:filter .15s,transform .15s;">Se connecter</button>'
+    + '</div>'
     + '</div>';
   document.body.appendChild(g);
   setTimeout(function() { var e = document.getElementById("porte-email"); if (e) e.focus(); }, 60);
