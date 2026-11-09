@@ -786,6 +786,9 @@
   .volet.replie .volet-bar::before { content: ""; margin-right: 0; }
   .volet.replie aside.filters, .volet.replie section.liste { border-right: none; }
   .volet-pli:focus-visible { outline: 2px solid #1273d1; outline-offset: 1px; }
+
+  /* C8-VOLET-2 : bouton plier les infos client (l2) */
+  .l2-pli { width: 30px; padding: 4px 0 !important; text-align: center; font-size: 12px; flex: none; }
 </style>
 </head>
 <body>
@@ -3296,6 +3299,17 @@ function dessinerConv(c, conteneur) {
   el.appendChild(d);
 }
 
+/* C8-VOLET-2 : infos du client (l2 du fil-head) pliables — persisté */
+var FIL_META = (function(){ try { return localStorage.getItem("umob_fil_meta") !== "0"; } catch (e) { return true; } })();
+function basculeFilMeta() {
+  FIL_META = !FIL_META;
+  try { localStorage.setItem("umob_fil_meta", FIL_META ? "1" : "0"); } catch (e) {}
+  renduFil();
+}
+function l2Ouvre() { return FIL_META ? "" : ' style="display:none;"'; }
+function filMetaBouton() {
+  return '<button class="btn l2-pli" onclick="basculeFilMeta()" title="' + (FIL_META ? "Masquer" : "Afficher") + ' les infos du client (société, contact, scooters, statut)">' + (FIL_META ? "▾" : "▸") + '</button>';
+}
 function renduFil() {
   majBarreObjet();   // C5-ENV-2 : l'objet de réponse suit la conversation ouverte
   if (SELSENT) { renduFilEntreprise(SELSENT); return; }
@@ -3315,8 +3329,8 @@ function renduFil() {
   document.getElementById("filhead").innerHTML =
     '<div class="l1">'+convAvatarHtml(c.nom, c.canal, true)+'<b>'+c.nom+'</b><span class="cy '+c.classe+(ACTIF?' cliquable':'')+'" '+(ACTIF ? 'onclick="ouvrirMenuCycles(event,'+c.id+')" title="Cliquer pour changer le cycle de la conversation"' : '')+'>'+c.cycle+(ACTIF?' ▾':'')+'</span>'+
     '<select class="ass-sel" onchange="assignerConv('+c.id+', this.value)" title="Assigner la conversation à un membre de l\'équipe">'+optionsAssigne(c.assigne)+'</select>'+
-    '<button class="btn" id="btn-fiche" onclick="basculeFiche()" style="margin-left:auto;" title="Afficher/masquer la fiche de cette entreprise (comme Coordonnées dans Respond)">🏢 Fiche entreprise</button></div>'+
-    '<div class="l2"><span>🏢 '+c.entreprise+'</span>' +
+    '<button class="btn" id="btn-fiche" onclick="basculeFiche()" style="margin-left:auto;" title="Afficher/masquer la fiche de cette entreprise (comme Coordonnées dans Respond)">🏢 Fiche entreprise</button>'+filMetaBouton()+'</div>'+
+    '<div'+l2Ouvre()+'><span>🏢 '+c.entreprise+'</span>' +
     (function(){ var sc = socParEnt(c.entreprise); return sc ? '<span class="risque '+sc.classeR+'" title="Statut de risque de la société">'+sc.risque+'</span>' : ''; })() +
     '<span class="tag" title="Sujet principal détecté automatiquement — ✏️ sur la fiche client pour corriger">📁 '+sujetDetecte(c)+'</span>'+
     (RATTACHE[c.id] ? '<span class="tag" title="Cette conversation est rattachée à une autre — ses messages apparaissent dans le fil principal">📎 rattachée à '+ (convParId(RATTACHE[c.id])||{nom:"?"}).nom +'</span>' : '')+
@@ -3409,8 +3423,8 @@ function renduFilEntreprise(e) {
     '<div class="l1"><span class="cav gd" style="background:linear-gradient(135deg,#1273d1,#0a3f77);">🏢</span><b>' + e + '</b>' +
     (socE ? '<span class="risque ' + socE.classeR + '" title="Statut de risque de la société">' + socE.risque + '</span>' : '') +
     '<span class="badge-ver" style="background:#e2e8f0;color:#475569;">fil fusionné · ' + convs.length + ' contact(s)</span>' +
-    '<button class="btn" id="btn-fiche" onclick="basculeFiche()" style="margin-left:auto;" title="Afficher/masquer la fiche de cette entreprise">🏢 Fiche entreprise</button></div>' +
-    '<div class="l2">' + convs.map(function(c){
+    '<button class="btn" id="btn-fiche" onclick="basculeFiche()" style="margin-left:auto;" title="Afficher/masquer la fiche de cette entreprise">🏢 Fiche entreprise</button>'+filMetaBouton()+'</div>' +
+    '<div'+l2Ouvre()+'>' + convs.map(function(c){
       return '<span>' + (c.canal==="WhatsApp"?"💬":"✉️") + ' ' + c.nom + ' · ' + c.contact.tel + ' · <span class="cy ' + c.classe + '">' + c.cycle + '</span></span>';
     }).join("") + '</div>';
 
