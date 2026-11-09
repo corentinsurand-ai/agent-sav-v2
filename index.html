@@ -129,6 +129,7 @@
   .cy.praxedo { background: #ede9fe; color: #5b21b6; }
   .cy.encours { background: #dcfce7; color: #166534; }
   .cy.traitee { background: #e2e8f0; color: #475569; }
+  .cy.annulee { background: #efe6f7; color: #7c3aed; text-decoration: line-through; }
   .cy.attente { background: #ffe4e6; color: #9f1239; }
   .cy.impaye { background: #fee2e2; color: #991b1b; }
   .cy.cliquable { cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.18); }
@@ -477,9 +478,8 @@
       <div class="chip" data-fx="En cours de réalisation" onclick="filtre('cycle','En cours de réalisation',this)"><span class="cy encours">En cours de réalisation</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Traitée" onclick="filtre('cycle','Traitée',this)"><span class="cy traitee">Traitée</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Attente client" onclick="filtre('cycle','Attente client',this)"><span class="cy attente">Attente client</span> <span class="n">0</span></div>
-      <div class="chip" data-fx="Attente interne" onclick="filtre('cycle','Attente interne',this)"><span class="cy attente">Attente interne</span> <span class="n">0</span></div>
-      <div class="chip" data-fx="Annulée sans réponse" onclick="filtre('cycle','Annulée sans réponse',this)"><span class="cy traitee">Annulée sans réponse</span> <span class="n">0</span></div>
-      <div class="chip" data-fx="Annulée par le client" onclick="filtre('cycle','Annulée par le client',this)"><span class="cy traitee">Annulée par le client</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="Annulée sans réponse" onclick="filtre('cycle','Annulée sans réponse',this)"><span class="cy annulee">Annulée sans réponse</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="Annulée par le client" onclick="filtre('cycle','Annulée par le client',this)"><span class="cy annulee">Annulée par le client</span> <span class="n">0</span></div>
       <div class="chip" data-fx="DE Commerciales" onclick="filtre('cycle','DE Commerciales',this)"><span class="cy qualifier">DE Commerciales</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Bloquée Impayé" onclick="filtre('cycle','Bloquée Impayé',this)"><span class="cy impaye">Bloquée Impayé</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Attente Paiement ou pré-auto CB" onclick="filtre('cycle','Attente Paiement ou pré-auto CB',this)"><span class="cy attente">Attente Paiement</span> <span class="n">0</span></div>
@@ -1437,6 +1437,9 @@ function chargerCyclesRio(base, jeton, cb) {
       (rep && rep.contacts || []).forEach(function(c) {
         var cy = String(c.cycle_vie || "").trim();
         if (!cy) return;
+        /* Fusion des cycles équivalents (décision Corentin 06/11 :
+           « Attente interne » = « Attente client » → un seul cycle) */
+        if (cy === "Attente interne") cy = "Attente client";
         var d = String(c.tel || "").replace(/\D/g, "");
         if (d) RIO_CYCLES_TEL[d] = cy;
         var m = normMel(c.email);
@@ -2726,12 +2729,12 @@ function basculeFiltreSec(id) {
 }
 
 /* ===== « Mes conversations par cycle » : uniquement les convs assignées à MOI ===== */
-var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Attente client","Attente interne","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
+var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Attente client","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
 var MESCY_ON = null;
 var CLASSE_CYCLE = {
   "Nouvelle Demande": "nouvelle", "A qualifier": "qualifier", "A créer dans Praxedo": "praxedo",
   "En cours de réalisation": "encours", "Traitée": "traitee", "Attente client": "attente",
-  "Attente interne": "attente", "Annulée sans réponse": "traitee", "Annulée par le client": "traitee",
+  "Annulée sans réponse": "annulee", "Annulée par le client": "annulee",
   "DE Commerciales": "qualifier", "Bloquée Impayé": "impaye", "Attente Paiement ou pré-auto CB": "attente"
 };
 function classeCycle(cy) { return CLASSE_CYCLE[cy] || null; }
