@@ -907,7 +907,6 @@
         <button class="outil-btn ob-rouge" id="btn-dictee" onclick="dicter()" title="Dicter ton message (reconnaissance vocale du navigateur — Chrome/Edge)"><span class="ob-ico">🎤</span></button>
         <button class="btn primaire" id="btn-env" disabled onclick="envoyerMessage()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M3.5 11.5L20.5 3.8a.5.5 0 0 1 .7.6l-5.9 16.4a.5.5 0 0 1-.9.1l-3.4-6.1-6.9-2.5a.5.5 0 0 1 0-1z"/><path d="M11 13.9l3.4-3.9"/></svg> Envoyer</button>
       </div>
-      <div class="note-c2" id="note-c2">✅ Écriture active — envoi réel WhatsApp/Email selon le canal choisi.</div>
     </div>
   </section>
 
@@ -1771,7 +1770,7 @@ function appliquerVraisClients(liste) {
   SELID = null; SELSENT = null;
   FICHE_OUVERTS = {}; RECH_TXT = ""; RECH_FIL = "";
   renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
-  pushNotif("✅ " + socs.length + " sociétés réelles chargées (" + liste.length + " contacts" + (ignoresTest ? ", " + ignoresTest + " client(s) TEST ignorés" : "") + ") — aucune conversation créée : elles naîtront quand un vrai message arrivera ou depuis les fiches (💬 Lancer).");
+  pushNotif("✅ " + socs.length + " sociétés chargées (" + liste.length + " contacts)");
 }
 /* ===== C4 : vrais messages WhatsApp (via /api/whatsapp-messages) =====
    Après l'import des clients 🔌, on récupère les derniers messages enregistrés
@@ -2689,7 +2688,7 @@ function envoyerMessageWaReel(c, inp, v) {
     if (inp) inp.value = ""; majHauteurSaisie();
     finEnvoi();
     renduFil(); renduListe(); rafraichirFiche(); majBadgeNouveaux();
-    pushNotif("✅ Message WhatsApp envoyé pour de vrai" + (rep.j.wamid ? " (" + rep.j.wamid + ")" : "") + " — recharge 🔌 pour voir ✓✓");
+    pushNotif("✅ Message WhatsApp envoyé" + (rep.j.wamid ? " (" + rep.j.wamid + ")" : ""));
   })
   .catch(function(e) {
     pushNotif("⚠️ Envoi WhatsApp impossible : " + String((e && e.message) || e));
@@ -3372,8 +3371,7 @@ function renduFil() {
   majDescente();
 
   var cz = document.getElementById("commzone");
-  cz.innerHTML = "<h4>💬 Commentaires internes — affichés dans le fil, à leur date d'envoi</h4>" +
-    '<div class="comm" style="color:#a3a08f;font-size:11px;">Les commentaires sont intégrés à la conversation, dans l\'ordre chronologique (bulles jaunes 📌). Tag un collègue avec @Marine, @Nicolas, @Léa ou @David pour lui envoyer une notification.</div>' +
+  cz.innerHTML =
     '<div class="comm-saisie">' +
       '<button class="btn" onclick="dicterComm()" title="Dicter le commentaire au micro">🎤</button>' +
       '<input id="nv-comm" placeholder="Ajouter un commentaire interne (visible par l\'équipe uniquement)…" onkeydown="if(event.key===\'Enter\'){ajouterComm();}"/>' +
