@@ -801,6 +801,59 @@
   .rail-btn:focus-visible { outline: 2px solid #1273d1; outline-offset: 1px; }
   .f-sec.flash-sec { animation: flashSec 1.4s ease-out; border-radius: 10px; }
   @keyframes flashSec { 0% { background: #DDEBF9; box-shadow: 0 0 0 3px #cfe3f8; } 100% { background: transparent; box-shadow: none; } }
+
+  /* ============================================================
+     C8-THEME-1 : THÈME COULEURS U'MOB (lime #BCCF00 + anthracite
+     #1b2430) — activé par body.umob via le bouton 🎨 topbar, état
+     mémorisé (localStorage umob_theme). LEÇON du 29/10 : lime en
+     accents lisibles (texte SOMBre sur lime, jamais l'inverse), pas
+     de tints olive étalés, anthracite pour les textes.
+     ============================================================ */
+  body.umob {
+    --lime: #BCCF00; --lime-hov: #a3b800; --lime-soft: #F3F6DC; --lime-bord: #E0E7A8;
+    --grad-bleu: linear-gradient(135deg, #d0df1a 0%, #BCCF00 55%, #96a500 100%);
+    --bg: #F2F4E9; --bord: #E5E8D2; --bord2: #D5DBB8;
+  }
+  body.umob header.topbar { background: linear-gradient(135deg, #d0df1a 0%, #BCCF00 55%, #96a500 100%); color: #1b2430; box-shadow: 0 3px 14px rgba(120,135,0,.35), inset 0 1px 0 rgba(255,255,255,.35); }
+  body.umob header.topbar .logo, body.umob header.topbar .logo span, body.umob header.topbar .logo b { color: #1b2430; }
+  body.umob header.topbar .logo svg { stroke: #1b2430; }
+  body.umob header.topbar .crumb { background: rgba(27,36,48,.12); color: #1b2430; }
+  body.umob .btn-nouv { background: rgba(27,36,48,.10); border-color: rgba(27,36,48,.20); color: #1b2430; }
+  body.umob .btn-nouv:hover { background: rgba(27,36,48,.20); }
+  body.umob .btn-nouv .n { color: #1b2430; }
+  body.umob .badge-ver { background: rgba(27,36,48,.12); border-color: rgba(27,36,48,.22); color: #1b2430; }
+  body.umob #btn-auth.conncte { background: #fff; color: #5a6200; }
+  /* texte sombre sur tous les fonds lime (contraste) */
+  body.umob .chip.on, body.umob .toggle button.on, body.umob .btn.primaire, body.umob .grp, body.umob .grp:hover, body.umob .grp.on, body.umob .grp .tri, body.umob .ia-head, body.umob .ia-moi .ia-b, body.umob .ia-env { color: #1b2430; }
+  body.umob .grp .ind { color: rgba(27,36,48,.7); }
+  body.umob .ia-bulle svg, body.umob .ia-head .ia-logo svg, body.umob .ia-msg .ia-av svg { stroke: #1b2430; }
+  body.umob .ia-bulle, body.umob .ia-head, body.umob .ia-moi .ia-b { background: linear-gradient(135deg, #d0df1a 0%, #BCCF00 55%, #96a500 100%); }
+  body.umob .ia-bulle::after { border-color: rgba(188,207,0,.5); }
+  body.umob .ia-head-st { color: #4a5200; }
+  body.umob .ia-env:hover { filter: brightness(1.05); }
+  /* états de sélection : tints lime doux */
+  body.umob .conv.on { background: #EFF3D6; box-shadow: inset 3px 0 0 #BCCF00, 0 1px 4px rgba(15,35,70,.05); }
+  body.umob .conv.on:hover { background: #E8EDCC; }
+  body.umob .cl-ctc.on { background: #EFF3D6; border-left-color: #BCCF00; }
+  body.umob .grp-bloc { border-color: #E0E7A8; background: #F8FAEE; }
+  body.umob .dot { background: #BCCF00; box-shadow: 0 0 0 2px rgba(188,207,0,.3); }
+  body.umob .badge-new { background: #BCCF00; color: #1b2430; box-shadow: 0 1px 4px rgba(120,135,0,.5); }
+  body.umob .f-sec h3 { border-bottom-color: #cfd696; }
+  body.umob .rail-btn:hover, body.umob .volet-pli:hover { background: #EFF3D6; }
+  body.umob .saisie .barre:focus-within, body.umob #ia-saisie:focus, body.umob .rech-fil input:focus, body.umob #auth-corps input:focus { border-color: #BCCF00; box-shadow: 0 0 0 3px rgba(188,207,0,.2); }
+  body.umob .rz:hover::after, body.umob .rz.actif::after { background: rgba(188,207,0,.6); }
+  body.umob .volet.cible { box-shadow: inset 4px 0 0 #BCCF00, 0 10px 34px rgba(15,35,70,.1); }
+  body.umob .nv-item:hover, body.umob .bo-item:hover, body.umob .cp-contact:hover, body.umob .outil-btn:hover { border-color: #BCCF00; background: #F3F6DC; }
+  body.umob ::selection { background: #e3ea9c; }
+  /* bulles sortantes : lime plein, texte anthracite */
+  body.umob .bulle.agent { background: linear-gradient(135deg, #d0df1a 0%, #BCCF00 60%, #a3b800 100%); color: #1b2430; box-shadow: 0 3px 10px rgba(150,165,0,.35); }
+  body.umob .bulle.agent .h { color: #5a6200; }
+  body.umob .bulle.agent .mail-obj { background: rgba(27,36,48,.10); border-left-color: rgba(27,36,48,.6); color: #1b2430; }
+  body.umob .bulle.agent .exp-lib { color: #5a6200; border-top-color: rgba(27,36,48,.2); }
+  body.umob .bulle.agent .pj { background: rgba(27,36,48,.08); border-color: rgba(27,36,48,.2); color: #3a4030; }
+  body.umob .bulle.agent .mail-cite summary { color: #5a6200; }
+  body.umob .bulle.agent mark { background: rgba(255,255,255,.5); color: #1b2430; }
+  body.umob .bulle.agent a { color: #3a4030; text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -821,6 +874,7 @@
   <button class="btn-nouv" id="btn-comptes" style="display:none;" onclick="ouvrirComptes()" title="Admin : créer, activer/désactiver les comptes de l'équipe (table agent_sav.utilisateurs)">🛡️ Comptes</button>
   <select class="badge-ver" id="sel-moi" title="Qui suis-je ? (pour les commentaires internes et le filtre « Mes conversations »)" onchange="MOI = this.value; renduListe(); renduMesCycles();"></select>
   <button class="btn-nouv" id="btn-auto" onclick="basculerAuto()" title="Rafraîchissement automatique : toutes les minutes, la plateforme relit les messages WhatsApp et les emails réels (tant que les vraies données sont chargées et l'onglet visible). Clique pour activer/désactiver.">🔄 Auto : arrêt</button>
+  <button class="btn-nouv" id="btn-theme" onclick="basculerThemeUmob()" title="Basculer le thème visuel : bleu plateforme / couleurs de marque U'mob (lime)">🎨 Thème</button>
 </header>
 
 <div class="layout" id="layout">
@@ -4680,6 +4734,20 @@ function iaEnvoyer() {
     IA_MSGS.push({ de: "ia", txt: "⚠️ Réseau injoignable : " + e });
   }).then(function() { IA_ENVOI = false; var bEnv2 = document.getElementById("ia-env-btn"); if (bEnv2) bEnv2.disabled = false; iaRendu(); });
 }
+
+/* C8-THEME-1 : bascule thème Bleu / couleurs U'mob (mémorisé par navigateur) */
+function themeUmobActif() { return document.body.classList.contains("umob"); }
+function majBoutonTheme() {
+  var b = document.getElementById("btn-theme");
+  if (b) b.innerHTML = themeUmobActif() ? "🎨 Thème : U'mob" : "🎨 Thème : Bleu";
+}
+function basculerThemeUmob() {
+  document.body.classList.toggle("umob");
+  try { localStorage.setItem("umob_theme", themeUmobActif() ? "umob" : "bleu"); } catch (e) {}
+  majBoutonTheme();
+}
+try { if (localStorage.getItem("umob_theme") === "umob") document.body.classList.add("umob"); } catch (e) {}
+majBoutonTheme();
 
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
