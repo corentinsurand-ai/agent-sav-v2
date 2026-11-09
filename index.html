@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="fr">
 <head>
@@ -259,7 +258,7 @@
 
   .comm-saisie { display: flex; gap: 7px; margin-top: 9px; }
   .comm-saisie input { flex: 1; border: 1px solid var(--bord2); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; background: #fff; }
-  .comm-saisie input:focus { border-color: var(--lime-hov); outline: none; box-shadow: 0 0 0 2px rgba(188,207,0,.22); }
+  .comm-saisie input:focus { border-color: var(--lime-hov); outline: none; box-shadow: 0 0 0 2px rgba(16,185,129,.22); }
   .ass-sel { border: 1px solid var(--bord2); border-radius: 8px; padding: 4px 8px; font-size: 12px; background: var(--card); color: var(--ink); }
   .saisie { background: var(--card); border-top: 1px solid var(--bord); padding: 12px 18px 14px; }
   .saisie .barre { display: flex; gap: 8px; align-items: center; background: #F3F5F2; border: 1.5px solid var(--bord2); border-radius: 16px; padding: 6px 6px 6px 14px; transition: border-color .15s, box-shadow .15s, background .15s; }
@@ -319,7 +318,7 @@
   .rech-conv { border: 1px solid var(--bord2); border-radius: 8px; padding: 5px 9px; font-size: 12px; width: 160px; }
   .rech-fil { display: flex; gap: 8px; align-items: center; padding: 8px 18px; background: var(--card); border-bottom: 1px solid var(--bord); }
   .rech-fil input { flex: 1; border: 1px solid var(--bord2); border-radius: 10px; padding: 7px 12px; font-size: 12.5px; }
-  .rech-fil input:focus { outline: none; border-color: var(--lime-hov); box-shadow: 0 0 0 2px rgba(188,207,0,.22); }
+  .rech-fil input:focus { outline: none; border-color: var(--lime-hov); box-shadow: 0 0 0 2px rgba(16,185,129,.22); }
   .rech-fil .nb { font-size: 11px; color: var(--mut); white-space: nowrap; }
   mark { background: #FDE96B; border-radius: 3px; padding: 0 1px; }
   .bulle.sans { opacity: .35; }
@@ -803,18 +802,18 @@
   @keyframes flashSec { 0% { background: #DDEBF9; box-shadow: 0 0 0 3px #cfe3f8; } 100% { background: transparent; box-shadow: none; } }
 
   /* ============================================================
-     C8-THEME-1 : THÈME COULEURS U'MOB (lime #BCCF00 + anthracite
+     C8-THEME-1 : THÈME U.MOB V55 : vert émeraude #10B981 (remplace le lime #BCCF00 jugé trop jaune) + anthracite
      #1b2430) — activé par body.umob via le bouton 🎨 topbar, état
-     mémorisé (localStorage umob_theme). LEÇON du 29/10 : lime en
-     accents lisibles (texte SOMBre sur lime, jamais l'inverse), pas
+     mémorisé (localStorage umob_theme). LEÇON du 29/10 : vert en
+     accents lisibles (texte SOMBRE sur vert, jamais l'inverse), pas
      de tints olive étalés, anthracite pour les textes.
      ============================================================ */
   body.umob {
-    --lime: #BCCF00; --lime-hov: #a3b800; --lime-soft: #F3F6DC; --lime-bord: #E0E7A8;
-    --grad-bleu: linear-gradient(135deg, #d0df1a 0%, #BCCF00 55%, #96a500 100%);
-    --bg: #F2F4E9; --bord: #E5E8D2; --bord2: #D5DBB8;
+    --lime: #10B981; --lime-hov: #0d9268; --lime-soft: #E6F7F0; --lime-bord: #BFE8D6;
+    --grad-bleu: linear-gradient(135deg, #3ddc97 0%, #10B981 55%, #06865b 100%);
+    --bg: #F1F6F3; --bord: #DCE8E1; --bord2: #C3D5CC;
   }
-  body.umob header.topbar { background: linear-gradient(135deg, #d0df1a 0%, #BCCF00 55%, #96a500 100%); color: #1b2430; box-shadow: 0 3px 14px rgba(120,135,0,.35), inset 0 1px 0 rgba(255,255,255,.35); }
+  body.umob header.topbar { background: linear-gradient(135deg, #3ddc97 0%, #10B981 55%, #06865b 100%); color: #1b2430; box-shadow: 0 3px 14px rgba(13,120,88,.35), inset 0 1px 0 rgba(255,255,255,.35); }
   body.umob header.topbar .logo, body.umob header.topbar .logo span, body.umob header.topbar .logo b { color: #1b2430; }
   body.umob header.topbar .logo svg { stroke: #1b2430; }
   body.umob header.topbar .crumb { background: rgba(27,36,48,.12); color: #1b2430; }
@@ -822,38 +821,38 @@
   body.umob .btn-nouv:hover { background: rgba(27,36,48,.20); }
   body.umob .btn-nouv .n { color: #1b2430; }
   body.umob .badge-ver { background: rgba(27,36,48,.12); border-color: rgba(27,36,48,.22); color: #1b2430; }
-  body.umob #btn-auth.conncte { background: #fff; color: #5a6200; }
-  /* texte sombre sur tous les fonds lime (contraste) */
+  body.umob #btn-auth.conncte { background: #fff; color: #0b6b4f; }
+  /* texte sombre sur tous les fonds verts (contraste) */
   body.umob .chip.on, body.umob .toggle button.on, body.umob .btn.primaire, body.umob .grp, body.umob .grp:hover, body.umob .grp.on, body.umob .grp .tri, body.umob .ia-head, body.umob .ia-moi .ia-b, body.umob .ia-env { color: #1b2430; }
   body.umob .grp .ind { color: rgba(27,36,48,.7); }
   body.umob .ia-bulle svg, body.umob .ia-head .ia-logo svg, body.umob .ia-msg .ia-av svg { stroke: #1b2430; }
-  body.umob .ia-bulle, body.umob .ia-head, body.umob .ia-moi .ia-b { background: linear-gradient(135deg, #d0df1a 0%, #BCCF00 55%, #96a500 100%); }
-  body.umob .ia-bulle::after { border-color: rgba(188,207,0,.5); }
-  body.umob .ia-head-st { color: #4a5200; }
+  body.umob .ia-bulle, body.umob .ia-head, body.umob .ia-moi .ia-b { background: linear-gradient(135deg, #3ddc97 0%, #10B981 55%, #06865b 100%); }
+  body.umob .ia-bulle::after { border-color: rgba(16,185,129,.5); }
+  body.umob .ia-head-st { color: #0b6b4f; }
   body.umob .ia-env:hover { filter: brightness(1.05); }
-  /* états de sélection : tints lime doux */
-  body.umob .conv.on { background: #EFF3D6; box-shadow: inset 3px 0 0 #BCCF00, 0 1px 4px rgba(15,35,70,.05); }
-  body.umob .conv.on:hover { background: #E8EDCC; }
-  body.umob .cl-ctc.on { background: #EFF3D6; border-left-color: #BCCF00; }
-  body.umob .grp-bloc { border-color: #E0E7A8; background: #F8FAEE; }
-  body.umob .dot { background: #BCCF00; box-shadow: 0 0 0 2px rgba(188,207,0,.3); }
-  body.umob .badge-new { background: #BCCF00; color: #1b2430; box-shadow: 0 1px 4px rgba(120,135,0,.5); }
-  body.umob .f-sec h3 { border-bottom-color: #cfd696; }
-  body.umob .rail-btn:hover, body.umob .volet-pli:hover { background: #EFF3D6; }
-  body.umob .saisie .barre:focus-within, body.umob #ia-saisie:focus, body.umob .rech-fil input:focus, body.umob #auth-corps input:focus { border-color: #BCCF00; box-shadow: 0 0 0 3px rgba(188,207,0,.2); }
-  body.umob .rz:hover::after, body.umob .rz.actif::after { background: rgba(188,207,0,.6); }
-  body.umob .volet.cible { box-shadow: inset 4px 0 0 #BCCF00, 0 10px 34px rgba(15,35,70,.1); }
-  body.umob .nv-item:hover, body.umob .bo-item:hover, body.umob .cp-contact:hover, body.umob .outil-btn:hover { border-color: #BCCF00; background: #F3F6DC; }
-  body.umob ::selection { background: #e3ea9c; }
-  /* bulles sortantes : lime plein, texte anthracite */
-  body.umob .bulle.agent { background: linear-gradient(135deg, #d0df1a 0%, #BCCF00 60%, #a3b800 100%); color: #1b2430; box-shadow: 0 3px 10px rgba(150,165,0,.35); }
-  body.umob .bulle.agent .h { color: #5a6200; }
+  /* états de sélection : tints verts doux */
+  body.umob .conv.on { background: #DFF3EA; box-shadow: inset 3px 0 0 #10B981, 0 1px 4px rgba(15,35,70,.05); }
+  body.umob .conv.on:hover { background: #CDEBDD; }
+  body.umob .cl-ctc.on { background: #DFF3EA; border-left-color: #10B981; }
+  body.umob .grp-bloc { border-color: #BFE8D6; background: #F2FBF7; }
+  body.umob .dot { background: #10B981; box-shadow: 0 0 0 2px rgba(16,185,129,.3); }
+  body.umob .badge-new { background: #10B981; color: #1b2430; box-shadow: 0 1px 4px rgba(13,120,88,.5); }
+  body.umob .f-sec h3 { border-bottom-color: #a9dcc4; }
+  body.umob .rail-btn:hover, body.umob .volet-pli:hover { background: #DFF3EA; }
+  body.umob .saisie .barre:focus-within, body.umob #ia-saisie:focus, body.umob .rech-fil input:focus, body.umob #auth-corps input:focus { border-color: #10B981; box-shadow: 0 0 0 3px rgba(16,185,129,.2); }
+  body.umob .rz:hover::after, body.umob .rz.actif::after { background: rgba(16,185,129,.6); }
+  body.umob .volet.cible { box-shadow: inset 4px 0 0 #10B981, 0 10px 34px rgba(15,35,70,.1); }
+  body.umob .nv-item:hover, body.umob .bo-item:hover, body.umob .cp-contact:hover, body.umob .outil-btn:hover { border-color: #10B981; background: #E6F7F0; }
+  body.umob ::selection { background: #b8e8d2; }
+  /* bulles sortantes : émeraude plein, texte anthracite */
+  body.umob .bulle.agent { background: linear-gradient(135deg, #3ddc97 0%, #10B981 60%, #0d9268 100%); color: #1b2430; box-shadow: 0 3px 10px rgba(13,120,88,.35); }
+  body.umob .bulle.agent .h { color: #0b6b4f; }
   body.umob .bulle.agent .mail-obj { background: rgba(27,36,48,.10); border-left-color: rgba(27,36,48,.6); color: #1b2430; }
-  body.umob .bulle.agent .exp-lib { color: #5a6200; border-top-color: rgba(27,36,48,.2); }
-  body.umob .bulle.agent .pj { background: rgba(27,36,48,.08); border-color: rgba(27,36,48,.2); color: #3a4030; }
-  body.umob .bulle.agent .mail-cite summary { color: #5a6200; }
+  body.umob .bulle.agent .exp-lib { color: #0b6b4f; border-top-color: rgba(27,36,48,.2); }
+  body.umob .bulle.agent .pj { background: rgba(27,36,48,.08); border-color: rgba(27,36,48,.2); color: #123f30; }
+  body.umob .bulle.agent .mail-cite summary { color: #0b6b4f; }
   body.umob .bulle.agent mark { background: rgba(255,255,255,.5); color: #1b2430; }
-  body.umob .bulle.agent a { color: #3a4030; text-decoration: underline; }
+  body.umob .bulle.agent a { color: #123f30; text-decoration: underline; }
 </style>
 </head>
 <body>
