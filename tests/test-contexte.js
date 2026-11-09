@@ -278,7 +278,7 @@ test('GET complet : 3 appels dans l\'ordre, 200, fiche + messages + commentaires
   assert.strictEqual(res.statusCode, 200);
   assert.strictEqual(res.corps.ok, true);
   assert.strictEqual(res.corps.brique, 'B2');
-  assert.strictEqual(res.corps.version, 'C8-ASSIST-1');
+  assert.strictEqual(res.corps.version, 'C8-ASSIST-2');
   assert.strictEqual(res.corps.contact_id, '123');
   assert.strictEqual(res.corps.limite, 60);
   // 3 appels dans l'ordre attendu (séquentiel)
@@ -379,7 +379,7 @@ test('brut=1 : réponse embarque fiche + messages + commentaires BRUTS', async (
   const res = faireRes();
   await contexte(reqGet('secret=secret-de-test-b2&contact=123&brut=1'), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, 'C8-ASSIST-1');
+  assert.strictEqual(res.corps.version, 'C8-ASSIST-2');
   // TOUJOURS 3 appels — le mode brut n'ajoute AUCUN appel API
   assert.strictEqual(appelsFetch.length, 3);
   // Fiche brute : la structure EXACTE renvoyée par respond.io, pas la normalisée

@@ -31,12 +31,28 @@ function faireReq(methode, url, corps, query) {
 // --- Fakes fetch : Supabase (données) + Mistral (réponse) -------------------
 var URLS_DEMANDEES = [];
 var FAUX_MISTRAL = null;   // si null → 500 (panne)
+var DERNIER_PROMPT = null; // corps de la requête Mistral (pour vérifier le contexte)
 globalThis.fetch = async function (url, opts) {
   var u = String(url);
   URLS_DEMANDEES.push(u + ' ' + ((opts && opts.method) || 'GET'));
   if (u.indexOf('api.mistral.ai') !== -1) {
+    try { DERNIER_PROMPT = JSON.parse(opts.body); } catch (e) { DERNIER_PROMPT = null; }
     if (!FAUX_MISTRAL) return { ok: false, status: 500, text: async () => '{"error":"ko"}' };
     return { ok: true, status: 200, text: async () => JSON.stringify(FAUX_MISTRAL) };
+  }
+  if (u.indexOf('clients?') !== -1) {
+    return { ok: true, status: 200, text: async () => '[]', json: async () => [
+      { telephone: '33684545236', enseigne: 'LM PIZZA PUCE', plaque: 'GX336VG / GX519VG', statut_risque: 'Sous surveillance',
+        brut: { lignes: [ { immat: 'GX336VG', produit: 'COMPACT PRO', code_client: 'C2119', nom_contact: 'MICHELINI', prenom: 'Gabriel', email: 'lmpizzapuce@gmail.com', ville: 'LYON', contrat: 'Modèle Confort Plus n° CO2119 du 30/04/2023 au 26/07/2028' } ] } },
+      { telephone: '33611111111', enseigne: 'PIZZA KARIM', plaque: 'AA111AA', statut_risque: 'OK',
+        brut: { lignes: [ { immat: 'AA111AA', produit: 'SCOOT', code_client: 'C9999', nom_contact: 'KARIM', email: 'karim@pizzeria.fr', ville: 'LYON' } ] } }
+    ] };
+  }
+  if (u.indexOf('comptages_maintenance') !== -1) {
+    return { ok: true, status: 200, text: async () => '[]', json: async () => [
+      { code_client: 'C2119', nom: 'LM PIZZA PUCE', donnees: { sites: [ { ville: 'LYON', pack: 'Confort Plus', droits: 2, restants: 2, consommes: 0, derniere: '2025-12-16', contrat_fin: '2028-07-26', par_annee: [ { debut: '2026-04-30', fin: '2027-04-30', restants: 2, consommes: 0, en_cours: true } ], dates_passages: ['2025-12-16', '2024-09-23'] } ] } },
+      { code_client: 'C9999', nom: 'PIZZA KARIM', donnees: { sites: [] } }
+    ] };
   }
   if (u.indexOf('respondio_contacts') !== -1) {
     return { ok: true, status: 200, text: async () => '[]', json: async () => [
@@ -137,3 +153,56 @@ test('GET inchangé : secret ok sans contact → 400', async () => {
   await handler(faireReq('GET', '/api/contexte?secret=secret-test-assist', {}, { secret: 'secret-test-assist' }), r);
   assert.equal(r.statusCode, 400);
 });
+
+// --- C8-ASSIST-2 : résolution du client + maintenances ----------------------
+
+test('C8-ASSIST-2 : client nommé dans la question → fiche + MAINTENANCES dans le prompt', async () => {
+  FAUX_MISTRAL = { choices: [{ message: { content: 'ok' } }], model: 'm', usage: {} };
+  URLS_DEMANDEES = []; DERNIER_PROMPT = null;
+  const r = faireRes();
+  await handler(faireReq('POST', '/api/contexte', {
+    question: 'Combien reste-t-il de maintenances à LM PIZZA PUCE pour l\'année en cours ?', jeton: JETON
+  }), r);
+  assert.equal(r.statusCode, 200);
+  assert.ok(URLS_DEMANDEES.some(u => u.indexOf('clients?') !== -1), 'table clients interrogée');
+  assert.ok(URLS_DEMANDEES.some(u => u.indexOf('comptages_maintenance') !== -1), 'comptages_maintenance interrogée');
+  const sys = DERNIER_PROMPT.messages[0].content;
+  assert.ok(sys.indexOf('### CLIENT CONCERNÉ') !== -1, 'fiche prioritaire présente');
+  assert.ok(sys.indexOf('LM PIZZA PUCE') !== -1, 'bon client détecté (pas un autre)');
+  assert.ok(sys.indexOf('restants: 2') !== -1, 'comptage maintenance injecté');
+  assert.ok(sys.indexOf('ANNEE EN COURS') !== -1, 'année en cours injectée');
+  assert.ok(sys.indexOf('PIZZA KARIM') === -1 || sys.indexOf('CLIENT CONCERNÉ') < sys.indexOf('PIZZA KARIM'), 'priorité au client détecté');
+  FAUX_MISTRAL = null;
+});
+
+test('C8-ASSIST-2 : conversation ouverte → client résolu par le téléphone du canvas', async () => {
+  FAUX_MISTRAL = { choices: [{ message: { content: 'ok' } }], model: 'm', usage: {} };
+  URLS_DEMANDEES = []; DERNIER_PROMPT = null;
+  const r = faireRes();
+  await handler(faireReq('POST', '/api/contexte', {
+    question: 'Combien il lui reste de maintenances ?', jeton: JETON,
+    conversation: { nom: 'Gabriel Michelini', tel: '+33684545236', email: 'lmpizzapuce@gmail.com', entreprise: 'LM PIZZA PUCE' }
+  }), r);
+  assert.equal(r.statusCode, 200);
+  const sys = DERNIER_PROMPT.messages[0].content;
+  assert.ok(sys.indexOf('### CLIENT CONCERNÉ') !== -1, 'fiche du client de la conversation');
+  assert.ok(sys.indexOf('LM PIZZA PUCE') !== -1);
+  assert.ok(sys.indexOf('restants: 2') !== -1, 'maintenances du bon client');
+  assert.ok(URLS_DEMANDEES.some(u => u.indexOf('wa_id=eq.33684545236') !== -1), 'historique WA ciblé');
+  FAUX_MISTRAL = null;
+});
+
+test('C8-ASSIST-2 : client sans comptage maintenance → message « aucune donnée », pas d\'invention', async () => {
+  FAUX_MISTRAL = { choices: [{ message: { content: 'ok' } }], model: 'm', usage: {} };
+  DERNIER_PROMPT = null;
+  const r = faireRes();
+  await handler(faireReq('POST', '/api/contexte', {
+    question: 'Combien reste-t-il de maintenances à PIZZA KARIM ?', jeton: JETON
+  }), r);
+  assert.equal(r.statusCode, 200);
+  const sys = DERNIER_PROMPT.messages[0].content;
+  assert.ok(sys.indexOf('CLIENT CONCERNÉ') !== -1 && sys.indexOf('PIZZA KARIM') !== -1);
+  assert.ok(sys.indexOf('aucune donnée de maintenance') !== -1, 'absence explicite signalée au modèle');
+  FAUX_MISTRAL = null;
+});
+

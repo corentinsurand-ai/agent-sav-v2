@@ -31,7 +31,7 @@
 //        → {ok:true, reponse:"…"} — jeton de session OU secret machine.
 // ============================================================================
 
-var VERSION = 'C8-ASSIST-1';
+var VERSION = 'C8-ASSIST-2';
 
 var contexte = require('../lib/contexte.js');
 var mistral = require('../lib/mistral.js');
@@ -113,9 +113,135 @@ async function supabaseSelect(chemin, repli) {
   } catch (e) { return repli || []; }
 }
 
+// ---- C8-ASSIST-2 : résolution du client ------------------------------------
+
+function normaliserTxt(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ');
+}
+
+// Formate les comptages de maintenances d'un client (source comptages_maintenance,
+// mêmes données que la page entreprise du canvas).
+function formaterMaintenances(maints) {
+  var out = [];
+  (maints || []).forEach(function (m) {
+    var donnees = (m && m.donnees) || {};
+    (donnees.sites || []).forEach(function (s) {
+      var t = ['  - Site ' + (s.ville || '?')];
+      if (s.pack) t.push('pack: ' + s.pack);
+      if (s.droits != null) t.push('droits/an: ' + s.droits);
+      if (s.restants != null) t.push('restants (année en cours): ' + s.restants);
+      if (s.consommes != null) t.push('consommés (année en cours): ' + s.consommes);
+      if (s.derniere) t.push('dernier passage: ' + s.derniere);
+      if (s.contrat_fin) t.push('contrat jusqu\'au: ' + s.contrat_fin);
+      out.push(t.join(' | '));
+      (s.par_annee || []).forEach(function (p) {
+        if (p.en_cours) {
+          out.push('    ANNEE EN COURS: ' + (p.debut || '?') + ' → ' + (p.fin || '?') +
+            ' | restants: ' + (p.restants != null ? p.restants : '?') +
+            ' | consommés: ' + (p.consommes != null ? p.consommes : '?'));
+        }
+      });
+      if (s.dates_passages && s.dates_passages.length) {
+        out.push('    dates de passage: ' + s.dates_passages.join(', '));
+      }
+    });
+  });
+  return out.join('\n');
+}
+
+// Détecte le client concerné par la question (nom/enseigne/tél/plaque) —
+// priorité à la conversation ouverte si la question ne nomme personne d'autre.
+function detecterClient(question, conv, clients) {
+  var q = normaliserTxt(question);
+  var qDigits = (String(question || '').replace(/\D/g, '').match(/\d{6,}/g) || []);
+  var qNoSp = q.replace(/ /g, '');
+  var meilleur = null, meilleurScore = 0;
+  var convTel = conv && conv.tel ? String(conv.tel).replace(/\D/g, '') : '';
+  var convEnt = conv && conv.entreprise ? normaliserTxt(conv.entreprise) : '';
+  clients.forEach(function (c) {
+    var score = 0;
+    var ens = normaliserTxt(c.enseigne);
+    var ensNoSp = ens.replace(/ /g, '');
+    if (ensNoSp.length >= 4 && qNoSp.indexOf(ensNoSp) !== -1) score += 5;
+    var mots = ens.split(' ').filter(function (m) { return m.length >= 3; });
+    mots.forEach(function (m) { if (q.indexOf(' ' + m + ' ') !== -1 || q.indexOf(m) !== -1) score += 2; });
+    var tel = String(c.telephone || '').replace(/\D/g, '');
+    if (tel) {
+      if (qDigits.some(function (d) { return d.length >= 9 && (tel.indexOf(d) !== -1 || d.indexOf(tel) !== -1); })) score += 10;
+      if (convTel && tel === convTel) score += 8;
+    }
+    if (convEnt && ens === convEnt) score += 8;
+    var plaques = String(c.plaque || '').split('/').map(function (p) { return p.trim(); }).filter(Boolean);
+    plaques.forEach(function (p) { if (q.indexOf(p) !== -1) score += 6; });
+    var lignes = ((c.brut || {}).lignes) || [];
+    lignes.forEach(function (l) {
+      ['nom_contact', 'prenom'].forEach(function (ch) {
+        var v = normaliserTxt(l[ch]);
+        if (v && v.length >= 3 && qNoSp.indexOf(v.replace(/ /g, '')) !== -1) score += 3;
+      });
+    });
+    if (score > meilleurScore) { meilleurScore = score; meilleur = c; }
+  });
+  return meilleurScore >= 4 ? meilleur : null;
+}
+
 // Assemble les DONNÉES réelles compactes pour le prompt.
-async function assemblerDonnees(conv) {
+async function assemblerDonnees(conv, _, question) {
   var lignes = [];
+
+  // 0. Clients (table clients + comptages_maintenance = page entreprise)
+  var clients = await supabaseSelect('clients?select=telephone,enseigne,plaque,statut_risque,brut&order=enseigne.asc&limit=2000', []);
+  var comptages = await supabaseSelect('comptages_maintenance?select=code_client,nom,donnees&limit=5000', []);
+  var maintParCode = {};
+  comptages.forEach(function (m) { maintParCode[m.code_client] = m; });
+
+  // Résolution du client : question d'abord, sinon conversation ouverte.
+  var questionPourDetection = String(question || '');
+  var clientDetecte = detecterClient(questionPourDetection, conv, clients);
+  if (!clientDetecte && conv && conv.tel) {
+    var dConv = String(conv.tel).replace(/\D/g, '');
+    clientDetecte = clients.find(function (c) { return String(c.telephone || '').replace(/\D/g, '') === dConv; }) || null;
+  }
+
+  // 0a. FICHE PRIORITAIRE du client détecté (fiche + maintenances complètes)
+  if (clientDetecte) {
+    var cd = clientDetecte;
+    var fic = ['### CLIENT CONCERNÉ (priorité absolue, ignore tout autre client) :'];
+    fic.push('- Enseigne: ' + (cd.enseigne || '?') + ' | tel: ' + (cd.telephone || '?') +
+      ' | plaques: ' + (cd.plaque || '?') + ' | statut risque: ' + (cd.statut_risque || '?'));
+    var codes = [];
+    (((cd.brut || {}).lignes) || []).forEach(function (l) {
+      var t = ['  - Scooter'];
+      if (l.immat) t.push('immat: ' + l.immat);
+      if (l.produit) t.push('produit: ' + l.produit);
+      if (l.code_client) t.push('code client: ' + l.code_client);
+      if (l.nom_contact) t.push('contact: ' + l.nom_contact + (l.prenom ? ' ' + l.prenom : ''));
+      if (l.email) t.push('email: ' + l.email);
+      if (l.telephone) t.push('tél: ' + l.telephone);
+      if (l.ville) t.push('ville: ' + l.ville);
+      if (l.contrat) t.push('contrat: ' + l.contrat);
+      if (l.impayes) t.push('impayés: ' + l.impayes);
+      fic.push(t.join(' | '));
+      if (l.code_client && codes.indexOf(l.code_client) === -1) codes.push(l.code_client);
+    });
+    var maints = codes.map(function (cc) { return maintParCode[cc]; }).filter(Boolean)
+      .map(function (m) { return { code_client: m.code_client, nom: m.nom, donnees: m.donnees }; });
+    var fm = formaterMaintenances(maints);
+    if (fm) {
+      fic.push('  MAINTENANCES (source comptages_maintenance — Réponds aux questions d\'entretien UNIQUEMENT avec ceci) :');
+      fic.push(fm);
+    } else {
+      fic.push('  MAINTENANCES: aucune donnée de maintenance trouvée pour ce client — dis-le, n\'invente rien.');
+    }
+    lignes.push(fic.join('\n'));
+  }
+
+  // 0b. Annuaire compact de TOUS les clients (pour retrouver un client par nom)
+  clients.forEach(function (c) {
+    lignes.push('- CLIENT ' + (c.enseigne || '?') + ' | tel ' + (c.telephone || '?') +
+      ' | plaques ' + (c.plaque || '?') + ' | risque ' + (c.statut_risque || '?'));
+  });
+
   // 1. Contacts respond.io : identité + cycle + assignation (le plus utile)
   try {
     var rc = await supabaseSelect('respondio_contacts?select=prenom,nom,tel,email,cycle_vie,assignee&order=id.asc&limit=1000', []);
@@ -131,9 +257,10 @@ async function assemblerDonnees(conv) {
     });
   } catch (e) {}
 
-  // 2. Derniers messages WhatsApp (fenêtre récente)
+  // 2. Derniers messages WhatsApp (fenêtre récente réduite : le bruit causait
+  // des confusions entre clients — la fiche ciblée ci-dessus est prioritaire)
   try {
-    var wm = await supabaseSelect('wa_messages?select=wa_id,nom_profil,texte,sens,sender_nom,recu_a&order=recu_a.desc&limit=350', []);
+    var wm = await supabaseSelect('wa_messages?select=wa_id,nom_profil,texte,sens,sender_nom,recu_a&order=recu_a.desc&limit=120', []);
     wm.slice().reverse().forEach(function (m) {
       lignes.push('- WA ' + (m.recu_a || '') + ' | tel ' + m.wa_id + ' | ' + (m.nom_profil || '') +
         ' | ' + (m.sens === 'sortant' ? ('sortant par ' + (m.sender_nom || 'l\'équipe')) : 'entrant') +
@@ -143,7 +270,7 @@ async function assemblerDonnees(conv) {
 
   // 3. Derniers emails
   try {
-    var em = await supabaseSelect('emails?select=from_addr,from_nom,to_addr,sujet,texte,sens,recu_a&order=recu_a.desc&limit=200', []);
+    var em = await supabaseSelect('emails?select=from_addr,from_nom,to_addr,sujet,texte,sens,recu_a&order=recu_a.desc&limit=60', []);
     em.slice().reverse().forEach(function (m) {
       lignes.push('- EMAIL ' + (m.recu_a || '') + ' | ' + (m.sens === 'sortant'
         ? ('à ' + m.to_addr + (m.from_nom ? ' par ' + m.from_nom : ''))
@@ -152,24 +279,43 @@ async function assemblerDonnees(conv) {
     });
   } catch (e) {}
 
-  // 4. Conversation ouverte dans le canvas (contexte prioritaire)
+  // 4. Historique ciblé : conversation ouverte dans le canvas OU client détecté
+  var telCible = '';
   if (conv && (conv.nom || conv.tel || conv.email || conv.entreprise)) {
     lignes.push('- CONVERSATION OUVERTE DANS LA PLATEFORME : ' +
       [conv.nom, conv.tel, conv.email, conv.entreprise].filter(Boolean).join(' | ') +
       ' — si la question porte sur « ce client », c\'est lui.');
-    if (conv.tel) {
-      var d = String(conv.tel).replace(/\D/g, '');
+    if (conv.tel) telCible = String(conv.tel).replace(/\D/g, '');
+  }
+  if (clientDetecte && clientDetecte.telephone) {
+    var dDet = String(clientDetecte.telephone).replace(/\D/g, '');
+    if (dDet && dDet !== telCible) {
+      lignes.push('- HISTORIQUE DU CLIENT DÉTECTÉ (' + (clientDetecte.enseigne || '') + ') :');
+      telCible = dDet;
+    }
+  }
+  if (telCible) {
+    var d = telCible;
+    {
       var hist = await supabaseSelect('wa_messages?select=texte,sens,sender_nom,recu_a&wa_id=eq.' + encodeURIComponent(d) + '&order=recu_a.desc&limit=60', []);
       hist.slice().reverse().forEach(function (m) {
-        lignes.push('- WA(ce client) ' + (m.recu_a || '') + ' | ' + (m.sens === 'sortant' ? ('sortant par ' + (m.sender_nom || 'l\'équipe')) : 'entrant') +
+        lignes.push('- WA(client concerné) ' + (m.recu_a || '') + ' | ' + (m.sens === 'sortant' ? ('sortant par ' + (m.sender_nom || 'l\'équipe')) : 'entrant') +
           ' | ' + String(m.texte || '').replace(/\s+/g, ' ').substring(0, 140));
       });
     }
-    if (conv.email) {
-      var mel = String(conv.email).trim().toLowerCase();
+    var mailsCible = [];
+    if (conv && conv.email) mailsCible.push(String(conv.email).trim().toLowerCase());
+    if (clientDetecte && clientDetecte.brut && clientDetecte.brut.lignes) {
+      clientDetecte.brut.lignes.forEach(function (l) {
+        if (l.email) mailsCible.push(String(l.email).trim().toLowerCase());
+      });
+    }
+    mailsCible = mailsCible.filter(function (v, i) { return v && mailsCible.indexOf(v) === i; }).slice(0, 3);
+    for (var mi = 0; mi < mailsCible.length; mi++) {
+      var mel = mailsCible[mi];
       var histE = await supabaseSelect('emails?select=from_addr,from_nom,to_addr,sujet,texte,sens,recu_a&or=(from_addr.eq.' + encodeURIComponent(mel) + ',to_addr.eq.' + encodeURIComponent(mel) + ')&order=recu_a.desc&limit=40', []);
       histE.slice().reverse().forEach(function (m) {
-        lignes.push('- EMAIL(ce client) ' + (m.recu_a || '') + ' | sujet: ' + String(m.sujet || '') +
+        lignes.push('- EMAIL(client concerné) ' + (m.recu_a || '') + ' | sujet: ' + String(m.sujet || '') +
           ' | ' + String(m.texte || '').replace(/\s+/g, ' ').substring(0, 120));
       });
     }
@@ -190,16 +336,20 @@ async function repondreAssistant(req, res) {
     return res.status(500).json({ ok: false, erreur: 'MISTRAL_API_KEY absente' });
   }
 
-  var donnees = await assemblerDonnees(corps.conversation || null);
+  var donnees = await assemblerDonnees(corps.conversation || null, 0, question);
 
   var messages = [
     { role: 'system', content:
       'Tu es l\'assistant intégré de la plateforme SAV de U\'mob (service technique scooters électriques). ' +
       'Tu réponds en français, de façon concise et directe (max ~180 mots), avec des puces si utile. ' +
       'Deux types de questions : (1) le FONCTIONNEMENT de la plateforme → réponds avec la documentation ci-dessous ; ' +
-      '(2) les DONNÉES (clients, derniers échanges, cycles, assignations) → appuie-toi sur les données réelles listées, ' +
-      'cite les dates/téléphones pertinents. Si une information n\'est ni dans la doc ni dans les données, dis-le franchement au lieu d\'inventer. ' +
-      'Tu ne donnes jamais de conseils juridiques ni de prix.\n\n' + DOC_PLATEFORME + '\n\nDONNÉES RÉELLES (fenêtre récente, contacts respond.io, messages WhatsApp/emails) :\n' + donnees
+      '(2) les DONNÉES (clients, échanges, cycles, assignations, MAINTENANCES) → appuie-toi UNIQUEMENT sur les données réelles listées. ' +
+      'RÈGLES ABSOLUES :\n' +
+      '- S\'il y a une section « ### CLIENT CONCERNÉ » dans les données, elle prime sur TOUT le reste : la question porte sur CE client, ignore les autres clients et les messages génériques.\n' +
+      '- Les questions de maintenances / entretiens (restants, consommés, dates de passage, contrat) se répondent UNIQUEMENT avec la section MAINTENANCES du client concerné. « Année en cours » = l\'entrée ANNEE EN COURS (période glissante du contrat, pas l\'année civile) ; « restants » = champ restants. Si aucune donnée de maintenance n\'existe pour ce client, dis-le clairement.\n' +
+      '- N\'invente JAMAIS une donnée, un chiffre, un nom ou une date. Si l\'information n\'est ni dans la doc ni dans les données, réponds franchement : « cette information n\'est pas disponible dans la plateforme ».\n' +
+      '- Ne confonds jamais deux clients : vérifie toujours que la réponse concerne bien le client demandé (nom/enseigne/téléphone).\n' +
+      'Tu ne donnes jamais de conseils juridiques ni de prix.\n\n' + DOC_PLATEFORME + '\n\nDONNÉES RÉELLES (client concerné, annuaire clients, contacts respond.io, messages WhatsApp/emails) :\n' + donnees
     },
     { role: 'user', content: question }
   ];
