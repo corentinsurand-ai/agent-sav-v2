@@ -789,6 +789,18 @@
 
   /* C8-VOLET-2 : bouton plier les infos client (l2) */
   .l2-pli { width: 30px; padding: 4px 0 !important; text-align: center; font-size: 12px; flex: none; }
+
+  /* ============================================================
+     C8-VOLET-3 : rail d'icônes du volet Filtres réduit — chaque
+     icône rouvre le volet sur sa section (scroll + flash).
+     ============================================================ */
+  .volet-rail { display: none; }
+  .volet.replie .volet-rail { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 0 16px; flex: 1; }
+  .rail-btn { width: 32px; height: 32px; border: none; background: #F1F6FC; border-radius: 10px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .15s, box-shadow .15s; }
+  .rail-btn:hover { background: #DDEBF9; transform: scale(1.08); box-shadow: 0 2px 6px rgba(14,90,167,.18); }
+  .rail-btn:focus-visible { outline: 2px solid #1273d1; outline-offset: 1px; }
+  .f-sec.flash-sec { animation: flashSec 1.4s ease-out; border-radius: 10px; }
+  @keyframes flashSec { 0% { background: #DDEBF9; box-shadow: 0 0 0 3px #cfe3f8; } 100% { background: transparent; box-shadow: none; } }
 </style>
 </head>
 <body>
@@ -816,6 +828,13 @@
   <!-- ===== Volet 1 : filtres ===== -->
   <aside class="filters volet" id="volet-filtres">
     <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet"><button class="volet-pli" onclick="event.stopPropagation();plierVolet('volet-filtres')" title="Réduire / agrandir ce volet">‹</button><span class="vt">Filtres</span> <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
+    <div class="volet-rail">
+      <button class="rail-btn" onclick="ouvrirVoletSur('fsec-canaux')" title="Canaux — filtrer WhatsApp / Email">💬</button>
+      <button class="rail-btn" onclick="ouvrirVoletSur('fsec-cycles')" title="Cycles de vie — filtrer par cycle">🔄</button>
+      <button class="rail-btn" onclick="ouvrirVoletSur('fsec-mescycles')" title="Mes conversations par cycle">🗂</button>
+      <button class="rail-btn" onclick="ouvrirVoletSur('fsec-assignation')" title="Assignation — mes conversations / non assignées">👤</button>
+      <button class="rail-btn" onclick="ouvrirVoletSur('fsec-confort')" title="Carnet d'adresses et recherche">📇</button>
+    </div>
     <div class="volet-corps filters-corps">
     <div class="f-sec" id="fsec-canaux">
       <h3 onclick="basculeFiltreSec('canaux')"><span class="fs-f">▾</span> Canaux</h3>
@@ -3887,6 +3906,19 @@ function initVolets() {
       mem[id] = replie;
       localStorage.setItem("umob_volets_replies", JSON.stringify(mem));
     } catch (e) {}
+  };
+  /* --- C8-VOLET-3 : icônes du volet Filtres réduit → rouvrir sur la section --- */
+  window.ouvrirVoletSur = function(secId) {
+    var v = document.getElementById("volet-filtres");
+    if (v && v.classList.contains("replie")) plierVolet("volet-filtres");
+    setTimeout(function() {
+      var s = document.getElementById(secId);
+      if (!s) return;
+      s.scrollIntoView({ behavior: "smooth", block: "start" });
+      s.classList.remove("flash-sec");
+      void s.offsetWidth;   /* relance l'animation même si déjà jouée */
+      s.classList.add("flash-sec");
+    }, 80);
   };
   (function() {
     try {
