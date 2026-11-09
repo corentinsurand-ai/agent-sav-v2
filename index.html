@@ -721,11 +721,62 @@
   #volet-fil { background: #fff; }
   .volet-corps { min-height: 0; }
   .commentaires { border-top: 1px solid #EDF2F8; }
+
+  /* ============================================================
+     C8-DESIGN-3 : bulles sortantes bleu plein, états vides, glass,
+     focus accessibles, barre de recherche du fil.
+     ============================================================ */
+
+  /* --- bulles sortantes : dégradé bleu plein, texte blanc (look messagerie) --- */
+  .bulle.agent { background: linear-gradient(135deg, #1273d1 0%, #0e5aa7 60%, #0a3f77 100%); border: none; border-top-right-radius: 4px; color: #fff; box-shadow: 0 3px 10px rgba(14,90,167,.3); }
+  .bulle.agent .h { color: #cfe3f8; }
+  .bulle.agent .mail-obj { background: rgba(255,255,255,.16); border-left-color: rgba(255,255,255,.7); color: #fff; }
+  .bulle.agent .exp-lib { color: #bcd8f2; border-top-color: rgba(255,255,255,.25); }
+  .bulle.agent .pj { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.25); color: #eaf3fd; }
+  .bulle.agent .mini { background: rgba(255,255,255,.18); color: #eaf3fd; }
+  .bulle.agent .mail-frame { border-color: rgba(255,255,255,.3); }
+  .bulle.agent .mail-cite summary { color: #bcd8f2; }
+  .bulle.agent .mail-cite > *:not(summary) { color: #d7e8fa; border-left-color: rgba(255,255,255,.35); }
+  .bulle.agent mark { background: rgba(255,255,255,.35); color: #0a3f77; }
+  .bulle.agent a { color: #d7ecff; }
+
+  /* --- bulles entrantes : carte blanche franche --- */
+  .bulle.entrant { box-shadow: 0 1px 4px rgba(15,35,70,.08); }
+
+  /* --- états vides illustrés --- */
+  .vide-etat { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 42px 24px; text-align: center; color: var(--mut); }
+  .vide-etat .ve-tit { font-weight: 700; color: #3a4a60; font-size: 14px; }
+  .vide-etat .ve-txt { font-size: 12.5px; line-height: 1.55; max-width: 340px; }
+  .vide-etat svg { opacity: .8; }
+
+  /* --- menu de cycle : carte verre dépoli --- */
+  .ctx { backdrop-filter: blur(8px); background: rgba(255,255,255,.92); border: 1px solid rgba(255,255,255,.8); padding: 6px; }
+
+  /* --- barre de recherche du fil : capsule avec loupe --- */
+  .rech-fil { position: relative; }
+  .rech-fil::before { content: "🔍"; position: absolute; left: 32px; top: 50%; transform: translateY(-50%); font-size: 12px; opacity: .6; pointer-events: none; }
+  .rech-fil input { border-radius: 999px; padding: 7px 14px 7px 34px; border: 1.5px solid var(--bord2); background: #FAFCFE; }
+  .rech-fil input:focus { background: #fff; }
+
+  /* --- focus clavier visible et élégant partout --- */
+  button:focus-visible, .chip:focus-visible, .conv:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+    outline: 2px solid #1273d1; outline-offset: 2px; }
+
+  /* --- badge nouveaux messages : pastille vive --- */
+  .badge-new { background: #1273d1; box-shadow: 0 1px 4px rgba(14,90,167,.4); }
+  .btn-nouv .n { background: #ffd166; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+
+  /* --- compteur non-lus du volet liste --- */
+  .liste-head b { font-weight: 800; letter-spacing: .2px; }
+
+  /* --- commentaires internes : cadre plus doux --- */
+  .commentaires h4 { color: #a08430; letter-spacing: .7px; }
+  .comm-saisie input { border-radius: 999px; }
 </style>
 </head>
 <body>
 
-<div class="proto">🧪 PROTOTYPE VISUEL C1 — lecture seule · 12 vrais clients du Google Sheet « Infos Service Client » · échanges fictifs · volets déplaçables (⇄) et redimensionnables (bord droit)</div>
+<div class="proto">🟢 Plateforme SAV U'mob — données réelles · WhatsApp &amp; Email · envois directs · rafraîchissement auto 60 s · <b>Ctrl/⌘+K</b> pour rechercher</div>
 
 <header class="topbar">
   <div class="logo" style="display:flex;align-items:center;gap:9px;">
@@ -3198,7 +3249,10 @@ function renduListe() {
     liste.forEach(dessinerConv);
   }
   document.getElementById("nb").textContent = n + " conv.";
-  if (n === 0) el.innerHTML = '<div style="padding:20px;color:#8a93a3;text-align:center;">Aucune conversation pour ces filtres.</div>';
+  if (n === 0) el.innerHTML = '<div class="vide-etat">' +
+    '<svg viewBox="0 0 24 24" width="52" height="52" fill="none" stroke="#b9c8da" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5c-1.4 0-2.8-.3-4-.9L3 21l1.9-5.5c-.6-1.2-.9-2.6-.9-4a8.5 8.5 0 0 1 8.5-8.5 8.5 8.5 0 0 1 8.5 8.5z"/><path d="M8.5 11.5h7M8.5 8h4"/></svg>' +
+    '<div class="ve-tit">Aucune conversation</div>' +
+    '<div class="ve-txt">Aucune conversation ne correspond à ces filtres. Essaie d\'élargir les critères (canaux, cycles, assignation) dans le volet Filtres.</div></div>';
 }
 
 /* C8-DESIGN-2 : avatar initiales coloré (hash du nom → couleur stable) avec
@@ -3234,12 +3288,13 @@ function renduFil() {
   if (SELSENT) { renduFilEntreprise(SELSENT); return; }
   var c = CONVS.filter(function(x){return x.id===SELID;})[0];
   if (!c) {
-    document.getElementById("filhead").innerHTML =
-      '<div class="l1"><b>Aucune conversation ouverte</b></div>' +
-      '<div class="l2"><span>' + (VRAIES_DONNEES
-        ? "Vrais clients chargés — aucune conversation pour l'instant : elles naîtront quand un vrai message arrivera (brique C4), ou lance-en une depuis une fiche société (💬 Lancer) / le carnet."
-        : "Ouvre une conversation dans la liste de gauche.") + '</span></div>';
-    document.getElementById("messages").innerHTML = "";
+    document.getElementById("filhead").innerHTML = "";
+    document.getElementById("messages").innerHTML = '<div class="vide-etat" style="margin:auto;">' +
+      '<svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="#b9c8da" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>' +
+      '<div class="ve-tit">Sélectionne une conversation</div>' +
+      '<div class="ve-txt">' + (VRAIES_DONNEES
+        ? "Les vrais clients sont chargés — ouvre une conversation dans la liste, ou lance-en une depuis une fiche société (💬 Lancer) ou le carnet d'adresses. Les nouvelles conversations naîtront dès qu'un vrai message arrivera."
+        : "Ouvre une conversation dans la liste de gauche pour voir le fil complet.") + '</div></div>';
     document.getElementById("commzone").innerHTML = "";
     document.getElementById("rech-fil-nb").textContent = "";
     return;
