@@ -225,10 +225,19 @@ test('requeteHTTP : erreur >= 400 → exception avec code + extrait', async () =
 // 3) API /api/contexte — handler Vercel complet
 // ============================================================================
 
-test('POST → 405', async () => {
+// C8-ASSIST-1 : POST est désormais une vraie branche (assistant IA) — sans
+// jeton ni secret, il refuse en 401 (voir tests/test-assistant.js pour la
+// branche fonctionnelle). Les autres méthodes restent en 405.
+test('PUT → 405', async () => {
   const res = faireRes();
-  await contexte({ method: 'POST', url: '/api/contexte', query: {}, headers: {} }, res);
+  await contexte({ method: 'PUT', url: '/api/contexte', query: {}, headers: {} }, res);
   assert.strictEqual(res.statusCode, 405);
+});
+
+test('POST sans jeton ni secret → 401 (assistant protégé)', async () => {
+  const res = faireRes();
+  await contexte({ method: 'POST', url: '/api/contexte', query: {}, headers: {}, body: { question: 'test' } }, res);
+  assert.strictEqual(res.statusCode, 401);
 });
 
 test('GET sans secret → 401', async () => {
@@ -269,7 +278,7 @@ test('GET complet : 3 appels dans l\'ordre, 200, fiche + messages + commentaires
   assert.strictEqual(res.statusCode, 200);
   assert.strictEqual(res.corps.ok, true);
   assert.strictEqual(res.corps.brique, 'B2');
-  assert.strictEqual(res.corps.version, 'B2.1.3');
+  assert.strictEqual(res.corps.version, 'C8-ASSIST-1');
   assert.strictEqual(res.corps.contact_id, '123');
   assert.strictEqual(res.corps.limite, 60);
   // 3 appels dans l'ordre attendu (séquentiel)
@@ -370,7 +379,7 @@ test('brut=1 : réponse embarque fiche + messages + commentaires BRUTS', async (
   const res = faireRes();
   await contexte(reqGet('secret=secret-de-test-b2&contact=123&brut=1'), res);
   assert.strictEqual(res.statusCode, 200);
-  assert.strictEqual(res.corps.version, 'B2.1.3');
+  assert.strictEqual(res.corps.version, 'C8-ASSIST-1');
   // TOUJOURS 3 appels — le mode brut n'ajoute AUCUN appel API
   assert.strictEqual(appelsFetch.length, 3);
   // Fiche brute : la structure EXACTE renvoyée par respond.io, pas la normalisée
