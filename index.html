@@ -4,7 +4,10 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>U'mob — Plateforme SAV (prototype C1)</title>
+<title>U'mob — Plateforme SAV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <style>
   :root {
     font-family: Inter, system-ui, -apple-system, sans-serif;
@@ -637,6 +640,87 @@
   #porte-email:focus, #porte-mdp:focus { outline: none; border-color: #0e5aa7 !important; box-shadow: 0 0 0 3px rgba(14,90,167,.12); }
   #porte-btn:hover { filter: brightness(1.1); }
   #porte-btn:active { transform: translateY(1px); }
+
+  /* ============================================================
+     C8-DESIGN-2 : REFONTE PROFONDE — panneaux flottants, Inter,
+     avatars initiales, icônes de canal, hiérarchie visuelle.
+     ============================================================ */
+  :root { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  body { -webkit-font-smoothing: antialiased; font-feature-settings: 'cv11', 'ss01'; }
+
+  /* --- layout : panneaux cartes flottants sur fond bleu ardoise --- */
+  .layout { padding: 12px; gap: 12px; height: calc(100vh - 58px); background: linear-gradient(160deg, #d9e6f3 0%, #e9eff7 45%, #e3ecf6 100%); }
+  .layout > .volet { border-radius: 16px; background: #fff; overflow: hidden; border: 1px solid rgba(255,255,255,.75);
+    box-shadow: 0 1px 2px rgba(15,35,70,.06), 0 10px 34px rgba(15,35,70,.1); }
+  aside.filters, section.liste { border-right: none; }
+  #panneau-fiche { border-left: none; border-radius: 16px; box-shadow: 0 1px 2px rgba(15,35,70,.06), 0 10px 34px rgba(15,35,70,.1); border: 1px solid rgba(255,255,255,.75); }
+  .volet.cible { box-shadow: inset 4px 0 0 var(--lime), 0 10px 34px rgba(15,35,70,.1); }
+
+  /* --- barres de titre des volets --- */
+  .volet-bar { padding: 10px 16px; background: #fff; border-bottom: 1px solid var(--bord); font-size: 11px; letter-spacing: .9px; color: #3a4a60; font-weight: 800; }
+  .volet-bar::before { content: "⠿"; color: #b9c8da; margin-right: 8px; font-size: 12px; }
+  .volet-bar .aide { color: #9fb0c4; }
+
+  /* --- avatars initiales (liste + fil) --- */
+  .cav { width: 42px; height: 42px; border-radius: 13px; color: #fff; font-weight: 700; font-size: 14.5px; letter-spacing: .3px;
+    display: flex; align-items: center; justify-content: center; flex: 0 0 auto; position: relative;
+    box-shadow: inset 0 -2px 4px rgba(0,20,50,.14), 0 2px 5px rgba(15,35,70,.14); }
+  .cav .cch { position: absolute; bottom: -3px; right: -4px; width: 18px; height: 18px; border-radius: 50%; background: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 9.5px; box-shadow: 0 1px 3px rgba(15,35,70,.25); }
+  .cav.gd { width: 48px; height: 48px; border-radius: 15px; font-size: 17px; }
+
+  /* --- conversations : ligne avatar + contenu --- */
+  .conv { display: flex; align-items: flex-start; gap: 11px; padding: 12px 14px 12px 12px; margin: 0 6px; border-radius: 12px; transition: background .13s, box-shadow .13s; }
+  .conv + .conv { border-top: none; }
+  .conv:hover { background: #F1F6FC; box-shadow: 0 1px 4px rgba(15,35,70,.05); }
+  .conv.on { background: #E8F1FB; box-shadow: inset 3px 0 0 var(--lime), 0 1px 4px rgba(15,35,70,.05); }
+  .conv .conv-c { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .conv .conv-l1 { display: flex; align-items: baseline; gap: 8px; }
+  .conv .conv-l1 .nom { flex: 1; min-width: 0; font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .conv .heure { grid-column: auto; grid-row: auto; font-size: 11px; color: var(--mut); flex: none; }
+  .conv .extrait, .conv .sousnom { grid-column: auto; }
+  .grp-bloc .conv { margin: 0 2px; }
+  .grp-bloc { margin: 0 8px; border-radius: 0 0 12px 12px; }
+  .convs { padding: 6px 0 10px; }
+  .liste-head { padding: 14px 16px; }
+
+  /* --- fil : en-tête avec avatar, texture discrète, bulles aérées --- */
+  .fil-head { padding: 14px 20px; }
+  .fil-head .l1 { gap: 12px; }
+  .fil-head .l1 b { font-size: 16px; font-weight: 800; letter-spacing: .1px; }
+  .fil-head .l2 { gap: 7px; row-gap: 5px; padding-top: 8px; margin-top: 8px; border-top: 1px solid #EDF2F8; }
+  .fil-head .l2 .tag { background: #F0F5FA; color: #4a5a6e; border-radius: 999px; padding: 3px 10px; }
+  .messages { background-image: radial-gradient(rgba(14,90,167,.05) 1px, transparent 1px); background-size: 20px 20px; padding: 18px 22px; gap: 13px; }
+  .bulle { font-size: 13.5px; line-height: 1.5; padding: 10px 14px; }
+  .bulle .h { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; }
+  .tag { background: #F0F5FA; }
+  .rech-fil { padding: 9px 20px; }
+
+  /* --- saisie : carte blanche avec zone d'outils --- */
+  .saisie { padding: 12px 16px 14px; background: #fff; }
+  .saisie .barre { border-radius: 999px; padding: 7px 7px 7px 18px; }
+  #btn-env { border-radius: 999px; font-weight: 700; letter-spacing: .2px; }
+  .outil-btn { border-radius: 999px; padding: 2px 9px 2px 2px; font-size: 11px; }
+
+  /* --- chips cycles : version pastille pleine, lisible --- */
+  .cy { padding: 3px 10px; font-weight: 700; letter-spacing: .1px; border-radius: 999px; }
+
+  /* --- filtres : sections aérées, chips pills --- */
+  .filters-corps { padding: 16px 14px; }
+  aside.filters h3 { font-size: 11px; letter-spacing: .8px; }
+  .chip { border-radius: 999px; padding: 7px 12px; margin-bottom: 2px; }
+  .f-sec h3 { padding: 8px 2px 7px; border-bottom: 2px solid #cfe0f2; }
+  .toggle button.on { border-radius: 999px; }
+
+  /* --- topbar : plus affirmée --- */
+  header.topbar { padding: 10px 20px; box-shadow: 0 3px 14px rgba(10,40,80,.3), inset 0 1px 0 rgba(255,255,255,.15); }
+  header.topbar .crumb { border: 1px solid rgba(255,255,255,.25); }
+
+  /* --- volet fil : pas de double bord --- */
+  section.fil { background: transparent; }
+  #volet-fil { background: #fff; }
+  .volet-corps { min-height: 0; }
+  .commentaires { border-top: 1px solid #EDF2F8; }
 </style>
 </head>
 <body>
@@ -770,7 +854,7 @@
       <div class="barre">
         <textarea id="nv-msg" rows="1" placeholder="Écrire au client… — Entrée : nouvelle ligne, Ctrl+Entrée : envoyer" onkeydown="if(event.key==='Enter'&&!event.shiftKey&&(event.ctrlKey||event.metaKey)){event.preventDefault();envoyerMessage();}" oninput="majHauteurSaisie()"></textarea>
         <button class="outil-btn ob-rouge" id="btn-dictee" onclick="dicter()" title="Dicter ton message (reconnaissance vocale du navigateur — Chrome/Edge)"><span class="ob-ico">🎤</span></button>
-        <button class="btn primaire" id="btn-env" disabled onclick="envoyerMessage()">➤ Envoyer</button>
+        <button class="btn primaire" id="btn-env" disabled onclick="envoyerMessage()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M3.5 11.5L20.5 3.8a.5.5 0 0 1 .7.6l-5.9 16.4a.5.5 0 0 1-.9.1l-3.4-6.1-6.9-2.5a.5.5 0 0 1 0-1z"/><path d="M11 13.9l3.4-3.9"/></svg> Envoyer</button>
       </div>
       <div class="note-c2" id="note-c2">✅ Écriture active — envoi réel WhatsApp/Email selon le canal choisi.</div>
     </div>
@@ -3117,21 +3201,29 @@ function renduListe() {
   if (n === 0) el.innerHTML = '<div style="padding:20px;color:#8a93a3;text-align:center;">Aucune conversation pour ces filtres.</div>';
 }
 
+/* C8-DESIGN-2 : avatar initiales coloré (hash du nom → couleur stable) avec
+   icône de canal en badge. Réutilise colDe() (palette équipe). */
+function convAvatarHtml(nom, canal, gd) {
+  var t = String(nom || "?").trim().split(/\s+/);
+  var init = ((t[0] || "?").charAt(0) + (t[1] ? t[1].charAt(0) : "")).toUpperCase();
+  var ico = (canal === "Email") ? "✉️" : "💬";
+  return '<span class="cav' + (gd ? " gd" : "") + '" style="background:' + colDe(nom) + ';">' + escTxt(init) +
+    '<span class="cch">' + ico + '</span></span>';
+}
 function dessinerConv(c, conteneur) {
   var el = conteneur || document.getElementById("convs");
   var d = document.createElement("div");
   var actif = (c.id===SELID) || (SELSENT && c.entreprise===SELSENT);
   d.className = "conv" + (actif ? " on" : "");
-  var nomAff = (VUE === "entreprise")
-    ? '<div class="nom">'+c.nom+'</div><div class="sousnom">'+c.contact.tel+'</div>'
-    : '<div class="nom">'+c.nom+'</div>';
-  d.innerHTML = nomAff + '<div class="heure">'+c.heure+(c.lu ? "" : ' <span class="badge-new" title="1 nouveau message non lu">💬 1</span>')+'</div>'+
-    '<div class="extrait">'+(c.lu ? c.extrait : '<b>'+c.extrait+'</b>')+'</div>'+
+  d.innerHTML = convAvatarHtml(c.nom, c.canal) +
+    '<div class="conv-c">' +
+    '<div class="conv-l1"><div class="nom">'+c.nom+'</div><div class="heure">'+c.heure+(c.lu ? "" : ' <span class="badge-new" title="1 nouveau message non lu">💬 1</span>')+'</div></div>' +
+    (VUE === "entreprise" ? '<div class="sousnom">'+c.contact.tel+'</div>' : '') +
+    '<div class="extrait">'+(c.lu ? c.extrait : '<b>'+c.extrait+'</b>')+'</div>' +
     '<div class="meta"><span class="dot'+(c.lu?' lu':'')+'"></span>'+
-    '<span class="ic">'+(c.canal==="WhatsApp"?"💬":"✉️")+'</span>'+
     '<span class="tag" title="Date du dernier message">📅 '+(c.dateLbl || c.heure)+'</span>'+
     '<span class="tag" title="'+(c.assigne ? "Assignée à "+c.assigne : "Non assignée")+'" style="'+(c.assigne ? (c.assigne === MOI ? "background:#dcfce7;color:#166534;font-weight:700;" : "background:#eef1f5;color:#475569;") : "background:#fee2e2;color:#991b1b;")+'">'+(c.assigne ? avatar(c.assigne) + " " + c.assigne : "—")+'</span>'+
-    '<span class="cy '+c.classe+'">'+c.cycle+'</span></div>';
+    '<span class="cy '+c.classe+'">'+c.cycle+'</span></div></div>';
   d.onclick = function(){ ouvrirConvLu(c.id); };
   d.oncontextmenu = function(ev){ menuContext(ev, c.id); };
   el.appendChild(d);
@@ -3153,7 +3245,7 @@ function renduFil() {
     return;
   }
   document.getElementById("filhead").innerHTML =
-    '<div class="l1"><b>'+c.nom+'</b><span class="cy '+c.classe+(ACTIF?' cliquable':'')+'" '+(ACTIF ? 'onclick="ouvrirMenuCycles(event,'+c.id+')" title="Cliquer pour changer le cycle de la conversation"' : '')+'>'+c.cycle+(ACTIF?' ▾':'')+'</span>'+
+    '<div class="l1">'+convAvatarHtml(c.nom, c.canal, true)+'<b>'+c.nom+'</b><span class="cy '+c.classe+(ACTIF?' cliquable':'')+'" '+(ACTIF ? 'onclick="ouvrirMenuCycles(event,'+c.id+')" title="Cliquer pour changer le cycle de la conversation"' : '')+'>'+c.cycle+(ACTIF?' ▾':'')+'</span>'+
     '<select class="ass-sel" onchange="assignerConv('+c.id+', this.value)" title="Assigner la conversation à un membre de l\'équipe">'+optionsAssigne(c.assigne)+'</select>'+
     '<button class="btn" id="btn-fiche" onclick="basculeFiche()" style="margin-left:auto;" title="Afficher/masquer la fiche de cette entreprise (comme Coordonnées dans Respond)">🏢 Fiche entreprise</button></div>'+
     '<div class="l2"><span>🏢 '+c.entreprise+'</span>' +
@@ -3247,7 +3339,7 @@ function renduFilEntreprise(e) {
 
   var socE = socParEnt(e);
   document.getElementById("filhead").innerHTML =
-    '<div class="l1"><b>🏢 ' + e + '</b>' +
+    '<div class="l1"><span class="cav gd" style="background:linear-gradient(135deg,#1273d1,#0a3f77);">🏢</span><b>' + e + '</b>' +
     (socE ? '<span class="risque ' + socE.classeR + '" title="Statut de risque de la société">' + socE.risque + '</span>' : '') +
     '<span class="badge-ver" style="background:#e2e8f0;color:#475569;">fil fusionné · ' + convs.length + ' contact(s)</span>' +
     '<button class="btn" id="btn-fiche" onclick="basculeFiche()" style="margin-left:auto;" title="Afficher/masquer la fiche de cette entreprise">🏢 Fiche entreprise</button></div>' +
