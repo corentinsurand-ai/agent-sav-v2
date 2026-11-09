@@ -858,6 +858,75 @@
   body.umob .bulle.agent .mail-cite summary { color: #0b6b4f; }
   body.umob .bulle.agent mark { background: rgba(255,255,255,.5); color: #1b2430; }
   body.umob .bulle.agent a { color: #123f30; text-decoration: underline; }
+
+  /* ============================================================
+     C8-THEME-6 : MODE SOMBRE (3e thème du cycle 🎨) — anthracite
+     U'mob #32373C, surfaces #262c33, accents verts #10B981,
+     texte clair #e8ebee. Activé par body.sombre, mémorisé
+     (localStorage umob_theme = "sombre").
+     ============================================================ */
+  body.sombre {
+    --bg: #171b1f; --card: #242a31; --bord: #333a43; --bord2: #3f4750;
+    --ink: #e8ebee; --mut: #98a1aa; --grey: #6b747d;
+    --lime: #10B981; --lime-hov: #0d9268; --lime-soft: #1c2f28; --lime-bord: #2b4a3e;
+    --anthra: #cfd6dc;
+    background: #171b1f; color: #e8ebee;
+  }
+  body.sombre header.topbar { background: linear-gradient(135deg, #2a323a 0%, #23292f 55%, #1c2126 100%); box-shadow: 0 3px 14px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06); }
+  body.sombre header.topbar .logo, body.sombre header.topbar .logo span, body.sombre header.topbar .logo b { color: #e8ebee; }
+  body.sombre header.topbar .logo svg { stroke: #e8ebee; }
+  body.sombre .proto { background: #1c2f28; color: #98a1aa; border-bottom-color: #2b4a3e; }
+  body.sombre .crumb { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); color: #e8ebee; }
+  body.sombre .btn-nouv { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.16); color: #e8ebee; }
+  body.sombre .btn-nouv:hover { background: rgba(255,255,255,.14); }
+  body.sombre .badge-ver { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); color: #e8ebee; }
+  body.sombre .grp, body.sombre .grp:hover, body.sombre .grp.on { background: #10B981; color: #12241c; }
+  body.sombre .grp .tri, body.sombre .grp .ind { color: rgba(18,36,28,.75); }
+  body.sombre .grp-bloc { border-color: #2b4a3e; background: #1f262e; }
+  body.sombre .f-sec h3 { color: #e8ebee; border-bottom-color: #2b4a3e; }
+  body.sombre .chip { border-color: #3f4750; }
+  body.sombre .chip:hover { background: #2c333b; }
+  body.sombre .chip .n { background: #171b1f; }
+  body.sombre .chip.on, body.sombre .toggle button.on, body.sombre .btn.primaire { background: #10B981; border-color: #0d9268; color: #12241c; }
+  body.sombre .btn:hover { background: #2c333b; }
+  body.sombre .conv:hover { background: #2b323a; }
+  body.sombre .conv + .conv { border-top-color: #2d343c; }
+  body.sombre .conv.on { background: #1c2f28; box-shadow: inset 3px 0 0 #10B981; }
+  body.sombre .dot.lu { background: #4a525a; }
+  body.sombre section.fil { background: #1a1e23; }
+  body.sombre .bulle { border: 1px solid rgba(255,255,255,.06); }
+  body.sombre .bulle.client, body.sombre .ia-ia .ia-b { background: #2b323a; color: #e8ebee; border-color: #3a424b; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+  body.sombre .bulle.agent { background: linear-gradient(135deg, #3ddc97 0%, #10B981 60%, #0d9268 100%); color: #12241c; }
+  body.sombre .bulle.agent .h, body.sombre .bulle.agent .exp-lib, body.sombre .bulle.agent .mail-cite summary { color: #0b4a37; }
+  body.sombre .bulle .mail-obj { color: #5ee0b0; background: #1c2f28; border-left-color: #10B981; }
+  body.sombre .bulle.agent .mail-obj { background: rgba(18,36,28,.25); }
+  body.sombre .bulle .pj, body.sombre .bulle.agent .pj { background: #1c2f28; border-color: #2b4a3e; color: #b9d8cc; }
+  body.sombre .mail-frame { background: #242a31; }
+  body.sombre .tag { background: #2c333b; color: #b6bfc7; }
+  body.sombre .saisie .barre { background: #1c2126; border-color: #3f4750; }
+  body.sombre .saisie .barre:focus-within { border-color: #10B981; background: #242a31; box-shadow: 0 0 0 3px rgba(16,185,129,.18); }
+  body.sombre .rech-fil input, body.sombre #auth-corps input, body.sombre #ia-saisie { background: #1c2126; color: #e8ebee; border-color: #3f4750; }
+  body.sombre .rech-fil input:focus, body.sombre #auth-corps input:focus, body.sombre #ia-saisie:focus { border-color: #10B981; box-shadow: 0 0 0 3px rgba(16,185,129,.18); }
+  body.sombre .bo-fen { background: #242a31; box-shadow: 0 24px 60px rgba(0,0,0,.65); }
+  body.sombre .bo-tabs button { background: #2c333b; color: #b6bfc7; }
+  body.sombre .bo-tabs button.on { background: #10B981; color: #12241c; }
+  body.sombre .bo-item, body.sombre .nv-item, body.sombre .cp-contact, body.sombre .outil-btn { background: #242a31; }
+  body.sombre .bo-item:hover, body.sombre .nv-item:hover, body.sombre .cp-contact:hover, body.sombre .outil-btn:hover { border-color: #10B981; background: #2b323a; }
+  body.sombre .ia-fen { background: #242a31; }
+  body.sombre .ia-head { background: linear-gradient(135deg, #3ddc97 0%, #10B981 55%, #06865b 100%); color: #12241c; }
+  body.sombre .ia-head .ia-logo svg, body.sombre .ia-msg .ia-av svg { stroke: #12241c; }
+  body.sombre .ia-head-st { color: #0b4a37; }
+  body.sombre .ia-moi .ia-b { background: linear-gradient(135deg, #3ddc97 0%, #10B981 100%); color: #12241c; }
+  body.sombre .dot { background: #10B981; box-shadow: 0 0 0 2px rgba(16,185,129,.3); }
+  body.sombre .badge-new { background: #10B981; color: #12241c; }
+  body.sombre .rail-btn:hover, body.sombre .volet-pli:hover { background: #2c333b; }
+  body.sombre .rz:hover::after, body.sombre .rz.actif::after { background: rgba(16,185,129,.6); }
+  body.sombre .volet.cible { box-shadow: inset 4px 0 0 #10B981, 0 10px 34px rgba(0,0,0,.5); }
+  body.sombre .badge-mode { background: #1c2f28; color: #5ee0b0; }
+  body.sombre ::selection { background: #14523d; }
+  body.sombre ::-webkit-scrollbar-thumb { background: #3f4750; }
+  body.sombre ::-webkit-scrollbar-thumb:hover { background: #4a525a; }
+  body.sombre .volet.deplace { outline-color: #10B981; }
 </style>
 </head>
 <body>
@@ -877,7 +946,8 @@
   <button class="btn-nouv" id="btn-comptes" style="display:none;" onclick="ouvrirComptes()" title="Admin : créer, activer/désactiver les comptes de l'équipe (table agent_sav.utilisateurs)">🛡️ Comptes</button>
   <select class="badge-ver" id="sel-moi" title="Qui suis-je ? (pour les commentaires internes et le filtre « Mes conversations »)" onchange="MOI = this.value; renduListe(); renduMesCycles();"></select>
   <button class="btn-nouv" id="btn-auto" onclick="basculerAuto()" title="Rafraîchissement automatique : toutes les minutes, la plateforme relit les messages WhatsApp et les emails réels (tant que les vraies données sont chargées et l'onglet visible). Clique pour activer/désactiver.">🔄 Auto : arrêt</button>
-  <button class="btn-nouv" id="btn-theme" onclick="basculerThemeUmob()" title="Basculer le thème visuel : bleu plateforme / couleurs de marque U'mob (lime)">🎨 Thème</button>
+  <button class="btn-nouv" id="btn-theme" onclick="basculerThemeUmob()" title="Basculer le thème visuel : bleu plateforme / couleurs de marque U'mob / mode sombre">🎨 Thème</button>
+  <button class="btn-nouv" id="btn-ding" onclick="basculerDing()" title="Notification sonore : un petit « ding » quand un nouveau message arrive. Clique pour activer/désactiver.">🔊</button>
 </header>
 
 <div class="layout" id="layout">
@@ -4089,9 +4159,12 @@ function majBadgesCycles() {
   }
 }
 function majBadgeNouveaux() {
-  document.getElementById("btn-nouv-n").textContent = nonLues().length;
+  var nbNonLus = nonLues().length;
+  if (DERNIER_NB_NONLUS >= 0 && nbNonLus > DERNIER_NB_NONLUS) dingNouveauMessage();
+  DERNIER_NB_NONLUS = nbNonLus;
+  document.getElementById("btn-nouv-n").textContent = nbNonLus;
   var nb = document.getElementById("nouveaux-nb");
-  if (nb) nb.textContent = nonLues().length + " conversation" + (nonLues().length > 1 ? "s" : "") + " non lue" + (nonLues().length > 1 ? "s" : "");
+  if (nb) nb.textContent = nbNonLus + " conversation" + (nbNonLus > 1 ? "s" : "") + " non lue" + (nbNonLus > 1 ? "s" : "");
   majBadgesCycles();
 }
 function ouvrirConvLu(id) {
@@ -4738,19 +4811,53 @@ function iaEnvoyer() {
   }).then(function() { IA_ENVOI = false; var bEnv2 = document.getElementById("ia-env-btn"); if (bEnv2) bEnv2.disabled = false; iaRendu(); });
 }
 
-/* C8-THEME-1 : bascule thème Bleu / couleurs U'mob (mémorisé par navigateur) */
-function themeUmobActif() { return document.body.classList.contains("umob"); }
+/* C8-THEME-6 : cycle thème Bleu → U'mob → Sombre (mémorisé par navigateur) */
+function themeCourant() { return document.body.classList.contains("umob") ? "umob" : (document.body.classList.contains("sombre") ? "sombre" : "bleu"); }
 function majBoutonTheme() {
   var b = document.getElementById("btn-theme");
-  if (b) b.innerHTML = themeUmobActif() ? "🎨 Thème : U'mob" : "🎨 Thème : Bleu";
+  if (b) b.innerHTML = { bleu: "🎨 Thème : Bleu", umob: "🎨 Thème : U'mob", sombre: "🎨 Thème : Sombre" }[themeCourant()];
 }
 function basculerThemeUmob() {
-  document.body.classList.toggle("umob");
-  try { localStorage.setItem("umob_theme", themeUmobActif() ? "umob" : "bleu"); } catch (e) {}
+  var t = themeCourant();
+  var suite = { bleu: "umob", umob: "sombre", sombre: "bleu" }[t];
+  document.body.classList.toggle("umob", suite === "umob");
+  document.body.classList.toggle("sombre", suite === "sombre");
+  try { localStorage.setItem("umob_theme", suite); } catch (e) {}
   majBoutonTheme();
 }
-try { if (localStorage.getItem("umob_theme") === "umob") document.body.classList.add("umob"); } catch (e) {}
+try { var _th = localStorage.getItem("umob_theme"); if (_th === "umob" || _th === "sombre") document.body.classList.add(_th); } catch (e) {}
 majBoutonTheme();
+
+/* C8-DING-1 : notification sonore à la réception de nouveaux messages (WebAudio, pas de fichier) */
+var DING_ACTIF = (function () { try { return localStorage.getItem("umob_ding") !== "0"; } catch (e) { return true; } })();
+var DERNIER_NB_NONLUS = -1;
+function majBoutonDing() {
+  var b = document.getElementById("btn-ding");
+  if (b) { b.textContent = DING_ACTIF ? "🔊" : "🔇"; b.title = DING_ACTIF ? "Notification sonore activée — un « ding » retentit à l'arrivée d'un nouveau message. Clique pour couper." : "Notification sonore coupée. Clique pour réactiver."; }
+}
+function basculerDing() {
+  DING_ACTIF = !DING_ACTIF;
+  try { localStorage.setItem("umob_ding", DING_ACTIF ? "1" : "0"); } catch (e) {}
+  majBoutonDing();
+}
+function dingNouveauMessage() {
+  if (!DING_ACTIF) return;
+  try {
+    var ctx = dingNouveauMessage.ctx || (dingNouveauMessage.ctx = new (window.AudioContext || window.webkitAudioContext)());
+    if (ctx.state === "suspended") ctx.resume();
+    var t = ctx.currentTime;
+    [[880, 0], [1318.5, .12]].forEach(function (p) {
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "sine"; o.frequency.value = p[0];
+      g.gain.setValueAtTime(0, t + p[1]);
+      g.gain.linearRampToValueAtTime(.18, t + p[1] + .015);
+      g.gain.exponentialRampToValueAtTime(.0001, t + p[1] + .55);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(t + p[1]); o.stop(t + p[1] + .6);
+    });
+  } catch (e) {}
+}
+majBoutonDing();
 
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
