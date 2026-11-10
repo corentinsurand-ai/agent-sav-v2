@@ -238,6 +238,15 @@
   .ia-env svg { width: 17px; height: 17px; }
   .ia-env:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(14,90,167,.45); }
   .ia-env:disabled { opacity: .55; cursor: default; transform: none; }
+  /* C8-DICT-IA : bouton dictée de l'assistant IA */
+  .ia-mic { border: none; background: #EDF2F8; width: 40px; height: 40px; font-size: 15px; border-radius: 12px; cursor: pointer; flex: none; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .15s; }
+  .ia-mic:hover { background: #E1E9F2; transform: translateY(-1px); }
+  .ia-mic.rec { border-color: #d64545; background: #fdecea; animation: dictee-pulse 1.2s infinite; }
+  body.sombre .ia-mic { background: #1c2126; color: #e8ebee; }
+  body.sombre .ia-mic:hover { background: #2c333b; }
+  body.sombre .ia-mic.rec { background: #3a2226; }
+  body.umob .ia-mic { background: #E6F7F0; color: #0b4a37; }
+  body.umob .ia-mic:hover { background: #DFF3EA; }
   .bulle .mail-cite summary { cursor: pointer; color: #5b6b7f; font-style: italic; user-select: none; }
   .bulle .mail-cite summary:hover { color: #0e5aa7; }
   .bulle .mail-cite[open] summary { margin-bottom: 4px; }
@@ -1238,6 +1247,7 @@
   <div class="ia-corps" id="ia-corps"></div>
   <div class="ia-barre">
     <textarea id="ia-saisie" rows="1" placeholder="Pose ta question (fonctionnement, clients, derniers échanges)…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();iaEnvoyer();}"></textarea>
+    <button class="ia-mic" id="btn-dictee-ia" onclick="dicterIA()" title="Dicter ta question (reconnaissance vocale du navigateur — Chrome/Edge)" aria-label="Dicter">🎤</button>
     <button class="ia-env" id="ia-env-btn" onclick="iaEnvoyer()" title="Envoyer" aria-label="Envoyer">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11.5L20.5 3.8a.5.5 0 0 1 .7.6l-5.9 16.4a.5.5 0 0 1-.9.1l-3.4-6.1-6.9-2.5a.5.5 0 0 1 0-1z"/><path d="M11 13.9l3.4-3.9"/></svg>
     </button>
@@ -2554,8 +2564,36 @@ function dicter() {
   REC_VOCAL.onerror = function(ev) { if (ev.error === "not-allowed") alert("Micro refusé — autorise l'accès au microphone dans ton navigateur."); };
   REC_VOCAL.start();
 }
-function joindreFichier(inp) {
-  try {
+/* C8-DICT-IA : dictée vocale dans la bulle de l'agent IA (cible #ia-saisie,
+   insertion au curseur — indépendante de la dictée de la saisie principale) */
+var REC_IA = null, DICTEE_IA_ON = false;
+function dicterIA() {
+  var inp = document.getElementById("ia-saisie");
+  var btn = document.getElementById("btn-dictee-ia");
+  if (DICTEE_IA_ON) { if (REC_IA) REC_IA.stop(); return; }
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert("La dictée vocale n'est pas disponible dans ce navigateur — utilise Chrome ou Edge."); return; }
+  REC_IA = new SR();
+  REC_IA.lang = "fr-FR";
+  REC_IA.continuous = true;
+  REC_IA.interimResults = false;
+  REC_IA.onresult = function(e) {
+    var ajout = "";
+    for (var i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) ajout += e.results[i][0].transcript; }
+    if (ajout) {
+      var t = inp.value, p = inp.selectionStart || t.length, q = inp.selectionEnd || p;
+      inp.value = t.slice(0, p) + (p && t[p-1] !== " " ? " " : "") + ajout.trim() + " " + t.slice(q);
+      var np = p + ajout.trim().length + 1;
+      inp.selectionStart = inp.selectionEnd = np;
+      inp.focus();
+    }
+  };
+  REC_IA.onstart = function() { DICTEE_IA_ON = true; btn.classList.add("rec"); btn.title = "Dictée en cours — clique pour arrêter"; inp.placeholder = "🎤 Dictée en cours… ta question s'inscrit ici"; };
+  REC_IA.onend = function() { DICTEE_IA_ON = false; btn.classList.remove("rec"); btn.title = "Dicter ta question (reconnaissance vocale du navigateur — Chrome/Edge)"; inp.placeholder = "Pose ta question (fonctionnement, clients, derniers échanges)…"; };
+  REC_IA.onerror = function(ev) { if (ev.error === "not-allowed") alert("Micro refusé — autorise l'accès au microphone dans ton navigateur."); };
+  REC_IA.start();
+}
+function joindreFichier(inp) {  try {
     var f = inp.files && inp.files[0];
     if (!f) return;
     var c = convParId(SELID);
