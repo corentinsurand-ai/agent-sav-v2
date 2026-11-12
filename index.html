@@ -2973,7 +2973,12 @@ function envoyerModeleWa(nomModele) {
   .then(function(rep) {
     ENVOI_EN_COURS = false;
     if (!rep.okHttp || !rep.j || rep.j.ok !== true) {
-      pushNotif("⚠️ Modèle WhatsApp échoué : " + ((rep.j && (rep.j.erreur || rep.j.detail)) || "erreur API"));
+      var detM = String(((rep.j && (rep.j.erreur || rep.j.detail)) || "erreur API"));
+      if (/2593181|permission for this action|autorisation/i.test(detM)) {
+        pushNotif("🔑 ENVOI IMPOSSIBLE : le jeton Meta (WA_TOKEN) n'est plus valide ou n'a plus les droits WhatsApp. Régénère un token dans Meta for Developers (WhatsApp ▸ API Setup ou un utilisateur système), mets à jour la variable WA_TOKEN dans Vercel (Settings ▸ Environment Variables) puis Redeploy.");
+      } else {
+        pushNotif("⚠️ Modèle WhatsApp échoué : " + detM);
+      }
       return;
     }
     c.fil.push({ qui: "agent", de: MOI, t: h, txt: txtAff, canal: "WhatsApp", wa: true, st: "envoye", tpl: mo.nom });
