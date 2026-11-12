@@ -2018,7 +2018,20 @@ var TEST_WA = {
    Chargé AVANT les messages ; silencieux si la brique est absente. */
 var RIO_CYCLES_TEL = {}, RIO_CYCLES_MEL = {};
 var RIO_ASSIGNS_TEL = {}, RIO_ASSIGNS_MEL = {};
-var RIO_LEADS_TEL = {};   /* C12-ASSIGN-2 : contacts respond.io assignés hors carnet clients */
+/* C12-PROSP : contacts respond.io assignés mais ABSENTS du carnet clients
+   (prospects commerciaux) → conversation « Prospect » à part entière. */
+var RIO_PROSPECTS = [], RIO_PROSP_PAR_TEL = {};
+function carnetConnu(d, mel) {
+  var connu = false;
+  SOCIETES.forEach(function(s) { ((s.vraisContacts) || []).forEach(function(v) {
+    var dv = String(v.tel || "").replace(/\D/g, "");
+    if (d && dv && dv.slice(-9) === d.slice(-9)) connu = true;
+    if (mel && normMel(v.email) === mel) connu = true;
+  }); });
+  if (d && TEST_WA[d]) connu = true;
+  if (mel && TEST_MEL[mel]) connu = true;
+  return connu;
+}
 function chargerCyclesRio(base, jeton, cb) {
   fetch(base + "/api/clients-import?jeton=" + encodeURIComponent(jeton) + "&respondio=1")
     .then(function(r) { return r.json(); })
@@ -2029,18 +2042,22 @@ function chargerCyclesRio(base, jeton, cb) {
         /* C12-ASSIGN : assignation respond.io (prénom de l'assignee, même
            format que PROFILS/MOI pour les filtres « Mes conversations »). */
         var a = c.assignee;
+        var nmAss = "";
         if (a && a.firstName) {
-          var nm = String(a.firstName).trim();
-          nm = nm.charAt(0).toUpperCase() + nm.slice(1).toLowerCase();
-          if (d) RIO_ASSIGNS_TEL[d] = nm;
-          if (m) RIO_ASSIGNS_MEL[m] = nm;
-          /* C12-ASSIGN-2 : lead assigné hors carnet — conversation à créer si
-             le numéro a des messages WhatsApp (groupe « DEMANDES COMMERCIALES ») */
-          if (d) RIO_LEADS_TEL[d] = {
-            nom: (String(c.prenom || "").trim() || String(c.nom || "").trim() || ("+" + d)),
-            cy: String(c.cycle_vie || "").trim() || "DE Commerciales",
-            as: nm, email: c.email || ""
-          };
+          nmAss = String(a.firstName).trim();
+          nmAss = nmAss.charAt(0).toUpperCase() + nmAss.slice(1).toLowerCase();
+          if (d) RIO_ASSIGNS_TEL[d] = nmAss;
+          if (m) RIO_ASSIGNS_MEL[m] = nmAss;
+        }
+        /* C12-PROSP : contact assigné (donc suivi par l'équipe) hors carnet */
+        if (nmAss && d && !carnetConnu(d, m) && !RIO_PROSP_PAR_TEL[d]) {
+          var pv = { tel: d,
+                     nom: (String(c.prenom || "").trim() + " " + String(c.nom || "").trim()).replace(/\s+/g, " ").trim() || c.tel,
+                     email: c.email || "",
+                     cycle: String(c.cycle_vie || "").trim(),
+                     assigne: nmAss, cree: c.cree_a || "" };
+          RIO_PROSP_PAR_TEL[d] = pv;
+          RIO_PROSPECTS.push(pv);
         }
         var cy = String(c.cycle_vie || "").trim();
         if (!cy) return;
@@ -2064,6 +2081,48 @@ function assignRioMel(mel) { return RIO_ASSIGNS_MEL[normMel(mel)] || null; }
 function qualifierAssignRio(c, nom) {
   if (!c || !nom || c.assigne) return;
   c.assigne = nom;
+}
+/* C12-PROSP : crée les conversations « Prospects » pour les contacts
+   respond.io ASSIGNÉS à l'équipe mais absents du carnet clients — fil
+   alimenté par les messages WhatsApp connus de ce numéro, sinon vide. */
+function creerConvsProspects(parWa) {
+  if (!RIO_PROSPECTS.length) return 0;
+  var s = socParEnt("PROSPECTS RESPOND.IO");
+  if (!s) {
+    s = { ent: "PROSPECTS RESPOND.IO", siren: "", siege: "", livraison: "—", contact_sc: "",
+          risque: "RAS", classeR: "ok", scooters: [], convs: [], vraisContacts: [] };
+    SOCIETES.push(s);
+  }
+  var n = 0;
+  RIO_PROSPECTS.forEach(function(p) {
+    if (convDuContact("+" + p.tel)) return;            // déjà une conversation
+    var msgs = (parWa && parWa[p.tel]) || [];
+    var fil = msgs.map(function(m) {
+      var h = heureWa(m.recu_a);
+      if (m.sens === "sortant") {
+
+        var sr = m.statut_reception;
+        var st = sr === "sent" ? "envoye" : sr === "delivered" ? "distribue" : sr === "read" ? "lu" : null;
+        return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid };
+      }
+      return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid };
+    });
+    var dernier = fil[fil.length - 1];
+    var cy = p.cycle === "Attente interne" ? "Attente client" : p.cycle;
+    if (CYCLES_LISTE.indexOf(cy) < 0) cy = "";
+    nid++;
+    CONVS.push({
+      id: nid, nom: p.nom || p.tel, entreprise: s.ent, canal: "WhatsApp",
+      cycle: cy || "Nouvelle Demande", classe: classeCycle(cy) || "nouvelle", tags: [],
+      heure: "—", delai: "", lu: fil.length === 0, wa: true,
+      extrait: dernier ? String(dernier.txt || "") : "Prospect respond.io — pas encore de message WhatsApp",
+      assigne: p.assigne || null,
+      contact: { tel: "+" + p.tel, plaque: "", email: p.email || "" }, fil: fil, comms: []
+    });
+    s.convs.push(nid);
+    n++;
+  });
+  return n;
 }
 /* applique le cycle respond.io à une conversation (création OU fusion) —
    les cycles inconnus de CYCLES_LISTE sont ignorés (cycle inchangé). */
@@ -2100,7 +2159,6 @@ function chargerMessagesWhatsApp(base, secret, cb) {
           var d = String(v.tel || "").replace(/\D/g, "");
           var msgs = parWa[d];
           if (!msgs) return;
-
           delete parWa[d];
           var dernier = msgs[msgs.length - 1];
           var fil = msgs.map(function(m) {
@@ -2135,46 +2193,8 @@ function chargerMessagesWhatsApp(base, secret, cb) {
       var restants = Object.keys(parWa);
       restants.forEach(function(d) {
         var t = TEST_WA[d];
-        if (!t) {
-          /* C12-ASSIGN-2 : lead respond.io ASSIGNÉ (hors carnet clients) →
-             conversation créée avec ses messages, regroupée sous l'enseigne
-             « DEMANDES COMMERCIALES (respond.io) » ; cycle + assignation d'origine. */
-          var ld = RIO_LEADS_TEL[d];
-          if (!ld) return;                               // vraiment inconnu → ignoré
-          var msgsL = parWa[d];
-          var dernierL = msgsL[msgsL.length - 1];
-          var s = socParEnt("DEMANDES COMMERCIALES (respond.io)");
-          if (!s) {
-            s = { ent: "DEMANDES COMMERCIALES (respond.io)", siren: "", siege: "", livraison: "",
-                  contact_sc: "", risque: "RAS", classeR: "ok", scooters: [], convs: [], vraisContacts: [] };
-            SOCIETES.push(s);
-          }
-          var deja = s.vraisContacts.filter(function(v) {
-            return String(v.tel || "").replace(/\D/g, "").slice(-9) === d.slice(-9);
-          })[0];
-          if (!deja) s.vraisContacts.push({ nom: ld.nom, tel: "+" + d, plaque: "", email: ld.email || "" });
-          var filL = msgsL.map(function(m) {
-            var h = heureWa(m.recu_a);
-            var srL = m.statut_reception;
-            var stL = srL === "sent" ? "envoye" : srL === "delivered" ? "distribue" : srL === "read" ? "lu" : null;
-            if (m.sens === "sortant") {
-              return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: stL, ts: m.recu_a, wamid: m.wamid };
-            }
-            return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid };
-          });
-          var cyL = ld.cy === "Attente interne" ? "Attente client" : ld.cy;
-          if (CYCLES_LISTE.indexOf(cyL) < 0) cyL = "DE Commerciales";
-          nid++;
-          CONVS.push({
-            id: nid, nom: ld.nom, entreprise: s.ent, canal: "WhatsApp",
-            cycle: cyL, classe: classeCycle(cyL) || "nouvelle", tags: [], heure: "—", delai: "",
-            lu: false, wa: true, extrait: String(dernierL.texte || ""), assigne: ld.as || null,
-            contact: { tel: "+" + d, plaque: "", email: ld.email || "" }, fil: filL, comms: []
-          });
-          s.convs.push(nid);
-          creees++;
-          return;
-        }
+        if (!t) return;                                  // vraiment inconnu → ignoré
+        var msgs = parWa[d];
         var dernier = msgs[msgs.length - 1];
         var s = socParEnt(t.ent);
         if (!s) {
@@ -2183,8 +2203,6 @@ function chargerMessagesWhatsApp(base, secret, cb) {
                 vraisContacts: [{ nom: t.nom, tel: "+" + d, plaque: t.plaque, email: t.email || "" }] };
           SOCIETES.push(s);
         }
-        var msgs = parWa[d];
-        var dernier = msgs[msgs.length - 1];
         var fil = msgs.map(function(m) {
           var h = heureWa(m.recu_a);
           if (m.sens === "sortant") {
@@ -2211,7 +2229,13 @@ function chargerMessagesWhatsApp(base, secret, cb) {
         s.convs.push(nid);
         creees++;
       });
-      inconnus = restants.filter(function(d) { return !TEST_WA[d] && !RIO_LEADS_TEL[d]; }).length;
+      inconnus = restants.filter(function(d) { return !TEST_WA[d] && !RIO_PROSP_PAR_TEL[d]; }).length;
+      /* C12-PROSP : prospects respond.io (assignés, hors carnet) → conversations */
+      var nProsp = creerConvsProspects(parWa);
+      if (nProsp) {
+        creees += nProsp;
+        pushNotif("📞 " + nProsp + " prospect(s) respond.io importé(s) — contacts assignés hors carnet.");
+      }
       if (creees) {
         majLusDepuisStockage();
         renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
@@ -2777,6 +2801,7 @@ function joindreFichier(inp) {  try {
     catch (e) { c.fil.push({ qui: "agent", de: MOI, t: h, txt: (estImg ? "🖼 " : "📎 ") + f.name, canal: CANAL_ENVOI, pj: f.name, taille: kb }); }
     c.extrait = (estImg ? "🖼 " : "📎 ") + f.name; c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
+
     inp.value = "";
     renduFil(); renduListe(); rafraichirFiche(); majBadgeNouveaux();
   } catch (e) { alert("Pièce jointe non disponible dans cet environnement : " + e.message); }
@@ -2801,7 +2826,6 @@ function auteurTxt(msg) {
 }
 function auteurMsg(msg) {
   if (msg.qui === "client") return "Client";
-
   if (msg.qui === "agent") return (msg.de ? avatar(msg.de) + " " + msg.de : avatar("Agent IA") + " Agent IA U'mob");
   if (msg.qui === "collab") return (msg.de ? avatar(msg.de) + " " + msg.de : avatar(MOI) + " " + MOI);
   return "Client";
@@ -3478,6 +3502,7 @@ var RECH_TXT = "";
 var RECH_FIL = "";
 
 /* Recherche universelle : insensible à la casse, et pour les téléphones
+
    insensible aux espaces, points et tirets (on compare les chiffres seuls). */
 function normTel(s) { return (s || "").replace(/\D/g, ""); }
 function correspondTxt(valeurs, q) {
@@ -3501,7 +3526,6 @@ var SELSENT = null;
 var VUE = "entreprise";
 var GRP_OUVERTS = {}; /* état ▸/▾ par entreprise (triangle dans la liste) */
 var FICHE = false;
-
 
 function filtre(type, val, el) {
   FX[type] = val;
@@ -4179,6 +4203,7 @@ function renduPageCarnet() {
   if (CARNET_SEL.type === "contact") {
     var c = convParId(CARNET_SEL.id);
     if (!c) { CARNET_SEL = null; return renduPageCarnet(); }
+
     var s = socParEnt(c.entreprise);
 
     page.innerHTML =
@@ -4203,7 +4228,6 @@ function renduPageCarnet() {
         '<div class="cp-ligne"><span class="lab">Email</span><span class="val">' + (c.contact.email ? '<b><a href="mailto:'+c.contact.email+'" style="color:inherit;">'+c.contact.email+'</a></b>' : '<span style="color:#9aa4b2;">non renseigné</span>') + '</span></div>' +
         '<div class="cp-ligne"><span class="lab">Scooters liés</span><span class="val">' + c.contact.plaque + '</span></div>' +
         '<div class="cp-ligne"><span class="lab">Cycle actuel</span><span class="val"><span class="cy ' + c.classe + '">' + c.cycle + '</span></span></div>' +
-
       '</div>' +
       (s ?
       '<div class="cp-section"><h3>🏢 Société</h3>' +
@@ -4880,6 +4904,7 @@ function chargerComptes() {
 function renduComptes() {
   var moi = baseEtJeton().qui || {};
   var nb = document.getElementById("comptes-nb");
+
   if (nb) nb.textContent = COMPTES_LISTE.length + " compte" + (COMPTES_LISTE.length > 1 ? "s" : "");
   document.getElementById("comptes-liste").innerHTML = COMPTES_LISTE.map(function(u, i){
     var initiales = String(u.nom || "?").split(/\s+/).map(function(m){ return m.charAt(0); }).join("").substring(0, 2);
@@ -4904,7 +4929,6 @@ function basculerCompte(i) {
   fetch(b.base + "/api/clients-import?jeton=" + encodeURIComponent(b.jeton), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-
     body: JSON.stringify({ activation: { email: u.email, actif: u.actif !== true } })
   }).then(function(r){ return r.json(); }).then(function(rep){
     if (!rep.ok) { alert(rep.erreur || "échec"); return; }
