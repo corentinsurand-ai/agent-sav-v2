@@ -3480,12 +3480,44 @@ function ajouterComm() {
   var inp = document.getElementById("nv-comm");
   var v = ((inp && inp.value) || "").trim();
   if (!v) return;
-  c.comms.push({ a: MOI, t: maintenant(), txt: v });
-  persisterAction("commentaire", cleConv(c), v, { heure: maintenant() });   /* C15-ACT */
+  /* C15-ACT-2 : uid unique → permet édition/suppression persistée */
+  var uid = "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  c.comms.push({ a: MOI, t: maintenant(), txt: v, uid: uid });
+  persisterAction("commentaire", cleConv(c), v, { uid: uid, heure: maintenant() });   /* C15-ACT */
   /* notification si quelqu'un est tagué (@Marine, @Nicolas…) */
   personnesTaguees(v).forEach(function(p){
     if (p === MOI) pushNotif("📌 Tu as été tagué dans un commentaire interne — " + c.nom, c.id);
   });
+  renduFil();
+}
+/* C15-ACT-2 : éditer / supprimer un commentaire interne (persisté en
+   comm_edite / comm_supprime → rejoué sur tous les appareils). */
+function commParUid(uid) {
+  var c = convParId(SELID);
+  if (!c) return { c: null, k: null };
+  var k = null;
+  c.comms.forEach(function(x) { if (x.uid === uid) k = x; });
+  return { c: c, k: k };
+}
+function editerComm(uid) {
+  var r = commParUid(uid);
+  if (!r.c || !r.k) return;
+
+  var v = prompt("Modifier le commentaire interne :", r.k.txt);
+  if (v === null) return;                       // Annulé → on ne touche à rien
+  v = v.trim();
+  if (!v || v === r.k.txt) return;
+  r.k.txt = v;
+  r.k.mod = true;
+  persisterAction("comm_edite", cleConv(r.c), v, { uid: uid });
+  renduFil();
+}
+function supprimerComm(uid) {
+  var r = commParUid(uid);
+  if (!r.c || !r.k) return;
+  if (!confirm("Supprimer ce commentaire interne ? Il disparaîtra pour toute l'équipe.")) return;
+  r.c.comms = r.c.comms.filter(function(x) { return x.uid !== uid; });
+  persisterAction("comm_supprime", cleConv(r.c), "", { uid: uid });
   renduFil();
 }
 
@@ -3502,7 +3534,6 @@ function cleMsg(convId, msg) {
 /* Estime une date (ms) depuis un libellé "hh:mm" (démo : décalage JOUR en
    jours) ou "jj/mm hh:mm" (commentaires internes). */
 function msLibelle(convId, t, joursDefaut) {
-
   var p = (t || "").split(" ");
   var hm = 0, jours = (convId !== undefined && JOUR[convId] !== undefined) ? JOUR[convId] : (joursDefaut || 0);
   if (p.length >= 2) {
@@ -3895,7 +3926,13 @@ function renduFil() {
       d.className = "bulle-note";
       if (RECH_FIL && it.k.txt.toLowerCase().indexOf(RECH_FIL.toLowerCase()) < 0) d.classList.add("sans"); else nbTrouves++;
       var mentions = personnesTaguees(it.k.txt);
-      d.innerHTML = '<div class="h">📌 ' + avatar(it.k.a) + ' Commentaire interne — ' + it.k.a + ' · ' + it.k.t + '</div>' +
+      /* C15-ACT-2 : boutons éditer/supprimer sur les commentaires AVEC uid
+         (les vieux commentaires d'avant la v73 n'en ont pas → pas de boutons) */
+      var btnsC = it.k.uid
+        ? ' <span style="float:right;font-size:10.5px;white-space:nowrap;">' +
+          '<a href="javascript:void(0)" onclick="editerComm(\'' + it.k.uid + '\')" title="Modifier ce commentaire" style="margin-right:6px;">✏️</a>' +
+          '<a href="javascript:void(0)" onclick="supprimerComm(\'' + it.k.uid + '\')" title="Supprimer ce commentaire">🗑️</a></span>' : '';
+      d.innerHTML = '<div class="h">📌 ' + avatar(it.k.a) + ' Commentaire interne — ' + it.k.a + ' · ' + it.k.t + (it.k.mod ? ' · <i style="opacity:.7;">modifié</i>' : '') + btnsC + '</div>' +
         surligner(it.k.txt, RECH_FIL) +
         (mentions.length ? ' <span class="tag" style="background:#fef3c7;color:#92400e;">👤 ' + mentions.join(", ") + ' tagué(s)</span>' : '');
       m.appendChild(d);
@@ -4166,6 +4203,7 @@ function lancerNouvelleConv(id) {
   };
   CONVS.push(n);
   n.dateLbl = dateLblDe(n, 0);
+
   SOCIETES.forEach(function(s){ if (s.ent === c.entreprise && s.convs.indexOf(n.id) < 0) s.convs.push(n.id); });
   ouvrirConvLu(n.id);
   rafraichirFiche();
@@ -4203,7 +4241,6 @@ function ouvrirCarnet() {
 function fermerCarnet() {
   document.getElementById("carnet").classList.remove("ouvert");
 }
-
 function voirConvCarnet(id) {
   fermerCarnet();
   marquerLecture(convParId(id));
@@ -4867,6 +4904,7 @@ function archivesHtml(ent) {
             '<span class="sp"><button class="btn" style="padding:2px 8px;" onclick="voirConv(' + e.id + ')">Voir →</button>' +
             '<button class="btn" style="padding:2px 8px;" title="Détacher du dossier archivé" onclick="detacher(' + e.id + '); rafraichirTout(); renduFil();">↩️ Détacher</button></span></div>';
         }).join("");
+
     }).join("");
 }
 
@@ -4904,7 +4942,6 @@ function sujetEditer(id) {
 function sujetValider(id) {
   var v = (document.getElementById("cvj-in-" + id) || {}).value || "";
   if (v.trim()) SUJET_MANUEL[id] = v.trim();
-
   rafraichirTout();
 }
 function sujetRetablir(id) {
@@ -5041,14 +5078,37 @@ function chargerActions(base, jeton) {
         var h = String(a.horodatage || "");
         var ix = actIndex(cle);
         if (typ === "commentaire") {
-          var co = { a: d.auteur || MOI, t: (d.detail && d.detail.heure) || maintenant(), txt: String(d.valeur || "") };
+          var co = { a: d.auteur || MOI, t: (d.detail && d.detail.heure) || maintenant(), txt: String(d.valeur || ""), uid: (d.detail && d.detail.uid) || "" };
           if (!co.txt) return;
-          var deja = ix.commentaires.some(function(k) { return k.a === co.a && k.txt === co.txt; });
+          /* C15-ACT-2 : dédoublonnage par uid (repli a+txt pour les vieux
+             commentaires d'avant l'uid) */
+          var deja = co.uid
+            ? ix.commentaires.some(function(k) { return k.uid === co.uid; })
+            : ix.commentaires.some(function(k) { return k.a === co.a && k.txt === co.txt; });
           if (!deja) {
             ix.commentaires.push(co);
             var c = convParCle(cle);
             if (c) { c.comms.push(co); n++; }
           }
+        } else if (typ === "comm_edite" || typ === "comm_supprime") {
+          /* C15-ACT-2 : édition/suppression d'un commentaire — le même objet
+             est référencé dans ix.commentaires ET c.comms → la modif du
+             txt/la suppression s'applique aux deux d'un coup. */
+          var cuid = (d.detail && d.detail.uid) || "";
+          if (!cuid) return;
+          var kx = null;
+          ix.commentaires.forEach(function(k) { if (k.uid === cuid) kx = k; });
+          var cx = convParCle(cle);
+          if (!kx && cx) cx.comms.forEach(function(k) { if (k.uid === cuid) kx = k; });
+          if (!kx) return;
+          if (typ === "comm_edite") {
+            kx.txt = String(d.valeur || kx.txt);
+            kx.mod = true;
+          } else {
+            ix.commentaires = ix.commentaires.filter(function(k) { return k.uid !== cuid; });
+            if (cx) cx.comms = cx.comms.filter(function(k) { return k.uid !== cuid; });
+          }
+          n++;
         } else if (typ === "cycle" || typ === "assigne") {
           if (!ix[typ + "_a"] || ix[typ + "_a"] <= h) {
             ix[typ] = String(d.valeur === null ? "" : (d.valeur || ""));
