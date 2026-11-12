@@ -112,6 +112,7 @@ function paramDe(req, nom) {
 // --- Supabase (REST PostgREST) — mêmes conventions que api/test.js ---------
 function urlSupabase(table, params) {
   var base = env('SUPABASE_URL').replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
+  if (params && params.charAt(0) === '?') params = params.substring(1);
   return base + '/rest/v1/' + table + (params ? '?' + params : '');
 }
 
