@@ -947,6 +947,54 @@
   body.sombre ::-webkit-scrollbar-thumb { background: #3f4750; }
   body.sombre ::-webkit-scrollbar-thumb:hover { background: #4a525a; }
   body.sombre .volet.deplace { outline-color: #10B981; }
+
+  /* ============================================================
+     C14-MOBILE : couche responsive de la plateforme.
+     ≤ 860 px = un seul volet PLEIN ÉCRAN à la fois, navigation par
+     boutons (☰ filtres / 💬 conversations / ← retour). Le drag &
+     resize et le pliage des volets sont désactivés (souris only).
+     JS associé : estMobile / basculerVueMobile / majMobile.
+     ============================================================ */
+  .btn-mob { display: none; }
+  @media (max-width: 860px) {
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-size: 13px; }
+    /* topbar : une ligne compacte défilable horizontalement */
+    header.topbar { flex-wrap: nowrap; overflow-x: auto; gap: 6px; padding: 8px 10px; scrollbar-width: none; }
+    header.topbar::-webkit-scrollbar { display: none; }
+    header.topbar .crumb, header.topbar .spacer { display: none; }
+    .btn-nouv { padding: 7px 10px; font-size: 11px; white-space: nowrap; flex: none; }
+    .badge-ver { font-size: 10px; padding: 6px 8px; flex: none; }
+    .btn-mob { display: inline-flex; align-items: center; justify-content: center; flex: none; }
+    .btn-ret { display: none; }
+    /* layout : colonne unique, un volet visible à la fois */
+    .layout { height: calc(100vh - 52px); min-height: 0; }
+    .layout > .volet { display: none; width: 100% !important; min-width: 0 !important; flex: 1 1 auto !important; border-radius: 0 !important; border-left: none !important; border-right: none !important; border-top: none !important; }
+    .layout > .volet.vue-mobile { display: flex; }
+    .rz { display: none !important; }
+    .volet-pli { display: none !important; }
+    .volet-bar { padding: 9px 12px; touch-action: manipulation; }
+    .volet-bar .aide { display: none; }
+    #volet-fil .volet-bar { display: flex; align-items: center; gap: 8px; }
+    #volet-fil .btn-ret { display: inline-flex; align-items: center; justify-content: center; flex: none; border: none; background: #EEF4FB; color: #0e5aa7; font-weight: 700; font-size: 12px; padding: 6px 11px; border-radius: 999px; }
+    /* fil : espacements resserrés, saisie adaptée au clavier tactile */
+    .fil-head { padding: 8px 10px; }
+    .rech-fil { padding: 0 10px; }
+    .rech-fil::before { left: 22px; }
+    .rech-fil input { width: 100%; font-size: 13px; }
+    .messages { padding: 10px; }
+    .saisie { padding: 8px 10px 10px; }
+    .saisie textarea, .saisie input { font-size: 16px !important; }   /* évite le zoom auto iOS au focus */
+    #btn-descente { left: 10px; right: 10px; bottom: 8px; width: auto; }
+    .outils-envoi { flex-wrap: wrap; }
+    /* fenêtres modales (carnet, nouveaux, profils, comptes, outils…) : presque plein écran */
+    .nv-fen, .bo-fen, .carnet-fen { max-width: none; width: calc(100vw - 14px); margin: 7px auto; height: calc(100vh - 14px); border-radius: 14px; }
+    #auth-carte, .nv-fen form { max-width: 100%; }
+    #ia-fen { width: calc(100vw - 16px); height: calc(100vh - 90px); right: 8px; bottom: 76px; }
+    /* fiche société dans le fil : largeur pleine */
+    #fiche { max-width: 100%; }
+    .voie-btn, .cpt-btn, .outil-btn { font-size: 11px; }
+  }
 </style>
 </head>
 <body>
@@ -958,6 +1006,9 @@
     <span style="font-weight:800;">U'mob</span>
   </div>
   <div class="crumb">Boîte de réception</div>
+  <!-- C14-MOBILE : navigation volets sur mobile (masqués sur desktop) -->
+  <button class="btn-nouv btn-mob" id="btn-mob-filtres" onclick="basculerVueMobile(VUE_MOBILE === 'volet-filtres' ? 'volet-liste' : 'volet-filtres')" title="Filtres">☰</button>
+  <button class="btn-nouv btn-mob" id="btn-mob-liste" onclick="basculerVueMobile('volet-liste')" title="Conversations">💬</button>
   <div class="spacer"></div>
   <button class="btn-nouv" id="btn-nouv" onclick="ouvrirNouveaux()">🔔 Nouveaux messages<span class="n" id="btn-nouv-n">0</span></button>
   <button class="btn-nouv" id="btn-newconv" onclick="ouvrirNouvelleConv()" title="Démarrer une conversation avec un nouveau contact (numéro WhatsApp ou adresse email) — le premier message part réellement">➕ Nouvelle conversation</button>
@@ -1057,7 +1108,7 @@
 
   <!-- ===== Volet 3 : fil ===== -->
   <section class="fil volet" id="volet-fil">
-    <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet"><span class="vt">Conversation</span> <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
+    <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet"><button class="btn-ret" onclick="basculerVueMobile('volet-liste')" title="Retour aux conversations">← Conversations</button><span class="vt">Conversation</span> <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
     <div class="fil-head" id="filhead"></div>
     <div class="rech-fil">
       <input id="rech-fil" placeholder="🔎 Rechercher dans la conversation (ex. « batt »)…" oninput="RECH_FIL = this.value; renduFil();" />
@@ -1344,6 +1395,7 @@ var CONVS = [
   ], "comms": [
     {"a": "Nicolas", "t": "29/10 18:25", "txt": "Dossier complet — intervention à créer dans Praxedo, secteur Montargis."}
   ]},
+
   {"id": 6, "nom": "Nathalie Ben Othmen (PDG)", "entreprise": "CNKL (DOMINO'S PIZZA MONTARGIS)", "canal": "WhatsApp", "cycle": "DE Commerciales", "classe": "qualifier", "tags": ["Demande Commerciale"], "heure": "lundi", "delai": "4 j", "lu": true, "extrait": "Possible d'avoir un devis pour 2 scooters supplémentaires ?", "contact": {"tel": "06 23 75 57 35", "plaque": "HJ-447-AN / HJ-480-AN"}, "fil": [
     {"qui": "client", "t": "10:05", "txt": "Bonjour, possible d'avoir un devis pour 2 scooters supplémentaires ?"},
     {"qui": "agent", "t": "10:06", "txt": "Bonjour ! Votre demande est transmise à un conseiller commercial qui vous recontactera 📋"}
@@ -1395,7 +1447,6 @@ var CONVS = [
   {"id": 14, "nom": "Andréa (Président)", "entreprise": "MASSUSHI (MAS SUSHI)", "canal": "WhatsApp", "cycle": "Traitée", "classe": "traitee", "tags": [], "heure": "lundi", "delai": "4 j", "lu": true, "extrait": "Parfait, tout fonctionne, merci !", "contact": {"tel": "07 85 75 23 56", "plaque": "GX-722-SG / HH-477-JM / HH-440-JM"}, "fil": [
     {"qui": "client", "t": "15:02", "txt": "Parfait, tout fonctionne, merci !"},
     {"qui": "agent", "t": "15:20", "txt": "Avec plaisir ! Dossier passé en « Traitée », bonne journée !"}
-
   ], "comms": []},
   {"id": 15, "nom": "Alessandro Doronzo (Gérant)", "entreprise": "DORONZO (PULCINELLA)", "canal": "WhatsApp", "cycle": "Nouvelle Demande", "classe": "nouvelle", "tags": [], "heure": "07:55", "delai": "3 h", "lu": false, "extrait": "Bonjour, un rétroviseur s'est détaché sur le GH-330-XY.", "contact": {"tel": "06 13 70 53 29", "plaque": "GH-330-XY / GR-995-EA / GR-978-EA / HB-630-RK"}, "fil": [
     {"qui": "client", "t": "07:55", "txt": "Bonjour, un rétroviseur s'est détaché sur le GH-330-XY."},
@@ -2045,6 +2096,7 @@ function chargerCyclesRio(base, jeton, cb) {
         var d = String(c.tel || "").replace(/\D/g, "");
         var m = normMel(c.email);
         /* C12-ASSIGN : assignation respond.io (prénom de l'assignee, même
+
            format que PROFILS/MOI pour les filtres « Mes conversations »). */
         var a = c.assignee;
         var nmAss = "";
@@ -2096,7 +2148,6 @@ function qualifierAssignRio(c, nom) {
    FIX BUG C12-PROSP-2 : nid était utilisé alors qu'il n'existait que comme
    variable LOCALE du .then de chargerMessagesWhatsApp → ReferenceError
    « nid is not defined » avalé par le .catch silencieux → aucun prospect
-
    ne se créait et le rendu de fin de chargement sautait. */
 function creerConvsProspects(parWa) {
   if (!RIO_PROSPECTS.length) return 0;
@@ -2746,6 +2797,7 @@ document.addEventListener("keydown", function(ev) {
   }
   if (ev.key === "Escape") {
     fermerBoiteOutils();
+
     fermerCtx();
     fermerMenuCycles();
     ["carnet", "nouveaux", "notifs", "profils"].forEach(function(id) {
@@ -2797,7 +2849,6 @@ function dicterIA() {
       inp.value = t.slice(0, p) + (p && t[p-1] !== " " ? " " : "") + ajout.trim() + " " + t.slice(q);
       var np = p + ajout.trim().length + 1;
       inp.selectionStart = inp.selectionEnd = np;
-
       inp.focus();
     }
   };
@@ -3447,6 +3498,7 @@ function msLibelle(convId, t, joursDefaut) {
       if (past > now) past = new Date(now.getFullYear() - 1, parseInt(dd[1], 10) - 1, parseInt(dd[0], 10));
       jours = Math.max(0, Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - past) / 86400000));
     }
+
   } else {
     hm = parseInt((p[0] || "").replace(":", ""), 10) || 0;
   }
@@ -3498,7 +3550,6 @@ function lireNotif(i) {
 }
 
 /* ===== Dictée vocale pour les commentaires internes ===== */
-
 function dicterComm() {
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { alert("🎤 La dictée vocale n'est pas disponible dans cet affichage (navigateur ou sandbox). Tu peux saisir le commentaire au clavier."); return; }
@@ -4050,7 +4101,36 @@ function rafraichirFiche() {
 function voirConv(id) {
   marquerLecture(convParId(id));
   SELID = id; SELSENT = null; renduListe(); renduFil();
+  if (estMobile()) basculerVueMobile("volet-fil");   /* C14-MOBILE : ouvrir une conversation = vue fil plein écran */
 }
+/* ===== C14-MOBILE : navigation un volet à la fois (≤ 860 px) ============
+   estMobile() : vrai sur petit écran ; basculerVueMobile affiche UN volet
+   (les autres sont masqués par le CSS responsive) ; majMobile neutralise
+   les états desktop (volets pliés, largeurs) et remet la vue en cours. */
+var VUE_MOBILE = "volet-liste";
+function estMobile() { return !!(window.matchMedia && window.matchMedia("(max-width: 860px)").matches); }
+function basculerVueMobile(v) {
+  if (!estMobile()) return;
+  VUE_MOBILE = v;
+  ["volet-filtres", "volet-liste", "volet-fil"].forEach(function(id) {
+    var e = document.getElementById(id);
+    if (e) e.classList.toggle("vue-mobile", id === v);
+  });
+  if (v === "volet-fil") { setTimeout(descenteFil, 80); }  /* le fil reprend sa place en bas */
+}
+function majMobile() {
+  ["volet-filtres", "volet-liste", "volet-fil"].forEach(function(id) {
+    var e = document.getElementById(id);
+    if (!e) return;
+    if (estMobile()) {
+      e.classList.remove("replie");            /* pas d'état « plié » en mobile */
+      e.classList.toggle("vue-mobile", id === VUE_MOBILE);
+    } else {
+      e.classList.remove("vue-mobile");         /* desktop : les 3 volets visibles */
+    }
+  });
+}
+if (typeof window !== "undefined") { window.addEventListener("resize", majMobile); }
 
 /* Simuler l'arrivée d'un nouveau message du client (démo) :
    crée une nouvelle conversation pour ce contact — utile pour tester
@@ -4112,12 +4192,14 @@ function voirConvCarnet(id) {
   fermerCarnet();
   marquerLecture(convParId(id));
   SELID = id; SELSENT = null; renduListe(); renduFil();
+  if (estMobile()) basculerVueMobile("volet-fil");   /* C14-MOBILE */
 }
 function lancerConversation() {
   alert("Brique C2 : l'envoi de messages arrivera derrière un drapeau. En C1, le carnet reste en lecture.");
 }
 function appelerContact(cid) {
   var c = convParId(cid);
+
   if (!c) return;
   var t = (c.contact && c.contact.tel) || "";
   var d = t.replace(/\D/g, "");
@@ -4199,7 +4281,6 @@ function basculeCarnetSec(ent, k) {
   renduPageCarnet();
 }
 function carnetTete(ent, k, cls, ico, titre, extra) {
-
   return '<div class="fs-tete ' + cls + ' cliquable" onclick="basculeCarnetSec(\'' + ent.replace(/'/g, "\\'") + '\',\'' + k + '\')" title="Réduire / dérouler cette section">' +
     '<span class="fleche">' + (carnetOuvert(ent, k) ? "▾" : "▸") + '</span><span class="ico">' + ico + '</span> ' + titre + (extra || "") + '</div>';
 }
@@ -4819,6 +4900,7 @@ function renduRattache() {
 
   /* candidats : uniquement les autres conversations du MÊME client (même société), y compris archivées */
   var exclus = {}; exclus[c.id] = true;
+
   var pile = [c.id], garde = 0;
   while (pile.length && garde++ < 50) {
     var pid = pile.pop();
@@ -4900,7 +4982,6 @@ function ouvrirComptes() {
   }
   document.getElementById("comptes").classList.add("ouvert");
   chargerComptes();
-
 }
 function fermerComptes() {
   document.getElementById("comptes").classList.remove("ouvert");
@@ -5277,7 +5358,7 @@ majBoutonDing();
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
 if (!sessionDe()) afficherPorte();   /* v32 : sans session → porte de connexion */
-renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux();
+renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); majMobile();
 </script>
 </body>
 </html>
