@@ -1,3 +1,5 @@
+
+
 <!doctype html>
 <html lang="fr">
 <head>
@@ -692,13 +694,13 @@
   .conv.on { background: #E8F1FB; box-shadow: inset 3px 0 0 var(--lime), 0 1px 4px rgba(15,35,70,.05); }
   .conv .conv-c { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   .conv .conv-l1 { display: flex; align-items: baseline; gap: 8px; }
+
   .conv .conv-l1 .nom { flex: 1; min-width: 0; font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .conv .heure { grid-column: auto; grid-row: auto; font-size: 11px; color: var(--mut); flex: none; }
   .conv .extrait, .conv .sousnom { grid-column: auto; }
   .grp-bloc .conv { margin: 0 2px; }
   .grp-bloc { margin: 0 8px; border-radius: 0 0 12px 12px; }
   .convs { padding: 6px 0 10px; }
-
   .liste-head { padding: 14px 16px; }
 
   /* --- fil : en-tête avec avatar, texture discrète, bulles aérées --- */
@@ -1393,13 +1395,13 @@ var CONVS = [
   {"id": 14, "nom": "Andréa (Président)", "entreprise": "MASSUSHI (MAS SUSHI)", "canal": "WhatsApp", "cycle": "Traitée", "classe": "traitee", "tags": [], "heure": "lundi", "delai": "4 j", "lu": true, "extrait": "Parfait, tout fonctionne, merci !", "contact": {"tel": "07 85 75 23 56", "plaque": "GX-722-SG / HH-477-JM / HH-440-JM"}, "fil": [
     {"qui": "client", "t": "15:02", "txt": "Parfait, tout fonctionne, merci !"},
     {"qui": "agent", "t": "15:20", "txt": "Avec plaisir ! Dossier passé en « Traitée », bonne journée !"}
+
   ], "comms": []},
   {"id": 15, "nom": "Alessandro Doronzo (Gérant)", "entreprise": "DORONZO (PULCINELLA)", "canal": "WhatsApp", "cycle": "Nouvelle Demande", "classe": "nouvelle", "tags": [], "heure": "07:55", "delai": "3 h", "lu": false, "extrait": "Bonjour, un rétroviseur s'est détaché sur le GH-330-XY.", "contact": {"tel": "06 13 70 53 29", "plaque": "GH-330-XY / GR-995-EA / GR-978-EA / HB-630-RK"}, "fil": [
     {"qui": "client", "t": "07:55", "txt": "Bonjour, un rétroviseur s'est détaché sur le GH-330-XY."},
     {"qui": "agent", "t": "07:55", "txt": "Bonjour, comment puis-je vous aider ?"}
   ], "comms": []},
   {"id": 16, "nom": "Najm Toumi (Manager SAV)", "entreprise": "DEMOZ (DOMINO'S PIZZA POISSY)", "canal": "WhatsApp", "cycle": "A qualifier", "classe": "qualifier", "tags": [], "heure": "hier", "delai": "1 j", "lu": true, "extrait": "Le GW-288-GA tire vers la droite.", "contact": {"tel": "06 58 65 71 69", "plaque": "GW-288-GA / GW-293-GA / GW-325-GA"}, "fil": [
-
     {"qui": "client", "t": "13:20", "txt": "Bonjour, le GW-288-GA tire vers la droite quand je roule."},
     {"qui": "agent", "t": "13:21", "txt": "Bonjour ! Merci — depuis quand, et le guidon vibre-t-il aussi ?"}
   ], "comms": []}
@@ -2082,17 +2084,20 @@ function qualifierAssignRio(c, nom) {
   if (!c || !nom || c.assigne) return;
   c.assigne = nom;
 }
-/* C12-PROSP : crée les conversations « Prospects » pour les contacts
+/* C12-PROSP-2 : crée les conversations « Prospects » pour les contacts
    respond.io ASSIGNÉS à l'équipe mais absents du carnet clients — fil
-   alimenté par les messages WhatsApp connus de ce numéro, sinon vide. */
+   alimenté par les messages WhatsApp connus de ce numéro, sinon vide.
+   DECISION CORENTIN 12/11 : chaque prospect est SA PROPRE entrée (pas de
+   société groupée « PROSPECTS RESPOND.IO ») — 1 prospect = 1 conversation
+   indépendante avec sa fiche entreprise propre.
+   FIX BUG C12-PROSP-2 : nid était utilisé alors qu'il n'existait que comme
+   variable LOCALE du .then de chargerMessagesWhatsApp → ReferenceError
+   « nid is not defined » avalé par le .catch silencieux → aucun prospect
+   ne se créait et le rendu de fin de chargement sautait. */
 function creerConvsProspects(parWa) {
   if (!RIO_PROSPECTS.length) return 0;
-  var s = socParEnt("PROSPECTS RESPOND.IO");
-  if (!s) {
-    s = { ent: "PROSPECTS RESPOND.IO", siren: "", siege: "", livraison: "—", contact_sc: "",
-          risque: "RAS", classeR: "ok", scooters: [], convs: [], vraisContacts: [] };
-    SOCIETES.push(s);
-  }
+
+  var nid = CONVS.length ? Math.max.apply(null, CONVS.map(function(c) { return c.id; })) : 0;
   var n = 0;
   RIO_PROSPECTS.forEach(function(p) {
     if (convDuContact("+" + p.tel)) return;            // déjà une conversation
@@ -2100,7 +2105,6 @@ function creerConvsProspects(parWa) {
     var fil = msgs.map(function(m) {
       var h = heureWa(m.recu_a);
       if (m.sens === "sortant") {
-
         var sr = m.statut_reception;
         var st = sr === "sent" ? "envoye" : sr === "delivered" ? "distribue" : sr === "read" ? "lu" : null;
         return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid };
@@ -2110,9 +2114,18 @@ function creerConvsProspects(parWa) {
     var dernier = fil[fil.length - 1];
     var cy = p.cycle === "Attente interne" ? "Attente client" : p.cycle;
     if (CYCLES_LISTE.indexOf(cy) < 0) cy = "";
+    /* une entrée PAR prospect : fiche entreprise = le nom du prospect */
+    var ent = String(p.nom || p.tel).trim() || p.tel;
+    var s = socParEnt(ent);
+    if (!s) {
+      s = { ent: ent, siren: "", siege: "", livraison: "—", contact_sc: "",
+            risque: "RAS", classeR: "ok", scooters: [], convs: [],
+            vraisContacts: [{ nom: p.nom || "", tel: "+" + p.tel, plaque: "", email: p.email || "" }] };
+      SOCIETES.push(s);
+    }
     nid++;
     CONVS.push({
-      id: nid, nom: p.nom || p.tel, entreprise: s.ent, canal: "WhatsApp",
+      id: nid, nom: p.nom || p.tel, entreprise: ent, canal: "WhatsApp",
       cycle: cy || "Nouvelle Demande", classe: classeCycle(cy) || "nouvelle", tags: [],
       heure: "—", delai: "", lu: fil.length === 0, wa: true,
       extrait: dernier ? String(dernier.txt || "") : "Prospect respond.io — pas encore de message WhatsApp",
@@ -2784,6 +2797,7 @@ function dicterIA() {
       inp.focus();
     }
   };
+
   REC_IA.onstart = function() { DICTEE_IA_ON = true; btn.classList.add("rec"); btn.title = "Dictée en cours — clique pour arrêter"; inp.placeholder = "🎤 Dictée en cours… ta question s'inscrit ici"; };
   REC_IA.onend = function() { DICTEE_IA_ON = false; btn.classList.remove("rec"); btn.title = "Dicter ta question (reconnaissance vocale du navigateur — Chrome/Edge)"; inp.placeholder = "Pose ta question (fonctionnement, clients, derniers échanges)…"; };
   REC_IA.onerror = function(ev) { if (ev.error === "not-allowed") alert("Micro refusé — autorise l'accès au microphone dans ton navigateur."); };
@@ -2801,7 +2815,6 @@ function joindreFichier(inp) {  try {
     catch (e) { c.fil.push({ qui: "agent", de: MOI, t: h, txt: (estImg ? "🖼 " : "📎 ") + f.name, canal: CANAL_ENVOI, pj: f.name, taille: kb }); }
     c.extrait = (estImg ? "🖼 " : "📎 ") + f.name; c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
-
     inp.value = "";
     renduFil(); renduListe(); rafraichirFiche(); majBadgeNouveaux();
   } catch (e) { alert("Pièce jointe non disponible dans cet environnement : " + e.message); }
@@ -3485,6 +3498,7 @@ function lireNotif(i) {
 function dicterComm() {
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { alert("🎤 La dictée vocale n'est pas disponible dans cet affichage (navigateur ou sandbox). Tu peux saisir le commentaire au clavier."); return; }
+
   var inp = document.getElementById("nv-comm");
   try {
     var rec = new SR();
@@ -3502,7 +3516,6 @@ var RECH_TXT = "";
 var RECH_FIL = "";
 
 /* Recherche universelle : insensible à la casse, et pour les téléphones
-
    insensible aux espaces, points et tirets (on compare les chiffres seuls). */
 function normTel(s) { return (s || "").replace(/\D/g, ""); }
 function correspondTxt(valeurs, q) {
@@ -4186,6 +4199,7 @@ function carnetTete(ent, k, cls, ico, titre, extra) {
   return '<div class="fs-tete ' + cls + ' cliquable" onclick="basculeCarnetSec(\'' + ent.replace(/'/g, "\\'") + '\',\'' + k + '\')" title="Réduire / dérouler cette section">' +
     '<span class="fleche">' + (carnetOuvert(ent, k) ? "▾" : "▸") + '</span><span class="ico">' + ico + '</span> ' + titre + (extra || "") + '</div>';
 }
+
 function carnetCorps(ent, k, html, repli) {
   if (carnetOuvert(ent, k)) return '<div class="fs-corps">' + html + '</div>';
   return repli ? '<div class="fs-repli">▶ ' + repli + ' — clique pour dérouler</div>' : "";
@@ -4203,7 +4217,6 @@ function renduPageCarnet() {
   if (CARNET_SEL.type === "contact") {
     var c = convParId(CARNET_SEL.id);
     if (!c) { CARNET_SEL = null; return renduPageCarnet(); }
-
     var s = socParEnt(c.entreprise);
 
     page.innerHTML =
@@ -4887,6 +4900,7 @@ function ouvrirComptes() {
 }
 function fermerComptes() {
   document.getElementById("comptes").classList.remove("ouvert");
+
 }
 function chargerComptes() {
   var b = baseEtJeton();
@@ -4904,7 +4918,6 @@ function chargerComptes() {
 function renduComptes() {
   var moi = baseEtJeton().qui || {};
   var nb = document.getElementById("comptes-nb");
-
   if (nb) nb.textContent = COMPTES_LISTE.length + " compte" + (COMPTES_LISTE.length > 1 ? "s" : "");
   document.getElementById("comptes-liste").innerHTML = COMPTES_LISTE.map(function(u, i){
     var initiales = String(u.nom || "?").split(/\s+/).map(function(m){ return m.charAt(0); }).join("").substring(0, 2);
