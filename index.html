@@ -698,6 +698,7 @@
   .grp-bloc .conv { margin: 0 2px; }
   .grp-bloc { margin: 0 8px; border-radius: 0 0 12px 12px; }
   .convs { padding: 6px 0 10px; }
+
   .liste-head { padding: 14px 16px; }
 
   /* --- fil : en-tête avec avatar, texture discrète, bulles aérées --- */
@@ -1398,6 +1399,7 @@ var CONVS = [
     {"qui": "agent", "t": "07:55", "txt": "Bonjour, comment puis-je vous aider ?"}
   ], "comms": []},
   {"id": 16, "nom": "Najm Toumi (Manager SAV)", "entreprise": "DEMOZ (DOMINO'S PIZZA POISSY)", "canal": "WhatsApp", "cycle": "A qualifier", "classe": "qualifier", "tags": [], "heure": "hier", "delai": "1 j", "lu": true, "extrait": "Le GW-288-GA tire vers la droite.", "contact": {"tel": "06 58 65 71 69", "plaque": "GW-288-GA / GW-293-GA / GW-325-GA"}, "fil": [
+
     {"qui": "client", "t": "13:20", "txt": "Bonjour, le GW-288-GA tire vers la droite quand je roule."},
     {"qui": "agent", "t": "13:21", "txt": "Bonjour ! Merci — depuis quand, et le guidon vibre-t-il aussi ?"}
   ], "comms": []}
@@ -2015,19 +2017,29 @@ var TEST_WA = {
    de leur création (les noms de cycles respond.io = CYCLES_LISTE du canvas).
    Chargé AVANT les messages ; silencieux si la brique est absente. */
 var RIO_CYCLES_TEL = {}, RIO_CYCLES_MEL = {};
+var RIO_ASSIGNS_TEL = {}, RIO_ASSIGNS_MEL = {};
 function chargerCyclesRio(base, jeton, cb) {
   fetch(base + "/api/clients-import?jeton=" + encodeURIComponent(jeton) + "&respondio=1")
     .then(function(r) { return r.json(); })
     .then(function(rep) {
       (rep && rep.contacts || []).forEach(function(c) {
+        var d = String(c.tel || "").replace(/\D/g, "");
+        var m = normMel(c.email);
+        /* C12-ASSIGN : assignation respond.io (prénom de l'assignee, même
+           format que PROFILS/MOI pour les filtres « Mes conversations »). */
+        var a = c.assignee;
+        if (a && a.firstName) {
+          var nm = String(a.firstName).trim();
+          nm = nm.charAt(0).toUpperCase() + nm.slice(1).toLowerCase();
+          if (d) RIO_ASSIGNS_TEL[d] = nm;
+          if (m) RIO_ASSIGNS_MEL[m] = nm;
+        }
         var cy = String(c.cycle_vie || "").trim();
         if (!cy) return;
         /* Fusion des cycles équivalents (décision Corentin 06/11 :
            « Attente interne » = « Attente client » → un seul cycle) */
         if (cy === "Attente interne") cy = "Attente client";
-        var d = String(c.tel || "").replace(/\D/g, "");
         if (d) RIO_CYCLES_TEL[d] = cy;
-        var m = normMel(c.email);
         if (m) RIO_CYCLES_MEL[m] = cy;
       });
     })
@@ -2036,6 +2048,15 @@ function chargerCyclesRio(base, jeton, cb) {
 }
 function cycleRioTel(tel) { return RIO_CYCLES_TEL[String(tel || "").replace(/\D/g, "")] || null; }
 function cycleRioMel(mel) { return RIO_CYCLES_MEL[normMel(mel)] || null; }
+/* C12-ASSIGN : assignation respond.io par téléphone ou email */
+function assignRioTel(tel) { return RIO_ASSIGNS_TEL[String(tel || "").replace(/\D/g, "")] || null; }
+function assignRioMel(mel) { return RIO_ASSIGNS_MEL[normMel(mel)] || null; }
+/* applique l'assignation respond.io à une conversation (création OU fusion) —
+   ne JAMAIS écraser une assignation déjà posée (choix manuel de l'équipe). */
+function qualifierAssignRio(c, nom) {
+  if (!c || !nom || c.assigne) return;
+  c.assigne = nom;
+}
 /* applique le cycle respond.io à une conversation (création OU fusion) —
    les cycles inconnus de CYCLES_LISTE sont ignorés (cycle inchangé). */
 function qualifierCycleRio(c, cy) {
@@ -2079,6 +2100,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
             var st = sr === "sent" ? "envoye" : sr === "delivered" ? "distribue" : sr === "read" ? "lu" : null;
             /* C8-IMP-2 : vrai expéditeur respond.io (brut sender_nom — l'API
                n'exposait pas l'expéditeur avant) ; source api → « Agent IA ». */
+
             if (m.sens === "sortant") {
               return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid };
             }
@@ -2087,13 +2109,15 @@ function chargerMessagesWhatsApp(base, secret, cb) {
           /* conversation existante du même contact (ex. créée par un chargement
              Email arrivé avant) → fusion, pas de nouvelle conversation */
           var ex = convDuContact(v.tel);
-          if (ex) { fusionnerFil(ex, fil); qualifierCycleRio(ex, cycleRioTel(v.tel)); creees++; return; }
+          if (ex) { fusionnerFil(ex, fil); qualifierCycleRio(ex, cycleRioTel(v.tel)); qualifierAssignRio(ex, assignRioTel(v.tel)); creees++; return; }
           var cyRio = cycleRioTel(v.tel);            /* C8-CYC-1 : cycle de vie respond.io */
+          var asRio = assignRioTel(v.tel);           /* C12-ASSIGN : assignation respond.io */
           nid++;
           CONVS.push({
             id: nid, nom: nomProfilOu(dernier.nom_profil, v.nom), entreprise: s.ent, canal: "WhatsApp",
             cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
             lu: false, wa: true, extrait: String(dernier.texte || ""),
+            assigne: asRio || null,
             contact: { tel: v.tel, plaque: v.plaque, email: emailParTel(v.tel) }, fil: fil, comms: []
           });
           s.convs.push(nid);
@@ -2125,13 +2149,15 @@ function chargerMessagesWhatsApp(base, secret, cb) {
           return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid };
         });
         var ex = convDuContact("+" + d);
-        if (ex) { fusionnerFil(ex, fil); qualifierCycleRio(ex, cycleRioTel(d)); creees++; return; }
+        if (ex) { fusionnerFil(ex, fil); qualifierCycleRio(ex, cycleRioTel(d)); qualifierAssignRio(ex, assignRioTel(d)); creees++; return; }
         var cyRio = cycleRioTel(d);                 /* C8-CYC-1 : cycle de vie respond.io */
+        var asRio = assignRioTel(d);                /* C12-ASSIGN : assignation respond.io */
         nid++;
         CONVS.push({
           id: nid, nom: nomProfilOu(dernier.nom_profil, t.nom), entreprise: t.ent, canal: "WhatsApp",
           cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
           lu: false, wa: true, extrait: String(dernier.texte || ""),
+          assigne: asRio || null,
           contact: { tel: "+" + d, plaque: t.plaque, email: emailParTel("+" + d) }, fil: fil, comms: []
         });
         s.convs.push(nid);
@@ -2424,13 +2450,15 @@ function chargerEmails(base, secret) {
             if (normMel(c.contact && c.contact.email) === addr) existante = c;
           });
         }
-        if (existante) { fusionnerFil(existante, fil); qualifierCycleRio(existante, cycleRioMel(addr)); creees++; return; }
+        if (existante) { fusionnerFil(existante, fil); qualifierCycleRio(existante, cycleRioMel(addr)); qualifierAssignRio(existante, assignRioMel(addr)); creees++; return; }
         var cyRio = cycleRioMel(addr);              /* C8-CYC-1 : cycle de vie respond.io */
+        var asRio = assignRioMel(addr);             /* C12-ASSIGN : assignation respond.io */
         nid++;
         CONVS.push({
           id: nid, nom: v.nom, entreprise: s.ent, canal: "Email",
           cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
           lu: false, extrait: nettoyerMailTxt(dernier.texte),
+          assigne: asRio || null,
           contact: { tel: v.tel, plaque: v.plaque, email: addr }, fil: fil, comms: []
         });
         s.convs.push(nid);
@@ -2509,10 +2537,11 @@ function lancerConvVrai(ent, i) {
   var v = s.vraisContacts[i];
   var id = (CONVS.length ? Math.max.apply(null, CONVS.map(function(c) { return c.id; })) + 1 : 1);
   var cyRio = cycleRioTel(v.tel) || cycleRioMel(v.email);   /* C8-CYC-1 */
+  var asRio = assignRioTel(v.tel) || assignRioMel(v.email); /* C12-ASSIGN */
   CONVS.push({
     id: id, nom: v.nom, entreprise: ent, canal: "WhatsApp",
     cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [],
-    heure: "—", delai: "", lu: true,
+    heure: "—", delai: "", lu: true, assigne: asRio || null,
     extrait: "Conversation lancée par l'équipe U'mob (vraie fiche client)",
     contact: { tel: v.tel, plaque: v.plaque, email: v.email || "" }, fil: [], comms: []
   });
@@ -2772,6 +2801,7 @@ function renommerProfil(n) {
 }
 function supprimerProfil(n) {
   if (!confirm("Supprimer le profil " + n + " ? Ses conversations seront non assignées.")) return;
+
   delete PROFILS[n];
   CONVS.forEach(function(c){
     if (c.assigne === n) c.assigne = null;
@@ -3472,6 +3502,7 @@ function filtreMesCycle(cy) {
   MESCY_ON = cy;
   FX.ass = "moi";
   FX.cycle = (cy === "tous") ? "tous" : cy;
+
   document.querySelectorAll("[data-fc],[data-fx],[data-fa]").forEach(function(c){ c.classList.remove("on"); });
   renduMesCycles();
   renduListe();
@@ -4172,6 +4203,7 @@ function renduPageCarnet() {
       carnetCorps(ent2, "contacts",
         (s2.convs.length ? s2.convs.map(function(id) {
           var c = convParId(id);
+
           if (!c) return "";
           return '<div class="cp-contact" onclick="ouvrirPageContact(' + c.id + ')">' +
             '<span class="avatar" style="background:' + couleur(c.nom) + '">' + initiales(c.nom) + '</span>' +
@@ -4872,6 +4904,7 @@ function appliquerMoiSession(nomComplet) {
   if (MOI !== prenom) {
     MOI = prenom;
     try { majEquipe(); renduListe(); renduMesCycles(); } catch (e) {}
+
   }
 }
 function seConnecter() {
