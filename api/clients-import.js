@@ -53,7 +53,7 @@
 // ni enseigne) ; 401 secret invalide ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C6-AUTH-2';
+var VERSION = 'C15-ACT-1';
 var SCHEMA = 'agent_sav';
 
 var clients = require('../lib/clients.js');
@@ -566,6 +566,30 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // --- C15-ACT-1 : GET ?actions=1 → actions plateforme persistées ---------
+    // (commentaires internes, cycles/assignations modifiés à la main,
+    //  rattachements) — lues dans agent_sav.journal (etape=action_plateforme),
+    //  rejouées par la plateforme APRÈS les données respond.io.
+    if (paramDe(req, 'actions') === '1') {
+      if (!env('SUPABASE_URL') || !env('SUPABASE_SERVICE_KEY')) {
+        return res.status(500).json({ ok: false, erreur: 'configuration Supabase manquante' });
+      }
+      try {
+        var limiteA = parseInt(paramDe(req, 'limite'), 10) || 2000;
+        if (limiteA < 1) limiteA = 1;
+        if (limiteA > 5000) limiteA = 5000;
+        var actionsLues = await supabaseGet('journal',
+          'select=horodatage,contact_id,texte,detail&etape=eq.action_plateforme&order=horodatage.asc&limit=' + limiteA);
+        return res.status(200).json({
+          ok: true, brique: 'C15-ACT', version: VERSION,
+          limite: limiteA, trouves: actionsLues.length, actions: actionsLues
+        });
+      } catch (e) {
+        // Table indisponible → silencieux côté plateforme (données locales).
+        return res.status(200).json({ ok: false, erreur: String((e && e.message) || e).substring(0, 200), actions: [] });
+      }
+    }
+
     return res.status(200).json({
       ok: true, brique: 'C1-IMP', version: VERSION,
       role: 'import manuel de clients dans agent_sav.clients (meme ecriture que la synchro Sheet B2.2)',
@@ -573,7 +597,8 @@ module.exports = async function handler(req, res) {
       verifier: 'GET ?verifier=1&prefixe=TEST',
       liste: 'GET ?liste=1&limite=1000 — liste complete du miroir (plateforme C1, comptages maintenances fusionnes)',
       maintenances: 'GET ?maintenances=1 — comptages maintenance | POST {maintenances:[{code_client,nom,donnees}]} — import des comptages',
-      respondio: 'GET ?respondio=1 — contacts respond.io importes | POST {respondio:[…]} — import (cycle de vie, tags, assignation, champs personnalises)'
+      respondio: 'GET ?respondio=1 — contacts respond.io importes | POST {respondio:[…]} — import (cycle de vie, tags, assignation, champs personnalises)',
+      actions: 'GET ?actions=1 — actions plateforme persistees | POST {action:{type,cle,valeur,detail}} — persistance d une action (journal, etape action_plateforme)'
     });
   }
 
@@ -592,6 +617,56 @@ module.exports = async function handler(req, res) {
   }
   if (!corps || typeof corps !== 'object') {
     return res.status(400).json({ ok: false, erreur: 'corps invalide : JSON attendu' });
+  }
+
+  // --- C15-ACT-1 : POST {action:{type,cle,valeur,detail}} → persistance ----
+  // d'une action faite dans l'interface (commentaire interne, cycle ou
+  // assignation modifié à la main, rattachement). Écrite dans
+  // agent_sav.journal avec etape='action_plateforme', contact_id=clé STABLE
+  // de la conversation (9 derniers chiffres du tel OU email normalisé —
+  // jamais l'id interne CONVS qui change à chaque chargement).
+  // Auteur = prénom du compte du JETON (jamais celui envoyé par le client).
+  if (corps.action && typeof corps.action === 'object') {
+    var ac = corps.action;
+    var typeA = String(ac.type || '').trim();
+    var cleA = String(ac.cle || '').trim();
+    var valA = ac.valeur === undefined ? null : ac.valeur;
+    if (!typeA || !cleA) {
+      return res.status(400).json({ ok: false, erreur: 'action invalide : type et cle requis' });
+    }
+    if (String(cleA).length > 200) {
+      return res.status(400).json({ ok: false, erreur: 'cle trop longue (max 200)' });
+    }
+    var auteurA = '';
+    try {
+      var courantA = await utilisateurDuJeton(jetonDe(req, corps));
+      if (courantA && courantA.nom) auteurA = String(courantA.nom).trim().split(/\s+/)[0];
+    } catch (e) { auteurA = ''; }
+    try {
+      var ecritA = await supabaseEcrire('journal', 'POST', '', {
+        etape: 'action_plateforme',
+        contact_id: cleA,
+        texte: typeA,
+        detail: {
+          type: typeA,
+          cle: cleA,
+          valeur: valA === null ? null : (typeof valA === 'object' ? valA : String(valA)),
+          auteur: auteurA,
+          detail: ac.detail || null
+        }
+      });
+      var actionErite = Array.isArray(ecritA) ? ecritA[0] : ecritA;
+      return res.status(201).json({
+        ok: true, brique: 'C15-ACT', version: VERSION,
+        action: actionErite ? {
+          horodatage: actionErite.horodatage,
+          type: typeA, cle: cleA, valeur: valA, auteur: auteurA
+        } : { type: typeA, cle: cleA, valeur: valA, auteur: auteurA }
+      });
+    } catch (e) {
+      // Table indisponible → ok:false, la plateforme reste en local.
+      return res.status(200).json({ ok: false, erreur: String((e && e.message) || e).substring(0, 200) });
+    }
   }
 
   // --- C7-MAINT-1 : POST {maintenances: [...]} → import des comptages ------
@@ -623,6 +698,7 @@ module.exports = async function handler(req, res) {
       var ecritsCm = await comptagesEcrire(lignesCm);
       await journaliser('import de ' + ecritsCm + ' comptage(s) maintenance', {
         version: VERSION,
+
         codes: lignesCm.map(function(l) { return l.code_client; })
       });
       return res.status(200).json({

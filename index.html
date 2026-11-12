@@ -1,5 +1,4 @@
 
-
 <!doctype html>
 <html lang="fr">
 <head>
@@ -694,12 +693,12 @@
   .conv.on { background: #E8F1FB; box-shadow: inset 3px 0 0 var(--lime), 0 1px 4px rgba(15,35,70,.05); }
   .conv .conv-c { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   .conv .conv-l1 { display: flex; align-items: baseline; gap: 8px; }
-
   .conv .conv-l1 .nom { flex: 1; min-width: 0; font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .conv .heure { grid-column: auto; grid-row: auto; font-size: 11px; color: var(--mut); flex: none; }
   .conv .extrait, .conv .sousnom { grid-column: auto; }
   .grp-bloc .conv { margin: 0 2px; }
   .grp-bloc { margin: 0 8px; border-radius: 0 0 12px 12px; }
+
   .convs { padding: 6px 0 10px; }
   .liste-head { padding: 14px 16px; }
 
@@ -1395,12 +1394,12 @@ var CONVS = [
   ], "comms": [
     {"a": "Nicolas", "t": "29/10 18:25", "txt": "Dossier complet — intervention à créer dans Praxedo, secteur Montargis."}
   ]},
-
   {"id": 6, "nom": "Nathalie Ben Othmen (PDG)", "entreprise": "CNKL (DOMINO'S PIZZA MONTARGIS)", "canal": "WhatsApp", "cycle": "DE Commerciales", "classe": "qualifier", "tags": ["Demande Commerciale"], "heure": "lundi", "delai": "4 j", "lu": true, "extrait": "Possible d'avoir un devis pour 2 scooters supplémentaires ?", "contact": {"tel": "06 23 75 57 35", "plaque": "HJ-447-AN / HJ-480-AN"}, "fil": [
     {"qui": "client", "t": "10:05", "txt": "Bonjour, possible d'avoir un devis pour 2 scooters supplémentaires ?"},
     {"qui": "agent", "t": "10:06", "txt": "Bonjour ! Votre demande est transmise à un conseiller commercial qui vous recontactera 📋"}
   ], "comms": [
     {"a": "Nicolas", "t": "28/10 10:10", "txt": "Demande commerciale — transmise au commercial, cycle DE posé."}
+
   ]},
   {"id": 7, "nom": "Van Nam (Gérant)", "entreprise": "SBN (SUSHI BY NAM)", "canal": "WhatsApp", "cycle": "Bloquée Impayé", "classe": "impaye", "tags": [], "heure": "lundi", "delai": "4 j", "lu": true, "extrait": "La béquille du GB-523-TF est cassée.", "contact": {"tel": "06 52 95 76 75", "plaque": "FT-081-XY / FV-768-DZ / FV-937-DZ / GB-523-TF"}, "fil": [
     {"qui": "client", "t": "14:30", "txt": "Bonjour, la béquille du GB-523-TF est cassée."},
@@ -1958,7 +1957,15 @@ function chargerVraisClients() {
       /* Emails chargés APRÈS WhatsApp (chained) : la fusion multi-canal
          suppose que la conversation du contact existe déjà. */
       chargerCyclesRio(base, s.jeton, function() {
-        chargerMessagesWhatsApp(base, s.jeton, function() { chargerEmails(base, s.jeton); AUTO_DERNIERE = Date.now(); majBadgeAuto(); demarrerAuto(); });
+        /* C15-ACT : les actions équipe (commentaires, cycles, assignations,
+           rattachements) sont rejouées EN DERNIER, par-dessus les données
+           respond.io → les choix manuels de l'équipe gagnent toujours. */
+        chargerMessagesWhatsApp(base, s.jeton, function() {
+          chargerEmails(base, s.jeton, function() {
+            chargerActions(base, s.jeton);
+            AUTO_DERNIERE = Date.now(); majBadgeAuto(); demarrerAuto();
+          });
+        });
       });
     })
     .catch(function(e) { pushNotif("⚠️ Chargement impossible (" + e.message + ") — vérifie ta connexion et recharge la page."); });
@@ -2093,10 +2100,10 @@ function chargerCyclesRio(base, jeton, cb) {
     .then(function(r) { return r.json(); })
     .then(function(rep) {
       (rep && rep.contacts || []).forEach(function(c) {
+
         var d = String(c.tel || "").replace(/\D/g, "");
         var m = normMel(c.email);
         /* C12-ASSIGN : assignation respond.io (prénom de l'assignee, même
-
            format que PROFILS/MOI pour les filtres « Mes conversations »). */
         var a = c.assignee;
         var nmAss = "";
@@ -2137,6 +2144,8 @@ function assignRioMel(mel) { return RIO_ASSIGNS_MEL[normMel(mel)] || null; }
    ne JAMAIS écraser une assignation déjà posée (choix manuel de l'équipe). */
 function qualifierAssignRio(c, nom) {
   if (!c || !nom || c.assigne) return;
+  var ix = actManuelle(c);                        /* C15-ACT : manuel restauré prioritaire */
+  if (ix && ix.assigne !== undefined && ix.assigne !== "") return;
   c.assigne = nom;
 }
 /* C12-PROSP-2 : crée les conversations « Prospects » pour les contacts
@@ -2195,6 +2204,8 @@ function creerConvsProspects(parWa) {
    les cycles inconnus de CYCLES_LISTE sont ignorés (cycle inchangé). */
 function qualifierCycleRio(c, cy) {
   if (!c || !cy || CYCLES_LISTE.indexOf(cy) < 0) return;
+  var ix = actManuelle(c);                        /* C15-ACT : manuel restauré prioritaire */
+  if (ix && ix.cycle) return;
   c.cycle = cy;
   c.classe = classeCycle(cy) || "nouvelle";
 }
@@ -2528,7 +2539,7 @@ function formaterMailTxt(t) {
   r = r.replace(/\n{2,}/g, "\n").trim();
   return r;
 }
-function chargerEmails(base, secret) {
+function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le rejeu des actions */
   fetch(base + "/api/emails?jeton=" + encodeURIComponent(secret) + "&liste=1&limite=1000")
     .then(function(r) { return r.json(); })
     .then(function(rep) {
@@ -2614,7 +2625,8 @@ function chargerEmails(base, secret) {
         pushNotif("✉️ Aucun email à afficher.");
       }
     })
-    .catch(function() { /* brique C5.2 pas encore configurée — silencieux */ });
+    .catch(function() { /* brique C5.2 pas encore configurée — silencieux */ })
+    .then(function() { if (cb) cb(); });   /* C15-ACT : toujours appelé, même en erreur */
 }
 /* Bouton 📧 Emails réels : relit l'URL + le secret du localStorage
    (même mécanisme que 🔌 Vrais clients — jamais dans le fichier). */
@@ -2789,6 +2801,7 @@ function descenteFil() {
 }
 /* ===== Raccourcis clavier : Ctrl/⌘+K = recherche liste, Échap = tout fermer ===== */
 document.addEventListener("keydown", function(ev) {
+
   if ((ev.ctrlKey || ev.metaKey) && (ev.key === "k" || ev.key === "K")) {
     ev.preventDefault();
     var r = document.getElementById("rech-conv");
@@ -2797,7 +2810,6 @@ document.addEventListener("keydown", function(ev) {
   }
   if (ev.key === "Escape") {
     fermerBoiteOutils();
-
     fermerCtx();
     fermerMenuCycles();
     ["carnet", "nouveaux", "notifs", "profils"].forEach(function(id) {
@@ -2965,6 +2977,7 @@ function assignerConv(id, val) {
   var c = convParId(id); if (!c) return;
   var avant = c.assigne;
   c.assigne = (val === "" ? null : val);
+  persisterAction("assigne", cleConv(c), c.assigne || "", null);   /* C15-ACT */
   if (c.assigne === MOI && avant !== MOI)
     pushNotif("👤 La conversation de " + c.nom + " t'a été assignée", id);
   renduListe(); renduFil(); renduMesCycles();
@@ -3449,6 +3462,7 @@ function changerCycle(id, val) {
   var avant = c.cycle;
   c.cycle = val;
   c.classe = classeCycle(val) || "traitee";
+  persisterAction("cycle", cleConv(c), val, null);                 /* C15-ACT */
   renduFil(); renduListe(); renduMesCycles(); rafraichirFiche();
   if (avant !== val) pushNotif("🔄 Cycle de " + c.nom + " : « " + avant + " » → « " + val + " »", id);
 }
@@ -3467,6 +3481,7 @@ function ajouterComm() {
   var v = ((inp && inp.value) || "").trim();
   if (!v) return;
   c.comms.push({ a: MOI, t: maintenant(), txt: v });
+  persisterAction("commentaire", cleConv(c), v, { heure: maintenant() });   /* C15-ACT */
   /* notification si quelqu'un est tagué (@Marine, @Nicolas…) */
   personnesTaguees(v).forEach(function(p){
     if (p === MOI) pushNotif("📌 Tu as été tagué dans un commentaire interne — " + c.nom, c.id);
@@ -3487,6 +3502,7 @@ function cleMsg(convId, msg) {
 /* Estime une date (ms) depuis un libellé "hh:mm" (démo : décalage JOUR en
    jours) ou "jj/mm hh:mm" (commentaires internes). */
 function msLibelle(convId, t, joursDefaut) {
+
   var p = (t || "").split(" ");
   var hm = 0, jours = (convId !== undefined && JOUR[convId] !== undefined) ? JOUR[convId] : (joursDefaut || 0);
   if (p.length >= 2) {
@@ -3498,7 +3514,6 @@ function msLibelle(convId, t, joursDefaut) {
       if (past > now) past = new Date(now.getFullYear() - 1, parseInt(dd[1], 10) - 1, parseInt(dd[0], 10));
       jours = Math.max(0, Math.round((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - past) / 86400000));
     }
-
   } else {
     hm = parseInt((p[0] || "").replace(":", ""), 10) || 0;
   }
@@ -4188,6 +4203,7 @@ function ouvrirCarnet() {
 function fermerCarnet() {
   document.getElementById("carnet").classList.remove("ouvert");
 }
+
 function voirConvCarnet(id) {
   fermerCarnet();
   marquerLecture(convParId(id));
@@ -4199,7 +4215,6 @@ function lancerConversation() {
 }
 function appelerContact(cid) {
   var c = convParId(cid);
-
   if (!c) return;
   var t = (c.contact && c.contact.tel) || "";
   var d = t.replace(/\D/g, "");
@@ -4758,8 +4773,15 @@ function rattacher(id, parentId) {
   var p = parentId, garde = 0;
   while (p && garde++ < 20) { if (p === id) return; p = RATTACHE[p]; }
   RATTACHE[id] = parentId;
+  /* C15-ACT : persistance du rattachement (clés stables des 2 convs) */
+  var ce = convParId(id), cp = convParId(parentId);
+  if (ce && cp) { persisterAction("rattache", cleConv(ce), cleConv(cp), null); actIndex(cleConv(ce)).rattache = cleConv(cp); }
 }
-function detacher(id) { delete RATTACHE[id]; }
+function detacher(id) {
+  delete RATTACHE[id];
+  var cd = convParId(id);                          /* C15-ACT : persistance du détachement */
+  if (cd) { var cld = cleConv(cd); persisterAction("detache", cld, "", null); var ixd = actIndex(cld); delete ixd.rattache; delete ixd.rattache_a; }
+}
 function convsDeSociete(ent) { return CONVS.filter(function(c){ return c.entreprise === ent; }); }
 function convsArchivees(ent) { return convsDeSociete(ent).filter(function(c){ return c.archive; }); }
 
@@ -4882,6 +4904,7 @@ function sujetEditer(id) {
 function sujetValider(id) {
   var v = (document.getElementById("cvj-in-" + id) || {}).value || "";
   if (v.trim()) SUJET_MANUEL[id] = v.trim();
+
   rafraichirTout();
 }
 function sujetRetablir(id) {
@@ -4900,7 +4923,6 @@ function renduRattache() {
 
   /* candidats : uniquement les autres conversations du MÊME client (même société), y compris archivées */
   var exclus = {}; exclus[c.id] = true;
-
   var pile = [c.id], garde = 0;
   while (pile.length && garde++ < 50) {
     var pid = pile.pop();
@@ -4962,6 +4984,103 @@ function majBadgeAuth() {
     if (bc0) bc0.style.display = "none";
   }
 }
+
+/* ==================== C15-ACT : actions équipe persistées ==================
+   Les actions faites dans l'interface (commentaire interne, cycle ou
+   assignation modifié à la main, rattachement) sont ENVOYÉES à
+   /api/clients-import (POST {action:{type,cle,valeur}} → table journal,
+   etape action_plateforme) et REJOUÉES à chaque chargement APRÈS les
+   données respond.io → elles suivent le compte, pas le navigateur.
+   Clé STABLE de conversation = 9 derniers chiffres du téléphone, sinon
+   email normalisé (les ids internes CONVS changent à chaque chargement). */
+var ACT_BAS = {};   /* cle stable -> {commentaires:[], cycle, cycle_a, assigne, assigne_a, rattache, rattache_a} */
+function cleConv(c) {
+  var d = String((c && c.contact && c.contact.tel) || "").replace(/\D/g, "");
+  if (d) return "T" + d.slice(-9);
+  var m = normMel((c && c.contact && c.contact.email) || "");
+  if (m) return "M" + m;
+  return "N" + String((c && c.nom) || "");
+}
+function convParCle(cle) {
+  var t = null;
+  CONVS.forEach(function(c) { if (cleConv(c) === cle) t = c; });
+  return t;
+}
+function actIndex(cle) { return (ACT_BAS[cle] = ACT_BAS[cle] || { commentaires: [] }); }
+/* envoi fire-and-forget : l'action est déjà appliquée localement ; la notif
+   ⚠️ signale juste qu'elle ne sera PAS visible sur les autres appareils. */
+function persisterAction(type, cle, valeur, detail) {
+  var b = baseEtJeton();
+  if (!VRAIES_DONNEES || !b.jeton || !cle) return;   /* rien en mode démo / hors session */
+  fetch(String(b.base).replace(/\/+$/, "") + "/api/clients-import?jeton=" + encodeURIComponent(b.jeton), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: { type: type, cle: cle, valeur: valeur === undefined ? null : valeur, detail: detail || null } })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(rep) {
+      if (!rep || rep.ok !== true)
+        pushNotif("⚠️ Action non enregistrée pour l" + String.fromCharCode(8217) + "équipe (" + ((rep && rep.erreur) || "persistance indisponible") + ") — visible seulement sur cet appareil.");
+    })
+    .catch(function() {
+      pushNotif("⚠️ Action non enregistrée pour l" + String.fromCharCode(8217) + "équipe (réseau) — visible seulement sur cet appareil.");
+    });
+}
+/* rejeu des actions au chargement — silencieux si la brique est absente */
+function chargerActions(base, jeton) {
+  fetch(base + "/api/clients-import?jeton=" + encodeURIComponent(jeton) + "&actions=1")
+    .then(function(r) { return r.json(); })
+    .then(function(rep) {
+      if (!rep || rep.ok !== true || !Array.isArray(rep.actions)) return;
+      var n = 0;
+      rep.actions.forEach(function(a) {
+        var d = (a && a.detail) || {};
+        var cle = String(d.cle || a.contact_id || "");
+        var typ = String(d.type || a.texte || "");
+        if (!cle || !typ) return;
+        var h = String(a.horodatage || "");
+        var ix = actIndex(cle);
+        if (typ === "commentaire") {
+          var co = { a: d.auteur || MOI, t: (d.detail && d.detail.heure) || maintenant(), txt: String(d.valeur || "") };
+          if (!co.txt) return;
+          var deja = ix.commentaires.some(function(k) { return k.a === co.a && k.txt === co.txt; });
+          if (!deja) {
+            ix.commentaires.push(co);
+            var c = convParCle(cle);
+            if (c) { c.comms.push(co); n++; }
+          }
+        } else if (typ === "cycle" || typ === "assigne") {
+          if (!ix[typ + "_a"] || ix[typ + "_a"] <= h) {
+            ix[typ] = String(d.valeur === null ? "" : (d.valeur || ""));
+            ix[typ + "_a"] = h;
+            var c2 = convParCle(cle);
+            if (c2) {
+              if (typ === "cycle" && ix.cycle) { c2.cycle = ix.cycle; c2.classe = classeCycle(ix.cycle) || "traitee"; n++; }
+              if (typ === "assigne") { c2.assigne = ix.assigne || null; n++; }
+            }
+          }
+        } else if (typ === "rattache") {
+          ix.rattache = String(d.valeur || "");
+          ix.rattache_a = h;
+          var enf = convParCle(cle), par = convParCle(ix.rattache);
+          if (enf && par && enf.id !== par.id) { RATTACHE[enf.id] = par.id; n++; }
+        } else if (typ === "detache") {
+          delete ix.rattache;
+          delete ix.rattache_a;
+          var e2 = convParCle(cle);
+          if (e2 && RATTACHE[e2.id]) { delete RATTACHE[e2.id]; n++; }
+        }
+      });
+      if (n) {
+        renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
+        pushNotif("📨 " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe restaurée(s)");
+      }
+    })
+    .catch(function() { /* brique C15 absente — silencieux */ });
+}
+/* garde-fou : les données respond.io ne JAMAIS écraser un choix manuel
+   restauré/rejoué par C15-ACT (lors des fusions du refresh auto). */
+function actManuelle(c) { return ACT_BAS[cleConv(c)] || null; }
 
 /* ==================== C6.3 : panneau admin des comptes ==================== */
 var COMPTES_LISTE = [];
