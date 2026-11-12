@@ -2080,9 +2080,9 @@ function chargerMessagesWhatsApp(base, secret, cb) {
             /* C8-IMP-2 : vrai expéditeur respond.io (brut sender_nom — l'API
                n'exposait pas l'expéditeur avant) ; source api → « Agent IA ». */
             if (m.sens === "sortant") {
-              return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a };
+              return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid };
             }
-            return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a };
+            return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid };
           });
           /* conversation existante du même contact (ex. créée par un chargement
              Email arrivé avant) → fusion, pas de nouvelle conversation */
@@ -2120,9 +2120,9 @@ function chargerMessagesWhatsApp(base, secret, cb) {
             var st = sr === "sent" ? "envoye" : sr === "delivered" ? "distribue" : sr === "read" ? "lu" : null;
             /* C8-IMP-2 : vrai expéditeur (branche TEST_WA aussi — leçon v21 :
                les 2 branches dupliquées évoluent ENSEMBLE). */
-            return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a };
+            return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid };
           }
-          return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a };
+          return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid };
         });
         var ex = convDuContact("+" + d);
         if (ex) { fusionnerFil(ex, fil); qualifierCycleRio(ex, cycleRioTel(d)); creees++; return; }
@@ -2239,11 +2239,31 @@ function majLusDepuisStockage() {
   });
 }
 function fusionnerFil(c, fil) {
-  c.fil = c.fil.concat(fil);
-  c.fil.sort(function(a, b) {
-    return (a.ts && b.ts) ? new Date(a.ts).getTime() - new Date(b.ts).getTime() : 0;
+  /* C11-DEDUP : le rafraîchissement auto RECHARGE la même fenêtre de messages
+     toutes les minutes — sans dédup, chaque tick réinjecte tout l'historique
+     dans les conversations existantes (doublons ×10 constatés en prod).
+     Clé : wamid / mid quand présent, sinon (ts|canal|qui|texte). */
+  function cleDe(f) {
+    if (f.wamid) return "w:" + f.wamid;
+    if (f.mid) return "m:" + f.mid;
+    return "k:" + String(f.ts || "") + "|" + String(f.canal || "") + "|" + String(f.qui || "") + "|" + String(f.txt || "").substring(0, 100);
+  }
+  var vus = {};
+  (c.fil || []).forEach(function(f) { vus[cleDe(f)] = 1; });
+  var nouveaux = [];
+  (fil || []).forEach(function(f) {
+    var k = cleDe(f);
+    if (vus[k]) return;
+    vus[k] = 1;
+    nouveaux.push(f);
   });
-  var der = c.fil[c.fil.length - 1];
+  if (nouveaux.length) {
+    c.fil = (c.fil || []).concat(nouveaux);
+    c.fil.sort(function(a, b) {
+      return (a.ts && b.ts) ? new Date(a.ts).getTime() - new Date(b.ts).getTime() : 0;
+    });
+  }
+  var der = (c.fil && c.fil.length) ? c.fil[c.fil.length - 1] : null;
   if (der && der.txt) c.extrait = String(der.txt);
   /* v36 : déjà lue + aucun message plus récent que la dernière lecture
      → reste lue (plus de « tout redevient non lu » au rechargement). */
@@ -2251,6 +2271,37 @@ function fusionnerFil(c, fil) {
   var tsDer = (der && der.ts) ? new Date(der.ts).getTime() : 0;
   c.lu = (!luStocke || tsDer > luStocke) ? false : true;
   if (der && der.canal) c.canal = der.canal;
+}
+/* C11-HIST : l'API globale plafonne à 1000 messages (fenêtre des plus récents)
+   — les conversations anciennes perdraient leur début d'historique. À
+   l'ouverture d'une conversation WhatsApp, on charge son historique DÉDIÉ
+   (?tel= — jusqu'à 1000 messages pour CE numéro) UNE fois par session. */
+function chargerHistoriqueConv(c) {
+  if (!c || c._histCharge || c.canal !== "WhatsApp") return;
+  var d = String((c.contact && c.contact.tel) || "").replace(/\D/g, "");
+  if (!d) return;
+  c._histCharge = true;
+  var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
+  var secret = (sessionDe() || {}).jeton || "";
+  if (!secret) return;
+  fetch(base + "/api/whatsapp-messages?jeton=" + encodeURIComponent(secret) + "&tel=" + encodeURIComponent(d))
+    .then(function(r) { return r.json(); })
+    .then(function(rep) {
+      if (!rep || rep.ok !== true || !Array.isArray(rep.messages)) return;
+      var fil = rep.messages.map(function(m) {
+        var h = heureWa(m.recu_a);
+        var sr = m.statut_reception;
+        var st = sr === "sent" ? "envoye" : sr === "delivered" ? "distribue" : sr === "read" ? "lu" : null;
+        if (m.sens === "sortant") {
+          return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid };
+        }
+        return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid };
+      });
+      fusionnerFil(c, fil);
+      c.dateLbl = dateLblDe(c, 0);
+      if (SELID === c.id || (SELSENT && c.entreprise === SELSENT)) { renduFil(); renduListe(); rafraichirFiche(); }
+    })
+    .catch(function() {});
 }
 /* Objet d'un email affiché DISTINCT du corps : bandeau bleu au-dessus du
    texte (bulles ✉️ uniquement) — msg.suj alimenté par chargerEmails. */
@@ -2359,9 +2410,9 @@ function chargerEmails(base, secret) {
           var cite = corps.cite ? formaterMailTxt(corps.cite) : null;
           /* C8-IMP-2 : vrai expéditeur — from_nom stocké/migré côté backend. */
           if (m.sens === "sortant") {
-            return { qui: "agent", de: m.from_nom || MOI, t: h.t, txt: txt, canal: "Email", st: "envoye", ts: m.recu_a, suj: suj, cite: cite, html: m.corps_html || null };
+            return { qui: "agent", de: m.from_nom || MOI, t: h.t, txt: txt, canal: "Email", st: "envoye", ts: m.recu_a, suj: suj, cite: cite, html: m.corps_html || null, mid: m.message_id };
           }
-          return { qui: "client", t: h.t, txt: txt, canal: "Email", ts: m.recu_a, suj: suj, cite: cite, html: m.corps_html || null };
+          return { qui: "client", t: h.t, txt: txt, canal: "Email", ts: m.recu_a, suj: suj, cite: cite, html: m.corps_html || null, mid: m.message_id };
         });
         var s = trouve.s, v = trouve.v;
         /* CONVERSATION UNIQUE PAR CONTACT : les emails rejoignent la conversation
@@ -4314,7 +4365,7 @@ function majBadgeNouveaux() {
 }
 function ouvrirConvLu(id) {
   var c = CONVS.filter(function(x) { return x.id === id; })[0];
-  if (c) marquerLecture(c);
+  if (c) { marquerLecture(c); chargerHistoriqueConv(c); }
   voirConv(id);
   majBadgeNouveaux();
 }
