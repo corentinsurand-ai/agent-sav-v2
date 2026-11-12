@@ -1893,7 +1893,10 @@ function chargerVraisClients() {
   var s = sessionDe();
   if (!s || !s.jeton) { afficherPorte(); return; }   // v32 : session obligatoire
   var base = (localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app").replace(/\/+$/, "");
-  var nb = parseInt(localStorage.getItem("umob_api_nb") || "300", 10) || 300;
+  /* C13-CARNET : défaut 1000 (la base a 991 clients ; l'API plafonne à 1000) —
+     l'ancien défaut 300 donnait un carnet amputé (291 sociétés) sur tout
+     navigateur sans umob_api_nb personnalisé, ex. Nicolas. */
+  var nb = parseInt(localStorage.getItem("umob_api_nb") || "1000", 10) || 1000;
   if (nb > 5000) nb = 5000;
   pushNotif("🔌 Chargement des vraies conversations…");
   fetch(base + "/api/clients-import?jeton=" + encodeURIComponent(s.jeton) + "&liste=1&limite=" + nb)
@@ -2093,10 +2096,10 @@ function qualifierAssignRio(c, nom) {
    FIX BUG C12-PROSP-2 : nid était utilisé alors qu'il n'existait que comme
    variable LOCALE du .then de chargerMessagesWhatsApp → ReferenceError
    « nid is not defined » avalé par le .catch silencieux → aucun prospect
+
    ne se créait et le rendu de fin de chargement sautait. */
 function creerConvsProspects(parWa) {
   if (!RIO_PROSPECTS.length) return 0;
-
   var nid = CONVS.length ? Math.max.apply(null, CONVS.map(function(c) { return c.id; })) : 0;
   var n = 0;
   RIO_PROSPECTS.forEach(function(p) {
@@ -2794,10 +2797,10 @@ function dicterIA() {
       inp.value = t.slice(0, p) + (p && t[p-1] !== " " ? " " : "") + ajout.trim() + " " + t.slice(q);
       var np = p + ajout.trim().length + 1;
       inp.selectionStart = inp.selectionEnd = np;
+
       inp.focus();
     }
   };
-
   REC_IA.onstart = function() { DICTEE_IA_ON = true; btn.classList.add("rec"); btn.title = "Dictée en cours — clique pour arrêter"; inp.placeholder = "🎤 Dictée en cours… ta question s'inscrit ici"; };
   REC_IA.onend = function() { DICTEE_IA_ON = false; btn.classList.remove("rec"); btn.title = "Dicter ta question (reconnaissance vocale du navigateur — Chrome/Edge)"; inp.placeholder = "Pose ta question (fonctionnement, clients, derniers échanges)…"; };
   REC_IA.onerror = function(ev) { if (ev.error === "not-allowed") alert("Micro refusé — autorise l'accès au microphone dans ton navigateur."); };
@@ -3495,10 +3498,10 @@ function lireNotif(i) {
 }
 
 /* ===== Dictée vocale pour les commentaires internes ===== */
+
 function dicterComm() {
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { alert("🎤 La dictée vocale n'est pas disponible dans cet affichage (navigateur ou sandbox). Tu peux saisir le commentaire au clavier."); return; }
-
   var inp = document.getElementById("nv-comm");
   try {
     var rec = new SR();
@@ -4196,10 +4199,10 @@ function basculeCarnetSec(ent, k) {
   renduPageCarnet();
 }
 function carnetTete(ent, k, cls, ico, titre, extra) {
+
   return '<div class="fs-tete ' + cls + ' cliquable" onclick="basculeCarnetSec(\'' + ent.replace(/'/g, "\\'") + '\',\'' + k + '\')" title="Réduire / dérouler cette section">' +
     '<span class="fleche">' + (carnetOuvert(ent, k) ? "▾" : "▸") + '</span><span class="ico">' + ico + '</span> ' + titre + (extra || "") + '</div>';
 }
-
 function carnetCorps(ent, k, html, repli) {
   if (carnetOuvert(ent, k)) return '<div class="fs-corps">' + html + '</div>';
   return repli ? '<div class="fs-repli">▶ ' + repli + ' — clique pour dérouler</div>' : "";
@@ -4897,10 +4900,10 @@ function ouvrirComptes() {
   }
   document.getElementById("comptes").classList.add("ouvert");
   chargerComptes();
+
 }
 function fermerComptes() {
   document.getElementById("comptes").classList.remove("ouvert");
-
 }
 function chargerComptes() {
   var b = baseEtJeton();
