@@ -2713,7 +2713,12 @@ function rafraichirAuto() {
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
   var secret = (sessionDe() || {}).jeton || "";
   if (!secret) return;
-  chargerMessagesWhatsApp(base, secret, function() { chargerEmails(base, secret); });
+  chargerMessagesWhatsApp(base, secret, function() {
+    /* C18-RT : le refresh auto rejoue AUSSI les actions équipe (commentaires,
+       vus, cycles…) → nouveau commentaire d'un collègue = apparaît dans le
+       fil sans recharger ; « vu » d'un collègue = 👁️ mis à jour tout seul. */
+    chargerEmails(base, secret, function() { chargerActions(base, secret, null, "auto"); });
+  });
   AUTO_DERNIERE = Date.now();
   majBadgeAuto();
 }
@@ -2796,12 +2801,12 @@ var MODELES_WA = [
   { nom: "confirmation_demande_complete", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nNous avons bien enregistré votre demande SAV.\nNous la transmettons au technicien qui reviendra vers vous pour vous donner la date et l'heure d'intervention.\nL'équipe Technique U'mob" },
   { nom: "confirmation_commande_expedition", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
+
     txt: "Bonjour,\nVotre demande est complète. Votre commande est en préparation et sera bientôt expédiée.\nL'équipe Technique U'mob" },
   { nom: "demande_complement_information", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nNous avons quelques questions suite à votre demande SAV. Etes-vous disponible pour nous préciser votre besoin ?\nL'équipe technique U'mob" },
   { nom: "reprise_echange", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nNous avons quelques questions suite à votre demande. Êtes-vous disponible ?" },
-
   { nom: "reprise_telephone", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nNous avons bien reçu votre demande SAV par téléphone.\nSeriez-vous disponible pour compléter votre demande ici ?\nL'équipe technique U'mob" },
   { nom: "reprise_contact", categorie: "Marketing", langue: "fr", statut: "Actif", variables: false,
@@ -3497,12 +3502,12 @@ function envoyerProposition(idx, canal) {
       pushNotif("⚠️ Proposition " + (estWa ? "WhatsApp" : "email") + " échouée : " +
         ((rep.j && (rep.j.erreur || rep.j.detail)) || "erreur API"));
       return;
+
     }
     fermerProposition();
     pushNotif("✅ Proposition de maintenance envoyée pour de vrai à " + dest + (estWa && rep.j.wamid ? " (" + rep.j.wamid + ")" : "") +
       (estWa ? " — recharge 🔌 pour voir l'accusé" : ""));
   })
-
   .catch(function(e) {
     PROP_ENVOI = false;
     if (btn) { btn.disabled = false; btn.innerHTML = "🚀 Envoyer pour de vrai"; }
@@ -4198,12 +4203,12 @@ function rafraichirFiche() {
     '</div>' +
 
     '<div class="fiche-sec">' +
+
       fsTete("parc", "fs-orange", "🛵", "Parc & contrats de service") +
       fsCorps("parc",
         (s.scooters.length ? s.scooters.map(function(x){
           return '<div class="ligne-ctc" style="flex-direction:column;align-items:flex-start;gap:2px;">' +
             '<span><b style="color:#0e5aa7;">🛵 ' + x.plaque + '</b> <span class="petit">· ' + x.produit + '</span></span>' +
-
             '<span class="petit">📄 ' + x.contrat + '</span></div>';
         }).join("") : '<div class="petit" style="color:#8a93a3;">Aucun scooter au parc.</div>')) +
     '</div>' +
@@ -4899,12 +4904,12 @@ function convsArchivees(ent) { return convsDeSociete(ent).filter(function(c){ re
 function convLigneSujet(c) {
   return '<div class="suj-conv" id="cvj-' + c.id + '"><span>' + (c.canal === "WhatsApp" ? "💬" : "✉️") + '</span>' +
     '<span class="qui">' + c.nom + '</span>' +
+
     '<span class="cy ' + c.classe + '">' + c.cycle + '</span>' +
     '<span class="tag" title="Sujet principal détecté automatiquement" style="' + (SUJET_MANUEL[c.id] ? "background:#fff7ed;color:#c2410c;" : "") + '">📁 ' + sujetDetecte(c) + '</span>' +
     '<span class="tag" title="Date du dernier message" style="background:#eef1f5;color:#475569;">📅 ' + (c.dateLbl || c.heure) + '</span>' +
     '<span class="sp">' +
       '<button class="btn" style="padding:2px 8px;" title="Corriger le sujet détecté" onclick="sujetEditer(' + c.id + ')">✏️</button>' +
-
       '<button class="btn" style="padding:2px 8px;" title="Voir la conversation" onclick="voirConv(' + c.id + ')">Voir →</button>' +
       '<button class="btn" style="padding:2px 8px;" title="Rattacher cette conversation à une autre (dossier)" onclick="ouvrirRattache(' + c.id + ')">🔗</button>' +
       '<button class="btn" style="padding:2px 8px;" title="Archiver" onclick="archiverConv(' + c.id + ', true)">🗄️</button>' +
@@ -5137,12 +5142,12 @@ function persisterAction(type, cle, valeur, detail) {
     });
 }
 /* rejeu des actions au chargement — silencieux si la brique est absente */
-function chargerActions(base, jeton) {
+function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" pour le refresh temps réel */
   fetch(base + "/api/clients-import?jeton=" + encodeURIComponent(jeton) + "&actions=1")
     .then(function(r) { return r.json(); })
     .then(function(rep) {
       if (!rep || rep.ok !== true || !Array.isArray(rep.actions)) return;
-      var n = 0;
+      var n = 0, nVu = 0, nouveaux = [];  /* C18-RT : nVu (vus) + nouveaux (commentaires des autres) */
       rep.actions.forEach(function(a) {
         var d = (a && a.detail) || {};
         var cle = String(d.cle || a.contact_id || "");
@@ -5162,6 +5167,9 @@ function chargerActions(base, jeton) {
             ix.commentaires.push(co);
             var c = convParCle(cle);
             if (c) { c.comms.push(co); n++; }
+            /* C18-RT : en refresh auto, un commentaire posté par un autre
+               est annoncé, le tien ne l'est pas (tu viens de l'écrire) */
+            if (mode === "auto" && co.a && co.a !== MOI) nouveaux.push({ a: co.a, cle: cle });
           }
         } else if (typ === "comm_edite" || typ === "comm_supprime") {
           /* C15-ACT-2 : édition/suppression d'un commentaire — le même objet
@@ -5186,7 +5194,7 @@ function chargerActions(base, jeton) {
           /* C17-VU : qui a ouvert la conversation, quand (dernier par personne,
              silencieux — n'augmente pas le compteur "actions restaurées") */
           var qui = String(d.valeur || d.auteur || "").trim();
-          if (qui) { ix.vu = ix.vu || {}; if (!ix.vu[qui] || ix.vu[qui] < h) ix.vu[qui] = h; }
+          if (qui) { ix.vu = ix.vu || {}; if (!ix.vu[qui] || ix.vu[qui] < h) { ix.vu[qui] = h; nVu++; } }  /* C18-RT : nVu déclenche le re-rendu silencieux */
         } else if (typ === "cycle" || typ === "assigne") {
           if (!ix[typ + "_a"] || ix[typ + "_a"] <= h) {
             ix[typ] = String(d.valeur === null ? "" : (d.valeur || ""));
@@ -5209,10 +5217,22 @@ function chargerActions(base, jeton) {
           if (e2 && RATTACHE[e2.id]) { delete RATTACHE[e2.id]; n++; }
         }
       });
-      if (n) {
+      /* C18-RT : re-rendu dès qu'une action équipe change (même un simple
+         « vu » → les 👁️ se mettent à jour tout seuls). En mode "auto", on
+         n'annonce que les commentaires des autres (pas de bruit). */
+      if (n || nVu) {
         renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
-        pushNotif("📨 " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe restaurée(s)");
+        if (mode === "auto") {
+          nouveaux.forEach(function(x) {
+            var cN = convParCle(x.cle);
+            pushNotif("💬 Nouveau commentaire de " + x.a + (cN && cN.nom ? " — " + cN.nom : ""));
+          });
+          if (!nouveaux.length && n) pushNotif("🔄 " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe mise(s) à jour");
+        } else if (n) {
+          pushNotif("📨 " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe restaurée(s)");
+        }
       }
+      if (cb) cb();
     })
     .catch(function() { /* brique C15 absente — silencieux */ });
 }
@@ -5585,6 +5605,7 @@ function seDeconnecter() {
 function verifierSession() {
   var s = sessionDe();
   if (!s || !s.jeton) return;
+
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
   fetch(base + "/api/clients-import?auth=1&jeton=" + encodeURIComponent(s.jeton))
     .then(function(r){ return r.json(); })
@@ -5605,7 +5626,6 @@ function verifierSession() {
    rafraîchissement auto démarre. Plus de secret partagé dans le navigateur :
    toutes les requêtes partent avec le JETON de session (12 h). */
 var CHARGEMENT_AUTO_FAIT = false;
-
 function apresConnexion() {
   fermerPorte();
   majBadgeAuth(); majBadgeAuto();
