@@ -3491,17 +3491,28 @@ function dernierTs(c) {
     var t = Date.parse(f[i] && (f[i].ts || f[i].T) || "");
     if (!isNaN(t)) return t;
   }
-  return 0;
+  return c.tsCreation || 0;
+}
+/* C10-TRI : heure du dernier message affichée à côté de chaque conversation
+   — calculée directement depuis le timestamp réel (WA et Email),
+   format « HH:MM » si aujourd'hui, « hier HH:MM », sinon « JJ/MM HH:MM ». */
+function heureDernierMsg(c) {
+  var t = dernierTs(c);
+  if (!t) return c.heure || "";
+  var d = new Date(t), now = new Date();
+  var hm = ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+  if (d.toDateString() === now.toDateString()) return hm;
+  if (new Date(now.getTime() - 86400000).toDateString() === d.toDateString()) return "hier " + hm;
+  return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + " " + hm;
 }
 function renduListe() {
   majCompteursFiltres();
   var el = document.getElementById("convs"); el.innerHTML = "";
-  /* C8-TRI-1 : tri respond.io — non lues d'abord, puis date du dernier
-     message (plus récent en haut). S'applique aussi à la vue entreprise :
-     les enseignes suivent l'activité de leur conversation la plus récente. */
+  /* C10-TRI : tri STRICTEMENT chronologique — la conversation dont le dernier
+     message (WA ou Email) est le plus récent est en haut, lues ou non
+     (le badge 💬 signale les non-lues). Vue entreprise : les enseignes suivent
+     l'activité de leur conversation la plus récente. */
   var liste = CONVS.filter(visible).sort(function(a, b) {
-    var na = a.lu ? 1 : 0, nb = b.lu ? 1 : 0;
-    if (na !== nb) return na - nb;
     return dernierTs(b) - dernierTs(a);
   });
   var n = liste.length;
@@ -3520,6 +3531,7 @@ function renduListe() {
       var ouvert = GRP_OUVERTS[e] !== false;
       h.innerHTML = '<span class="tri" title="' + (ouvert ? "Masquer" : "Afficher") + ' les contacts de cette entreprise"> ' + (ouvert ? "▾" : "▸") + '</span> ' + "🏢 " + e +
         ' <span class="n">' + g.length + (g.length > 1 ? " contacts" : " contact") + '</span>' +
+        '<span class="n" title="Heure du dernier message de l\'enseigne" style="margin-left:6px;opacity:.8;">🕓 ' + heureDernierMsg(g[0]) + '</span>' +
         '<span class="ind">' + (g.length > 1 ? "▶ clic : fil fusionné" : "") + '</span>';
       h.onclick = function(ev){
         if (ev && ev.target && ev.target.className === "tri") {
@@ -3561,7 +3573,7 @@ function dessinerConv(c, conteneur) {
   d.className = "conv" + (actif ? " on" : "");
   d.innerHTML = convAvatarHtml(c.nom, c.canal) +
     '<div class="conv-c">' +
-    '<div class="conv-l1"><div class="nom">'+c.nom+'</div><div class="heure">'+c.heure+(c.lu ? "" : ' <span class="badge-new" title="1 nouveau message non lu">💬 1</span>')+'</div></div>' +
+    '<div class="conv-l1"><div class="nom">'+c.nom+'</div><div class="heure" title="Heure du dernier message">'+heureDernierMsg(c)+(c.lu ? "" : ' <span class="badge-new" title="1 nouveau message non lu">💬 1</span>')+'</div></div>' +
     (VUE === "entreprise" ? '<div class="sousnom">'+c.contact.tel+'</div>' : '') +
     '<div class="extrait">'+(c.lu ? c.extrait : '<b>'+c.extrait+'</b>')+'</div>' +
     '<div class="meta"><span class="dot'+(c.lu?' lu':'')+'"></span>'+
@@ -4341,6 +4353,7 @@ function creerNouvelleConv() {
     cycle: "Nouvelle Demande", classe: "nouvelle", tags: [],
     heure: h, delai: "à l'instant", lu: true, wa: wa,
     extrait: "Conversation créée manuellement — premier message à envoyer",
+    tsCreation: Date.now(),
     contact: { tel: tel, plaque: "", email: mail },
     fil: [], comms: []
   };
