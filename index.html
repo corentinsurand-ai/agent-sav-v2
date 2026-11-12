@@ -483,6 +483,23 @@
   /* ===== C6.3 : panneau admin des comptes équipe ===== */
   #comptes { display: none; position: fixed; inset: 0; background: rgba(34,38,43,.5); z-index: 60; }
   #comptes.ouvert { display: block; }
+  /* ===== C16-KPI : console de contrôle ===== */
+  #kpi { display: none; position: fixed; inset: 0; background: rgba(34,38,43,.5); z-index: 60; }
+  #kpi.ouvert { display: block; }
+  .kpi-grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; margin-bottom: 14px; }
+  .kpi-carte { background: #fff; border: 1px solid var(--bord); border-radius: 10px; padding: 9px 11px; }
+  .kpi-carte b { font-size: 20px; color: #0e5aa7; display: block; line-height: 1.15; }
+  .kpi-carte span { font-size: 10.5px; color: #8a93a3; }
+  .kpi-sec { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: #1a1e23; margin: 14px 0 6px; border-bottom: 2px solid #7fb6e8; padding-bottom: 4px; }
+  .kpi-ligne { display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 4px 0; }
+  .kpi-ligne .lab { flex: 0 0 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kpi-ligne .n { flex: 0 0 34px; text-align: right; font-weight: 700; color: #0e5aa7; }
+  .kpi-barre { flex: 1; height: 8px; border-radius: 99px; background: #eaf2fa; overflow: hidden; }
+  .kpi-barre i { display: block; height: 100%; background: #0e5aa7; border-radius: 99px; }
+  .kpi-barre.verte i { background: #1d7a4f; }
+  body.sombre .kpi-carte { background: #242a31; border-color: #3a4149; }
+  body.sombre .kpi-barre { background: #313941; }
+  body.sombre .kpi-sec { color: #d7dce2; }
   .cpt-ligne { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid var(--bord); border-radius: 9px; margin-bottom: 7px; background: #fff; }
   .cpt-ligne.off { opacity: .55; }
   .cpt-av { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; flex: none; }
@@ -619,7 +636,7 @@
   .scoot-ligne { border-color: #EDF2F8; border-radius: 12px; }
 
   /* --- fenêtres modales : flou, coins larges, têtes dégradées --- */
-  #boite-outils, #carnet, #nouveaux, #sujets, #notifs, #profils, #rattache, #comptes, #auth-overlay { background: rgba(15,23,42,.55); backdrop-filter: blur(2px); }
+  #boite-outils, #carnet, #nouveaux, #sujets, #notifs, #profils, #rattache, #comptes, #kpi, #auth-overlay { background: rgba(15,23,42,.55); backdrop-filter: blur(2px); }
   .bo-fen, .carnet-fen, .nv-fen { border-radius: 18px; box-shadow: 0 30px 80px rgba(10,25,50,.35); }
   .carnet-head { background: var(--grad-bleu); box-shadow: 0 2px 10px rgba(10,40,80,.25); }
   .carnet-liste { background: #FAFCFE; }
@@ -681,6 +698,7 @@
   /* --- avatars initiales (liste + fil) --- */
   .cav { width: 42px; height: 42px; border-radius: 13px; color: #fff; font-weight: 700; font-size: 14.5px; letter-spacing: .3px;
     display: flex; align-items: center; justify-content: center; flex: 0 0 auto; position: relative;
+
     box-shadow: inset 0 -2px 4px rgba(0,20,50,.14), 0 2px 5px rgba(15,35,70,.14); }
   .cav .cch { position: absolute; bottom: -3px; right: -4px; width: 18px; height: 18px; border-radius: 50%; background: #fff;
     display: flex; align-items: center; justify-content: center; font-size: 9.5px; box-shadow: 0 1px 3px rgba(15,35,70,.25); }
@@ -698,7 +716,6 @@
   .conv .extrait, .conv .sousnom { grid-column: auto; }
   .grp-bloc .conv { margin: 0 2px; }
   .grp-bloc { margin: 0 8px; border-radius: 0 0 12px 12px; }
-
   .convs { padding: 6px 0 10px; }
   .liste-head { padding: 14px 16px; }
 
@@ -1016,6 +1033,7 @@
   <button class="btn-nouv" id="btn-auth" onclick="ouvrirConnexion()" title="Connexion équipe C6 (compte agent_sav.utilisateurs) — jeton mémorisé dans ce navigateur">👤 Connexion</button>
   <button class="btn-nouv" id="btn-comptes" style="display:none;" onclick="ouvrirComptes()" title="Admin : créer, activer/désactiver les comptes de l'équipe (table agent_sav.utilisateurs)">🛡️ Comptes</button>
   <select class="badge-ver" id="sel-moi" title="Qui suis-je ? (pour les commentaires internes et le filtre « Mes conversations »)" onchange="MOI = this.value; renduListe(); renduMesCycles();"></select>
+  <button class="btn-nouv" id="btn-kpi" onclick="ouvrirConsole()" title="Console de contrôle : KPI de la boîte de réception (charge, délais, activité, équipe) — calculés sur les conversations chargées.">📊 Console</button>
   <button class="btn-nouv" id="btn-auto" onclick="basculerAuto()" title="Rafraîchissement automatique : toutes les minutes, la plateforme relit les messages WhatsApp et les emails réels (tant que les vraies données sont chargées et l'onglet visible). Clique pour activer/désactiver.">🔄 Auto : arrêt</button>
   <button class="btn-nouv" id="btn-theme" onclick="basculerThemeUmob()" title="Basculer le thème visuel : bleu plateforme / couleurs de marque U'mob / mode sombre">🎨 Thème</button>
   <button class="btn-nouv" id="btn-ding" onclick="basculerDing()" title="Notification sonore : un petit « ding » quand un nouveau message arrive. Clique pour activer/désactiver.">🔊</button>
@@ -1290,6 +1308,18 @@
   </div>
 </div>
 
+<!-- ===== C16-KPI : console de contrôle ===== -->
+<div id="kpi">
+  <div class="nv-fen" style="max-width:680px;">
+    <div class="carnet-head">
+      <b>📊 Console de contrôle</b>
+      <span class="carnet-nb" id="kpi-date"></span>
+      <button class="btn-fermer" onclick="fermerConsole()">✕ Fermer</button>
+    </div>
+    <div class="nv-corps" id="kpi-corps"></div>
+  </div>
+</div>
+
 <!-- ===== Rattacher une conversation à une autre ===== -->
 <div id="rattache">
   <div class="carnet-fen" style="max-width:640px;">
@@ -1369,6 +1399,7 @@ var CONVS = [
     {"qui": "agent", "t": "16:40", "txt": "Bonjour, comment puis-je vous aider ?"}
   ], "comms": []},
   {"id": 3, "nom": "Sofiane Housni (Contact SAV)", "entreprise": "TCHIKO (PIZZA TIME POISSY)", "canal": "WhatsApp", "cycle": "A qualifier", "classe": "qualifier", "tags": [], "heure": "19:04", "delai": "5 h", "lu": false, "extrait": "Pneus à changer sur le GZ-604-WC, vous pouvez passer ?", "contact": {"tel": "06 51 46 51 03", "plaque": "GB-027-QV / GZ-604-WC / GZ-578-WC / GZ-552-WC"}, "fil": [
+
     {"qui": "client", "t": "19:04", "txt": "Bonjour, les pneus du GZ-604-WC sont à changer, vous pouvez passer ?"},
     {"qui": "agent", "t": "19:05", "txt": "Bonsoir ! Merci pour votre retour. Quelle est l'adresse d'intervention, le numéro à contacter ce jour-là, et quels sont vos jours de fermeture éventuels ?"},
     {"qui": "client", "t": "19:12", "txt": "20 Avenue de Pontoise à Poissy, c'est moi sur place, on ferme le lundi."},
@@ -1399,7 +1430,6 @@ var CONVS = [
     {"qui": "agent", "t": "10:06", "txt": "Bonjour ! Votre demande est transmise à un conseiller commercial qui vous recontactera 📋"}
   ], "comms": [
     {"a": "Nicolas", "t": "28/10 10:10", "txt": "Demande commerciale — transmise au commercial, cycle DE posé."}
-
   ]},
   {"id": 7, "nom": "Van Nam (Gérant)", "entreprise": "SBN (SUSHI BY NAM)", "canal": "WhatsApp", "cycle": "Bloquée Impayé", "classe": "impaye", "tags": [], "heure": "lundi", "delai": "4 j", "lu": true, "extrait": "La béquille du GB-523-TF est cassée.", "contact": {"tel": "06 52 95 76 75", "plaque": "FT-081-XY / FV-768-DZ / FV-937-DZ / GB-523-TF"}, "fil": [
     {"qui": "client", "t": "14:30", "txt": "Bonjour, la béquille du GB-523-TF est cassée."},
@@ -2070,6 +2100,7 @@ function heureWa(iso) {
   return { t: mj === auj ? hh : mj + " " + hh };
 }
 /* Numéros hors carnet pour tester C4 : créés comme société TEST dans le canvas.
+
    Clé = wa_id en chiffres seuls (E.164 sans le +). */
 var TEST_WA = {
   "33613886756": { ent: "CORENTIN (TEST C4)", nom: "Corentin Surand", plaque: "", email: "corentin.surand@gmail.com" }
@@ -2100,7 +2131,6 @@ function chargerCyclesRio(base, jeton, cb) {
     .then(function(r) { return r.json(); })
     .then(function(rep) {
       (rep && rep.contacts || []).forEach(function(c) {
-
         var d = String(c.tel || "").replace(/\D/g, "");
         var m = normMel(c.email);
         /* C12-ASSIGN : assignation respond.io (prénom de l'assignee, même
@@ -2771,6 +2801,7 @@ var MODELES_WA = [
    relevé dans le Gestionnaire WhatsApp (« Actif », sans variables). */
 var WA_MODELE_MAINTENANCE = { nom: "proposition_passage_maintenance", langue: "fr" };
 function remplaceChamps(txt, c) {
+
   var prenom = (c.nom || "").split("(")[0].trim();
   return txt.replace(/\{client\}/g, prenom).replace(/\{plaque\}/g, c.contact.plaque || "").replace(/\{lien_paiement\}/g, "lien de paiement sécurisé (démo)");
 }
@@ -2801,7 +2832,6 @@ function descenteFil() {
   m.scrollTop = m.scrollHeight;
   majDescente();
 }
-
 /* ===== Raccourcis clavier : Ctrl/⌘+K = recherche liste, Échap = tout fermer ===== */
 document.addEventListener("keydown", function(ev) {
   if ((ev.ctrlKey || ev.metaKey) && (ev.key === "k" || ev.key === "K")) {
@@ -3472,6 +3502,7 @@ function optionsAssigne(cur) {
   return '<option value=""' + (cur ? "" : " selected") + '>👤 Non assignée</option>' +
     EQUIPE.map(function(e){ return '<option value="' + e + '"' + (cur === e ? " selected" : "") + '>' + iconeDe(e) + ' ' + e + '</option>'; }).join("");
 }
+
 function maintenant() {
   var d = new Date();
   return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + " " +
@@ -3502,7 +3533,6 @@ function commParUid(uid) {
   return { c: c, k: k };
 }
 function editerComm(uid) {
-
   var r = commParUid(uid);
   if (!r.c || !r.k) return;
   var v = prompt("Modifier le commentaire interne :", r.k.txt);
@@ -4173,6 +4203,7 @@ function basculerVueMobile(v) {
   if (v === "volet-fil") { setTimeout(descenteFil, 80); }  /* le fil reprend sa place en bas */
 }
 function majMobile() {
+
   ["volet-filtres", "volet-liste", "volet-fil"].forEach(function(id) {
     var e = document.getElementById(id);
     if (!e) return;
@@ -4203,7 +4234,6 @@ function lancerNouvelleConv(id) {
     fil: [ { qui: "client", t: h, txt: "Bonjour, c'est encore moi — même souci que la dernière fois, ça recommence." } ],
     comms: []
   };
-
   CONVS.push(n);
   n.dateLbl = dateLblDe(n, 0);
   SOCIETES.forEach(function(s){ if (s.ent === c.entreprise && s.convs.indexOf(n.id) < 0) s.convs.push(n.id); });
@@ -4874,6 +4904,7 @@ function toutSujets() {
 }
 
 function sujetsArbreHtml(ent) {
+
   var racines = convsDeSociete(ent).filter(function(c){ return !c.archive && !RATTACHE[c.id]; });
   if (!racines.length) return '<div class="petit" style="color:#8a93a3;">Aucune conversation active — voir les Archives ci-dessous.</div>';
   var groupes = {}, labels = [];
@@ -4904,7 +4935,6 @@ function archivesHtml(ent) {
       return '<div class="suj-conv suj-arch"><span>📦</span><span class="qui">' + c.nom + '</span>' +
         '<span class="cy ' + c.classe + '">' + c.cycle + '</span>' +
         '<span class="tag" title="Date du dernier message" style="background:#eef1f5;color:#475569;">📅 ' + (c.dateLbl || c.heure) + '</span>' +
-
         '<span class="sp"><button class="btn" style="padding:2px 8px;" onclick="voirConv(' + c.id + ')">Voir →</button>' +
         '<button class="btn" style="padding:2px 8px;" title="Désarchiver : la conversation revient dans la boîte de réception" onclick="archiverConv(' + c.id + ', false)">↩️ Désarchiver</button></span></div>' +
         enfs.map(function(e){
@@ -5151,6 +5181,118 @@ function chargerActions(base, jeton) {
 /* garde-fou : les données respond.io ne JAMAIS écraser un choix manuel
    restauré/rejoué par C15-ACT (lors des fusions du refresh auto). */
 function actManuelle(c) { return ACT_BAS[cleConv(c)] || null; }
+
+/* ==================== C16-KPI : console de contrôle ========================
+   KPI calculés EN DIRECT sur les conversations chargées (aucune requête
+   supplémentaire — tout vient de la mémoire de la page, donc des données
+   réelles déjà synchronisées). Rejouable à volonté via le bouton Fermer/ouvrir
+   ou le bouton Actualiser dans la fenêtre. */
+function ouvrirConsole() {
+  if (!VRAIES_DONNEES) { pushNotif("📊 La console est disponible une fois les vraies conversations chargées."); return; }
+  document.getElementById("kpi").classList.add("ouvert");
+  renduConsole();
+}
+function fermerConsole() { document.getElementById("kpi").classList.remove("ouvert"); }
+function fmtDelaiKpi(ms) {
+  if (ms < 60000) return "< 1 min";
+  var mn = Math.round(ms / 60000);
+  if (mn < 60) return mn + " min";
+  var h = Math.floor(mn / 60), r = mn % 60;
+  if (h < 24) return h + "h" + (r ? (r < 10 ? "0" + r : r) : "");
+  return (Math.round(h / 24 * 10) / 10) + " j";
+}
+function barreKpi(lab, n, max, verte) {
+  var pc = max ? Math.round(100 * n / max) : 0;
+  return '<div class="kpi-ligne"><span class="lab" title="' + escCpt(lab) + '">' + escCpt(lab) + '</span>' +
+    '<span class="n">' + n + '</span>' +
+    '<span class="kpi-barre' + (verte ? " verte" : "") + '"><i style="width:' + pc + '%;"></i></span></div>';
+}
+function renduConsole() {
+  var el = document.getElementById("kpi-corps");
+  document.getElementById("kpi-date").textContent = "à " + new Date().toTimeString().slice(0, 5);
+  var actives = CONVS.filter(function(c) { return !c.archive && !RATTACHE[c.id]; });
+  var nonLues = actives.filter(function(c) { return !c.lu; }).length;
+  var nonAssign = actives.filter(function(c) { return !c.assigne; }).length;
+  var nbWa = actives.filter(function(c) { return c.canal === "WhatsApp"; }).length;
+  var nbMail = actives.filter(function(c) { return c.canal === "Email"; }).length;
+  var nbComms = 0; actives.forEach(function(c) { nbComms += (c.comms || []).length; });
+
+  /* --- activité 7 jours + délais de réponse : uniquement les messages avec
+     un vrai timestamp ISO (les messages réels WA/emails en ont un) --- */
+  var jours = [], ent = [], sor = [], maxJour = 0;
+  for (var j = 6; j >= 0; j--) {
+    var d = new Date(Date.now() - j * 86400000);
+    jours.push(("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2));
+    ent.push(0); sor.push(0);
+  }
+  function idxJour(t) { return jours.indexOf(t); }
+  var delais = [];
+  actives.forEach(function(c) {
+    var tri = (c.fil || []).filter(function(m) { return m.ts && !isNaN(new Date(m.ts)); })
+      .map(function(m) { return { qui: m.qui, t: new Date(m.ts).getTime() }; })
+      .sort(function(a, b) { return a.t - b.t; });
+    var dernierClient = null;
+    tri.forEach(function(m) {
+      var d = new Date(m.t);
+      var k = idxJour(("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2));
+      if (k >= 0) { if (m.qui === "client") ent[k]++; else if (m.qui === "agent") sor[k]++; }
+      if (m.qui === "client") dernierClient = m.t;
+      else if (dernierClient !== null && m.t > dernierClient && m.t - dernierClient < 30 * 86400000) {
+        delais.push(m.t - dernierClient); dernierClient = null;
+      }
+    });
+  });
+  for (var j2 = 0; j2 < 7; j2++) maxJour = Math.max(maxJour, ent[j2] + sor[j2]);
+  delais.sort(function(a, b) { return a - b; });
+  var medDelai = delais.length ? delais[Math.floor(delais.length / 2)] : null;
+
+  /* --- cycles --- */
+  var parCycle = {};
+  CYCLES_LISTE.forEach(function(cy) { if (cy !== "tous") parCycle[cy] = 0; });
+  actives.forEach(function(c) { if (parCycle[c.cycle] !== undefined) parCycle[c.cycle]++; });
+  var maxCycle = 0; for (var cy2 in parCycle) maxCycle = Math.max(maxCycle, parCycle[cy2]);
+
+  /* --- équipe --- */
+  var parPers = { "Non assignées": nonAssign };
+  EQUIPE.forEach(function(p) { parPers[p] = 0; });
+  actives.forEach(function(c) { if (c.assigne && parPers[c.assigne] !== undefined) parPers[c.assigne]++; });
+  var maxPers = 0; for (var p2 in parPers) maxPers = Math.max(maxPers, parPers[p2]);
+
+  /* --- sujets --- */
+  var parSujet = {};
+  actives.forEach(function(c) { var s = sujetDetecte(c); parSujet[s] = (parSujet[s] || 0) + 1; });
+  var sujetsTries = Object.keys(parSujet).sort(function(a, b) { return parSujet[b] - parSujet[a]; }).slice(0, 6);
+
+  var html = '';
+  html += '<div class="kpi-grille">' +
+    kpiCarte(actives.length, "Conversations actives") +
+    kpiCarte(nonLues, "Non lues 💬") +
+    kpiCarte(nonAssign, "Non assignées 👤") +
+    kpiCarte(nbWa, "Canal WhatsApp") +
+    kpiCarte(nbMail, "Canal Email") +
+    kpiCarte(nbComms, "Commentaires internes") +
+    kpiCarte(ent.reduce(function(a, b) { return a + b; }, 0), "Messages reçus (7 j)") +
+    kpiCarte(medDelai === null ? "—" : fmtDelaiKpi(medDelai), "Réponse médiane") +
+    '</div>';
+  html += '<div class="kpi-sec">⏱️ Charge par cycle de vie</div>';
+  CYCLES_LISTE.forEach(function(cy) {
+    if (cy !== "tous") html += barreKpi(cy, parCycle[cy], maxCycle);
+  });
+  html += '<div class="kpi-sec">👤 Charge par personne</div>';
+  Object.keys(parPers).forEach(function(p) {
+    html += barreKpi(p, parPers[p], maxPers, p === "Non assignées");
+  });
+  html += '<div class="kpi-sec">📁 Top sujets</div>';
+  sujetsTries.forEach(function(s) { html += barreKpi(s, parSujet[s], parSujet[sujetsTries[0]]); });
+  html += '<div class="kpi-sec">📈 Activité 7 jours (entrants / sortants)</div>';
+  for (var j3 = 0; j3 < 7; j3++) {
+    html += barreKpi(jours[j3] + " · ⬇ " + ent[j3] + " ⬆ " + sor[j3], ent[j3] + sor[j3], maxJour);
+  }
+  html += '<div style="margin-top:12px;"><button class="btn" onclick="renduConsole()">🔄 Recalculer</button> ' +
+    '<span class="petit" style="color:#8a93a3;font-size:10.5px;">KPI calculés sur les conversations chargées dans cette page — non lues = jamais ouvertes ici, réponse médiane = écart entre un message client et la réponse agent qui suit.</span></div>';
+  el.innerHTML = html;
+}
+function kpiCarte(v, lab) { return '<div class="kpi-carte"><b>' + v + '</b><span>' + escCpt(lab) + '</span></div>'; }
 
 /* ==================== C6.3 : panneau admin des comptes ==================== */
 var COMPTES_LISTE = [];
@@ -5463,6 +5605,7 @@ function iaRendu() {
       ? '<div class="ia-av">' + escTxt(initiales) + '</div>'
       : '<div class="ia-av">' + IA_SVG + '</div>';
     var corps = (m.txt === "…")
+
       ? '<div class="ia-b ia-ecrit"><i></i><i></i><i></i></div>'
       : '<div class="ia-b">' + escTxt(m.txt).replace(/\n/g, "<br>") + '</div>';
     return '<div class="ia-msg ' + (m.de === "moi" ? "ia-moi" : "ia-ia") + '">' + avatar + corps + '</div>';
