@@ -427,6 +427,14 @@
   .mcan.wa { background: #dcf8c6; }
   .mcan.mail { background: #dbeafe; }
   #nouveaux { display: none; position: fixed; inset: 0; background: rgba(34,38,43,.5); z-index: 50; }
+  /* C9-NEWCONV : fenêtre « Nouvelle conversation » */
+  #nouvconv { display: none; position: fixed; inset: 0; background: rgba(34,38,43,.5); z-index: 50; }
+  #nouvconv.ouvert { display: block; }
+  #nouvconv label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--mut); margin-bottom: 5px; }
+  #nouvconv input { width: 100%; border: 1.5px solid var(--bord2); border-radius: 12px; padding: 9px 13px; font-size: 13.5px; font-family: inherit; background: #fff; color: var(--ink); transition: border-color .15s, box-shadow .15s; }
+  #nouvconv input:focus { outline: none; border-color: var(--lime); box-shadow: 0 0 0 3px rgba(14,90,167,.12); }
+  body.sombre #nouvconv input { background: #1c2126; color: #e8ebee; border-color: #3f4750; }
+  body.sombre #nouvconv input:focus { border-color: #10B981; box-shadow: 0 0 0 3px rgba(16,185,129,.18); }
   #nouveaux.ouvert { display: block; }
   .nv-fen { max-width: 640px; margin: 26px auto; background: var(--card); border-radius: 16px; height: calc(100vh - 52px); display: flex; flex-direction: column; box-shadow: 0 24px 60px rgba(0,0,0,.3); overflow: hidden; }
   .nv-corps { flex: 1; overflow-y: auto; padding: 14px 18px 20px; }
@@ -949,6 +957,7 @@
   <div class="crumb">Boîte de réception</div>
   <div class="spacer"></div>
   <button class="btn-nouv" id="btn-nouv" onclick="ouvrirNouveaux()">🔔 Nouveaux messages<span class="n" id="btn-nouv-n">0</span></button>
+  <button class="btn-nouv" id="btn-newconv" onclick="ouvrirNouvelleConv()" title="Démarrer une conversation avec un nouveau contact (numéro WhatsApp ou adresse email) — le premier message part réellement">➕ Nouvelle conversation</button>
   <button class="btn-nouv" onclick="ouvrirNotifs()" title="Assignations et tags reçus">🔔 Notifications<span class="n" id="btn-notif-n">0</span></button>
   <button class="btn-nouv" onclick="ouvrirProfils()" title="Créer et modifier les profils de l'équipe (icônes affichées à côté des messages)">👥 Profils</button>
   <button class="btn-nouv" id="btn-auth" onclick="ouvrirConnexion()" title="Connexion équipe C6 (compte agent_sav.utilisateurs) — jeton mémorisé dans ce navigateur">👤 Connexion</button>
@@ -1118,6 +1127,40 @@
       <button class="btn-fermer" onclick="fermerNouveaux()">✕ Fermer</button>
     </div>
     <div class="nv-corps" id="nv-corps"></div>
+  </div>
+</div>
+
+<!-- C9-NEWCONV : démarrer une conversation avec un contact inconnu -->
+<div id="nouvconv">
+  <div class="bo-fen" style="max-width:470px;margin:90px auto 0;">
+    <div class="carnet-head">
+      <b>➕ Nouvelle conversation</b>
+      <span class="carnet-nb">Contacter quelqu'un qui n'a pas encore écrit</span>
+      <button class="btn-fermer" onclick="fermerNouvelleConv()">✕ Fermer</button>
+    </div>
+    <div style="padding:18px 22px 20px;display:flex;flex-direction:column;gap:13px;">
+      <div>
+        <label for="nc-nom">Nom du contact (optionnel)</label>
+        <input id="nc-nom" type="text" placeholder="Prénom Nom" autocomplete="off" />
+      </div>
+      <div>
+        <label>Canal</label>
+        <div class="toggle" style="display:flex;gap:8px;">
+          <button class="chip wa on" id="nc-can-wa" onclick="newconvCanal('WhatsApp')">💬 WhatsApp</button>
+          <button class="chip mail" id="nc-can-mail" onclick="newconvCanal('Email')">✉️ Email</button>
+        </div>
+      </div>
+      <div id="nc-bloc-tel">
+        <label for="nc-tel">Numéro WhatsApp</label>
+        <input id="nc-tel" type="tel" placeholder="+33 6 12 34 56 78" autocomplete="off" />
+      </div>
+      <div id="nc-bloc-mail" style="display:none;">
+        <label for="nc-mail">Adresse email</label>
+        <input id="nc-mail" type="email" placeholder="client@exemple.fr" autocomplete="off" />
+      </div>
+      <button class="btn primaire" style="align-self:flex-start;" onclick="creerNouvelleConv()">Créer la conversation</button>
+      <div style="font-size:11.5px;color:var(--mut);line-height:1.5;">La conversation s'ouvre immédiatement — ton premier message part <b>réellement</b> (WhatsApp Cloud API ou email) vers ce contact.</div>
+    </div>
   </div>
 </div>
 
@@ -4217,6 +4260,51 @@ function ouvrirNouveaux() {
 }
 function fermerNouveaux() {
   document.getElementById("nouveaux").classList.remove("ouvert");
+}
+/* ===== C9-NEWCONV : démarrer une conversation avec un contact inconnu ===== */
+var NEWCONV_CANAL = "WhatsApp";
+function ouvrirNouvelleConv() {
+  document.getElementById("nouvconv").classList.add("ouvert");
+  majNewConvChamps();
+  var n = document.getElementById("nc-nom"); if (n) n.focus();
+}
+function fermerNouvelleConv() {
+  document.getElementById("nouvconv").classList.remove("ouvert");
+}
+function newconvCanal(v) { NEWCONV_CANAL = v; majNewConvChamps(); }
+function majNewConvChamps() {
+  var wa = NEWCONV_CANAL === "WhatsApp";
+  document.getElementById("nc-can-wa").classList.toggle("on", wa);
+  document.getElementById("nc-can-mail").classList.toggle("on", !wa);
+  document.getElementById("nc-bloc-tel").style.display = wa ? "" : "none";
+  document.getElementById("nc-bloc-mail").style.display = wa ? "none" : "";
+}
+function creerNouvelleConv() {
+  var nom = (document.getElementById("nc-nom").value || "").trim();
+  var tel = telE164(document.getElementById("nc-tel").value || "");
+  var mail = (document.getElementById("nc-mail").value || "").trim();
+  var wa = NEWCONV_CANAL === "WhatsApp";
+  if (wa && (!tel || tel.replace(/[^+0-9]/g, "").length < 8)) { alert("Renseigne un numéro WhatsApp valide (ex : +33 6 12 34 56 78)."); return; }
+  if (!wa && (mail.indexOf("@") < 1 || mail.indexOf(".") < 3)) { alert("Renseigne une adresse email valide (ex : client@exemple.fr)."); return; }
+  var dest = nom || (wa ? tel : mail);
+  var id = (CONVS.length ? Math.max.apply(null, CONVS.map(function(c) { return c.id; })) + 1 : 1);
+  var h = new Date().toTimeString().slice(0, 5);
+  var c = {
+    id: id, nom: dest, entreprise: "", canal: NEWCONV_CANAL,
+    cycle: "Nouvelle Demande", classe: "nouvelle", tags: [],
+    heure: h, delai: "à l'instant", lu: true, wa: wa,
+    extrait: "Conversation créée manuellement — premier message à envoyer",
+    contact: { tel: tel, plaque: "", email: mail },
+    fil: [], comms: []
+  };
+  CONVS.push(c);
+  c.dateLbl = dateLblDe(c, 0);
+  SELID = id; SELSENT = null;
+  setCanalEnvoi(NEWCONV_CANAL); majSaisieC2();
+  fermerNouvelleConv();
+  renduListe(); renduFil(); renduMesCycles(); rafraichirFiche(); majBadgeNouveaux();
+  var inp = document.getElementById("nv-msg"); if (inp) inp.focus();
+  pushNotif("💬 Conversation créée avec " + dest + " — écris ton premier message, l'envoi est réel (" + NEWCONV_CANAL + ").");
 }
 function ouvrirDepuisNouveaux(id) {
   fermerNouveaux();
