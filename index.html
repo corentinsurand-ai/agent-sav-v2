@@ -483,22 +483,47 @@
   /* ===== C6.3 : panneau admin des comptes équipe ===== */
   #comptes { display: none; position: fixed; inset: 0; background: rgba(34,38,43,.5); z-index: 60; }
   #comptes.ouvert { display: block; }
-  /* ===== C16-KPI : console de contrôle ===== */
+  /* ===== C16-KPI : console de contrôle (v76 — design) ===== */
   #kpi { display: none; position: fixed; inset: 0; background: rgba(34,38,43,.5); z-index: 60; }
   #kpi.ouvert { display: block; }
-  .kpi-grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; margin-bottom: 14px; }
-  .kpi-carte { background: #fff; border: 1px solid var(--bord); border-radius: 10px; padding: 9px 11px; }
-  .kpi-carte b { font-size: 20px; color: #0e5aa7; display: block; line-height: 1.15; }
-  .kpi-carte span { font-size: 10.5px; color: #8a93a3; }
-  .kpi-sec { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: #1a1e23; margin: 14px 0 6px; border-bottom: 2px solid #7fb6e8; padding-bottom: 4px; }
-  .kpi-ligne { display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 4px 0; }
+  .kpi-grille { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .kpi-carte { position: relative; background: linear-gradient(180deg, #f8fbff, #fff); border: 1px solid #d7e7f6; border-radius: 14px; padding: 12px 13px 11px; overflow: hidden; transition: transform .12s ease, box-shadow .12s ease; }
+  .kpi-carte:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(14,90,167,.16); }
+  .kpi-carte::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #1c7ed6, #0e5aa7); }
+  .kpi-carte b { font-size: 23px; color: #0e5aa7; display: block; line-height: 1.15; letter-spacing: -.5px; }
+  .kpi-carte span { font-size: 10.5px; color: #7d8794; }
+  .kpi-carte.hero { background: linear-gradient(135deg, #0e5aa7, #1c7ed6); border: none; }
+  .kpi-carte.hero::before { background: linear-gradient(90deg, #6ec0ff, #bde0ff); height: 5px; }
+  .kpi-carte.hero b { color: #fff; }
+  .kpi-carte.hero span { color: #cfe2f7; }
+  .kpi-sec { font-size: 11.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: #1a1e23; margin: 16px 0 8px; border-bottom: 2px solid #7fb6e8; padding-bottom: 4px; display: flex; align-items: center; gap: 7px; }
+  .kpi-ligne { display: flex; align-items: center; gap: 8px; font-size: 12px; margin: 5px 0; }
   .kpi-ligne .lab { flex: 0 0 38%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .kpi-ligne .n { flex: 0 0 34px; text-align: right; font-weight: 700; color: #0e5aa7; }
-  .kpi-barre { flex: 1; height: 8px; border-radius: 99px; background: #eaf2fa; overflow: hidden; }
-  .kpi-barre i { display: block; height: 100%; background: #0e5aa7; border-radius: 99px; }
-  .kpi-barre.verte i { background: #1d7a4f; }
+  .kpi-barre { flex: 1; height: 9px; border-radius: 99px; background: #eef4fb; overflow: hidden; }
+  .kpi-barre i { display: block; height: 100%; background: linear-gradient(90deg, #1c7ed6, #0e5aa7); border-radius: 99px; }
+  .kpi-barre.verte { background: #e9f7ef; }
+  .kpi-barre.verte i { background: linear-gradient(90deg, #37b97c, #1d7a4f); }
+  /* donut canaux + graphique activité */
+  .kpi-duo { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 4px; }
+  .kpi-boite { flex: 1; min-width: 220px; background: linear-gradient(180deg, #f8fbff, #fff); border: 1px solid #d7e7f6; border-radius: 14px; padding: 12px 14px; }
+  .kpi-donut { width: 118px; height: 118px; border-radius: 50%; margin: 6px auto 0; position: relative; }
+  .kpi-donut::after { content: ""; position: absolute; inset: 15px; background: #fff; border-radius: 50%; }
+  .kpi-donut b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 21px; color: #0e5aa7; z-index: 1; }
+  .kpi-legende { display: flex; gap: 16px; justify-content: center; font-size: 11.5px; color: #3a4250; margin-top: 10px; flex-wrap: wrap; }
+  .kpi-legende i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .kpi-graphe { display: flex; align-items: flex-end; gap: 7px; height: 108px; padding: 4px 2px 0; }
+  .kpi-col { flex: 1; display: flex; flex-direction: column; align-items: center; }
+  .kpi-cols { display: flex; align-items: flex-end; gap: 3px; width: 100%; height: 82px; }
+  .kpi-colbar { flex: 1; border-radius: 4px 4px 0 0; background: linear-gradient(180deg, #1c7ed6, #0e5aa7); min-height: 3px; }
+  .kpi-colbar.verte { background: linear-gradient(180deg, #37b97c, #1d7a4f); }
+  .kpi-jour { font-size: 9.5px; color: #8a93a3; margin-top: 5px; }
   body.sombre .kpi-carte { background: #242a31; border-color: #3a4149; }
+  body.sombre .kpi-carte.hero { background: linear-gradient(135deg, #0c4b8c, #1769b8); }
+  body.sombre .kpi-boite { background: #242a31; border-color: #3a4149; }
+  body.sombre .kpi-donut::after { background: #242a31; }
   body.sombre .kpi-barre { background: #313941; }
+  body.sombre .kpi-barre.verte { background: #2d3a33; }
   body.sombre .kpi-sec { color: #d7dce2; }
   .cpt-ligne { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid var(--bord); border-radius: 9px; margin-bottom: 7px; background: #fff; }
   .cpt-ligne.off { opacity: .55; }
@@ -673,6 +698,7 @@
   .bo-tabs button.off { background: #EEF2F7; }
   #porte-email:focus, #porte-mdp:focus { outline: none; border-color: #0e5aa7 !important; box-shadow: 0 0 0 3px rgba(14,90,167,.12); }
   #porte-btn:hover { filter: brightness(1.1); }
+
   #porte-btn:active { transform: translateY(1px); }
 
   /* ============================================================
@@ -698,7 +724,6 @@
   /* --- avatars initiales (liste + fil) --- */
   .cav { width: 42px; height: 42px; border-radius: 13px; color: #fff; font-weight: 700; font-size: 14.5px; letter-spacing: .3px;
     display: flex; align-items: center; justify-content: center; flex: 0 0 auto; position: relative;
-
     box-shadow: inset 0 -2px 4px rgba(0,20,50,.14), 0 2px 5px rgba(15,35,70,.14); }
   .cav .cch { position: absolute; bottom: -3px; right: -4px; width: 18px; height: 18px; border-radius: 50%; background: #fff;
     display: flex; align-items: center; justify-content: center; font-size: 9.5px; box-shadow: 0 1px 3px rgba(15,35,70,.25); }
@@ -1374,6 +1399,7 @@
   <div class="ia-barre">
     <textarea id="ia-saisie" rows="1" placeholder="Pose ta question (fonctionnement, clients, derniers échanges)…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();iaEnvoyer();}"></textarea>
     <button class="ia-mic" id="btn-dictee-ia" onclick="dicterIA()" title="Dicter ta question (reconnaissance vocale du navigateur — Chrome/Edge)" aria-label="Dicter">🎤</button>
+
     <button class="ia-env" id="ia-env-btn" onclick="iaEnvoyer()" title="Envoyer" aria-label="Envoyer">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11.5L20.5 3.8a.5.5 0 0 1 .7.6l-5.9 16.4a.5.5 0 0 1-.9.1l-3.4-6.1-6.9-2.5a.5.5 0 0 1 0-1z"/><path d="M11 13.9l3.4-3.9"/></svg>
     </button>
@@ -1399,7 +1425,6 @@ var CONVS = [
     {"qui": "agent", "t": "16:40", "txt": "Bonjour, comment puis-je vous aider ?"}
   ], "comms": []},
   {"id": 3, "nom": "Sofiane Housni (Contact SAV)", "entreprise": "TCHIKO (PIZZA TIME POISSY)", "canal": "WhatsApp", "cycle": "A qualifier", "classe": "qualifier", "tags": [], "heure": "19:04", "delai": "5 h", "lu": false, "extrait": "Pneus à changer sur le GZ-604-WC, vous pouvez passer ?", "contact": {"tel": "06 51 46 51 03", "plaque": "GB-027-QV / GZ-604-WC / GZ-578-WC / GZ-552-WC"}, "fil": [
-
     {"qui": "client", "t": "19:04", "txt": "Bonjour, les pneus du GZ-604-WC sont à changer, vous pouvez passer ?"},
     {"qui": "agent", "t": "19:05", "txt": "Bonsoir ! Merci pour votre retour. Quelle est l'adresse d'intervention, le numéro à contacter ce jour-là, et quels sont vos jours de fermeture éventuels ?"},
     {"qui": "client", "t": "19:12", "txt": "20 Avenue de Pontoise à Poissy, c'est moi sur place, on ferme le lundi."},
@@ -2075,6 +2100,7 @@ function appliquerVraisClients(liste) {
     });
     /* PAS de conversation créée : les fiches/carnet se remplissent de vrais
        contacts ; une conversation naîtra quand un vrai message arrivera
+
        (brique C4) ou quand un agent en lancera une depuis une fiche. */
     s.vraisContacts.push({ nom: nomContact || ent, tel: telE164(cl.telephone), plaque: cl.plaque || "", email: emailContact || "" });
   });
@@ -2100,7 +2126,6 @@ function heureWa(iso) {
   return { t: mj === auj ? hh : mj + " " + hh };
 }
 /* Numéros hors carnet pour tester C4 : créés comme société TEST dans le canvas.
-
    Clé = wa_id en chiffres seuls (E.164 sans le +). */
 var TEST_WA = {
   "33613886756": { ent: "CORENTIN (TEST C4)", nom: "Corentin Surand", plaque: "", email: "corentin.surand@gmail.com" }
@@ -2776,6 +2801,7 @@ var MODELES_WA = [
   { nom: "demande_complement_information", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nNous avons quelques questions suite à votre demande SAV. Etes-vous disponible pour nous préciser votre besoin ?\nL'équipe technique U'mob" },
   { nom: "reprise_echange", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
+
     txt: "Bonjour,\nNous avons quelques questions suite à votre demande. Êtes-vous disponible ?" },
   { nom: "reprise_telephone", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nNous avons bien reçu votre demande SAV par téléphone.\nSeriez-vous disponible pour compléter votre demande ici ?\nL'équipe technique U'mob" },
@@ -2801,7 +2827,6 @@ var MODELES_WA = [
    relevé dans le Gestionnaire WhatsApp (« Actif », sans variables). */
 var WA_MODELE_MAINTENANCE = { nom: "proposition_passage_maintenance", langue: "fr" };
 function remplaceChamps(txt, c) {
-
   var prenom = (c.nom || "").split("(")[0].trim();
   return txt.replace(/\{client\}/g, prenom).replace(/\{plaque\}/g, c.contact.plaque || "").replace(/\{lien_paiement\}/g, "lien de paiement sécurisé (démo)");
 }
@@ -3477,6 +3502,7 @@ function envoyerProposition(idx, canal) {
     fermerProposition();
     pushNotif("✅ Proposition de maintenance envoyée pour de vrai à " + dest + (estWa && rep.j.wamid ? " (" + rep.j.wamid + ")" : "") +
       (estWa ? " — recharge 🔌 pour voir l'accusé" : ""));
+
   })
   .catch(function(e) {
     PROP_ENVOI = false;
@@ -3502,7 +3528,6 @@ function optionsAssigne(cur) {
   return '<option value=""' + (cur ? "" : " selected") + '>👤 Non assignée</option>' +
     EQUIPE.map(function(e){ return '<option value="' + e + '"' + (cur === e ? " selected" : "") + '>' + iconeDe(e) + ' ' + e + '</option>'; }).join("");
 }
-
 function maintenant() {
   var d = new Date();
   return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + " " +
@@ -4178,6 +4203,7 @@ function rafraichirFiche() {
 
     '<div class="fiche-sec" style="margin-bottom:14px;">' +
       fsTete("maint", "fs-violet", "🔧", "Maintenances & contrats") +
+
       fsCorps("maint", maintsBloc(s, "petit")) +
     '</div>';
 }
@@ -4203,7 +4229,6 @@ function basculerVueMobile(v) {
   if (v === "volet-fil") { setTimeout(descenteFil, 80); }  /* le fil reprend sa place en bas */
 }
 function majMobile() {
-
   ["volet-filtres", "volet-liste", "volet-fil"].forEach(function(id) {
     var e = document.getElementById(id);
     if (!e) return;
@@ -4879,6 +4904,7 @@ function convLigneSujet(c) {
       return '<div class="suj-conv suj-enfant" style="background:#f8fafc;"><span>📎</span>' +
         '<span class="qui">' + e.nom + '</span>' +
         '<span class="cy ' + e.classe + '">' + e.cycle + '</span>' +
+
         '<span class="tag">📁 ' + sujetDetecte(e) + '</span>' +
         '<span class="tag" title="Date du dernier message" style="background:#eef1f5;color:#475569;">📅 ' + (e.dateLbl || e.heure) + '</span>' +
         '<span class="sp">' +
@@ -4904,7 +4930,6 @@ function toutSujets() {
 }
 
 function sujetsArbreHtml(ent) {
-
   var racines = convsDeSociete(ent).filter(function(c){ return !c.archive && !RATTACHE[c.id]; });
   if (!racines.length) return '<div class="petit" style="color:#8a93a3;">Aucune conversation active — voir les Archives ci-dessous.</div>';
   var groupes = {}, labels = [];
@@ -5264,16 +5289,39 @@ function renduConsole() {
   var sujetsTries = Object.keys(parSujet).sort(function(a, b) { return parSujet[b] - parSujet[a]; }).slice(0, 6);
 
   var html = '';
+  /* cartes : 2 héro (conversations, réponse médiane) en dégradé bleu plein */
   html += '<div class="kpi-grille">' +
-    kpiCarte(actives.length, "Conversations actives") +
+    kpiCarte(actives.length, "Conversations actives", true) +
     kpiCarte(nonLues, "Non lues 💬") +
     kpiCarte(nonAssign, "Non assignées 👤") +
-    kpiCarte(nbWa, "Canal WhatsApp") +
-    kpiCarte(nbMail, "Canal Email") +
     kpiCarte(nbComms, "Commentaires internes") +
     kpiCarte(ent.reduce(function(a, b) { return a + b; }, 0), "Messages reçus (7 j)") +
-    kpiCarte(medDelai === null ? "—" : fmtDelaiKpi(medDelai), "Réponse médiane") +
+    kpiCarte(medDelai === null ? "—" : fmtDelaiKpi(medDelai), "Réponse médiane ⏱️", true) +
     '</div>';
+  /* duo visuel : donut des canaux + graphique en barres 7 jours */
+  var totalCanaux = nbWa + nbMail;
+  var pcWa = totalCanaux ? Math.round(100 * nbWa / totalCanaux) : 0;
+  html += '<div class="kpi-duo">' +
+    '<div class="kpi-boite"><div class="kpi-sec" style="margin-top:0;">📡 Canaux</div>' +
+    '<div class="kpi-donut" style="background:conic-gradient(#0e5aa7 0 ' + pcWa + '%, #37b97c ' + pcWa + '% 100%);"><b>' + totalCanaux + '</b></div>' +
+    '<div class="kpi-legende">' +
+    '<span><i style="background:#0e5aa7;"></i>💬 WhatsApp : ' + nbWa + '</span>' +
+    '<span><i style="background:#37b97c;"></i>✉️ Email : ' + nbMail + '</span>' +
+    '</div></div>' +
+    '<div class="kpi-boite" style="flex:2;"><div class="kpi-sec" style="margin-top:0;">📈 Activité 7 jours</div>' +
+    '<div class="kpi-graphe">';
+  for (var j4 = 0; j4 < 7; j4++) {
+    var hE = maxJour ? Math.round(78 * ent[j4] / maxJour) : 0;
+    var hS = maxJour ? Math.round(78 * sor[j4] / maxJour) : 0;
+    html += '<div class="kpi-col"><div class="kpi-cols" title="' + jours[j4] + ' — ' + ent[j4] + ' entrant(s), ' + sor[j4] + ' sortant(s)">' +
+      '<span class="kpi-colbar" style="height:' + Math.max(hE, 3) + 'px;"></span>' +
+      '<span class="kpi-colbar verte" style="height:' + Math.max(hS, 3) + 'px;"></span>' +
+      '</div><span class="kpi-jour">' + jours[j4] + '</span></div>';
+  }
+  html += '</div>' +
+    '<div class="kpi-legende"><span><i style="background:#0e5aa7;"></i>⬇ Reçus : ' + ent.reduce(function(a, b) { return a + b; }, 0) + '</span>' +
+    '<span><i style="background:#37b97c;"></i>⬆ Envoyés : ' + sor.reduce(function(a, b) { return a + b; }, 0) + '</span></div>' +
+    '</div></div>';
   html += '<div class="kpi-sec">⏱️ Charge par cycle de vie</div>';
   CYCLES_LISTE.forEach(function(cy) {
     if (cy !== "tous") html += barreKpi(cy, parCycle[cy], maxCycle);
@@ -5284,15 +5332,11 @@ function renduConsole() {
   });
   html += '<div class="kpi-sec">📁 Top sujets</div>';
   sujetsTries.forEach(function(s) { html += barreKpi(s, parSujet[s], parSujet[sujetsTries[0]]); });
-  html += '<div class="kpi-sec">📈 Activité 7 jours (entrants / sortants)</div>';
-  for (var j3 = 0; j3 < 7; j3++) {
-    html += barreKpi(jours[j3] + " · ⬇ " + ent[j3] + " ⬆ " + sor[j3], ent[j3] + sor[j3], maxJour);
-  }
   html += '<div style="margin-top:12px;"><button class="btn" onclick="renduConsole()">🔄 Recalculer</button> ' +
     '<span class="petit" style="color:#8a93a3;font-size:10.5px;">KPI calculés sur les conversations chargées dans cette page — non lues = jamais ouvertes ici, réponse médiane = écart entre un message client et la réponse agent qui suit.</span></div>';
   el.innerHTML = html;
 }
-function kpiCarte(v, lab) { return '<div class="kpi-carte"><b>' + v + '</b><span>' + escCpt(lab) + '</span></div>'; }
+function kpiCarte(v, lab, hero) { return '<div class="kpi-carte' + (hero ? " hero" : "") + '"><b>' + v + '</b><span>' + escCpt(lab) + '</span></div>'; }
 
 /* ==================== C6.3 : panneau admin des comptes ==================== */
 var COMPTES_LISTE = [];
@@ -5561,6 +5605,7 @@ function porteConnexion() {
   if (btn) { btn.disabled = true; btn.textContent = "Connexion…"; }
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
   fetch(base + "/api/clients-import", {
+
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ connexion: { email: email.trim(), mot_de_passe: mdp } })
@@ -5605,7 +5650,6 @@ function iaRendu() {
       ? '<div class="ia-av">' + escTxt(initiales) + '</div>'
       : '<div class="ia-av">' + IA_SVG + '</div>';
     var corps = (m.txt === "…")
-
       ? '<div class="ia-b ia-ecrit"><i></i><i></i><i></i></div>'
       : '<div class="ia-b">' + escTxt(m.txt).replace(/\n/g, "<br>") + '</div>';
     return '<div class="ia-msg ' + (m.de === "moi" ? "ia-moi" : "ia-ia") + '">' + avatar + corps + '</div>';
