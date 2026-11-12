@@ -1795,16 +1795,17 @@ function renduBoiteOutils() {
         var txt = remplaceChamps(mo.txt, c || { nom: "", contact: {} });
         var catCls = mo.categorie === "Marketing" ? "background:#fdeedd;color:#b06a00;" : "background:#e0f5ec;color:#1d7a4f;";
         var stCls = mo.statut === "Actif" ? "background:#e2f0fc;color:#0e5aa7;" : "background:#fdf0e6;color:#c05621;";
-        return '<div class="bo-item" style="flex-direction:column;align-items:stretch;cursor:pointer;" onclick="insererDepuisOutils(' + JSON.stringify(mo.txt).replace(/"/g, "&quot;") + ')">' +
+        return '<div class="bo-item" style="flex-direction:column;align-items:stretch;cursor:pointer;" title="Clique pour ENVOYER ce modèle approuvé au client (mode template WhatsApp — passe même hors fenêtre de 24 h)" onclick="envoyerModeleWa(\'' + mo.nom + '\')">' +
           '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
             '<span style="font-weight:700;color:#0e5aa7;font-size:12.5px;">' + mo.nom + '</span>' +
             '<span style="font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:99px;' + catCls + '">' + mo.categorie + '</span>' +
             '<span style="font-size:9.5px;font-weight:600;padding:1px 7px;border-radius:99px;' + stCls + '" title="' + (mo.statut === "Actif" ? "Modèle approuvé WhatsApp — envoyable hors fenêtre de 24 h" : "Pas encore approuvé par WhatsApp — envoi impossible en l'état") + '">' + (mo.statut === "Actif" ? "✓ Actif" : "⏳ " + mo.statut) + '</span>' +
             '<span style="font-size:9.5px;color:#8a94a0;">· ' + mo.langue + '</span>' +
+            '<button class="btn" style="margin-left:auto;font-size:10px;padding:3px 9px;border:1px solid var(--bord2);background:#F3F5F2;border-radius:99px;cursor:pointer;" title="Ne pas envoyer : copie simplement le texte dans la zone de saisie pour le modifier" onclick="event.stopPropagation();insererDepuisOutils(' + JSON.stringify(mo.txt).replace(/"/g, "&quot;") + ')">✏️ Insérer</button>' +
           '</div>' +
           '<div class="bo-txt" style="cursor:pointer;">' + txt + '</div></div>';
       }).join("") + '</div>' +
-      '<div style="color:#9aa4b1;font-size:11px;">Vrais modèles du compte WhatsApp Business U\'MOB (relevés au Gestionnaire WhatsApp le 05/11/2026) — un modèle « Actif » est envoyable hors fenêtre de 24 h via le mode template. Champs éventuels remplis automatiquement depuis la conversation ouverte.</div>';
+      '<div style="color:#9aa4b1;font-size:11px;">Vrais modèles du compte WhatsApp Business U\'MOB (relevés au Gestionnaire WhatsApp le 05/11/2026) — <b>cliquer sur un modèle l\'ENVOIE directement</b> en mode template WhatsApp (passe hors fenêtre de 24 h) ; « ✏️ Insérer » copie juste le texte dans la zone de saisie.</div>';
   }
 }
 function insererDepuisOutils(txt) {
@@ -2939,8 +2940,54 @@ function envoyerMessageWaReel(c, inp, v) {
     finEnvoi();
   });
 }
-/* Brique C5 : envoi EMAIL réel via l'API (SMTP OVH côté serveur) */
-function envoyerMessageEmailReel(c, inp, v, mail) {
+/* ===== C9-TPL-1 : envoyer un modèle WhatsApp APPROUVÉ en mode template =====
+   Règle Meta : en dehors de la fenêtre de 24 h, seul un modèle approuvé peut
+   être envoyé proactivement. Cliquer un modèle dans « Modèles WA » appelle
+   cette fonction → /api/whatsapp-send avec { template: { nom, langue, params } }. */
+function envoyerModeleWa(nomModele) {
+  var c = convParId(SELID);
+  if (!c) { pushNotif("⚠️ Ouvre d'abord une conversation."); return; }
+  var mo = MODELES_WA.filter(function(m) { return m.nom === nomModele; })[0];
+  if (!mo) return;
+  if (mo.statut !== "Actif") { pushNotif("⏳ Le modèle « " + nomModele + " » n'est pas approuvé par WhatsApp — envoi impossible en l'état."); return; }
+  var dest = ((c.contact && c.contact.tel) || "").replace(/\D/g, "");
+  if (!dest) { pushNotif("⚠️ Aucun numéro WhatsApp connu pour ce contact."); return; }
+  if (ENVOI_EN_COURS) return;
+  ENVOI_EN_COURS = true;
+  var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
+  var secret = (sessionDe() || {}).jeton || "";
+  if (!secret) { ENVOI_EN_COURS = false; afficherPorte(); return; }
+  var h = new Date().toTimeString().slice(0, 5);
+  var txtAff = remplaceChamps(mo.txt, c);
+  pushNotif("⏳ Envoi du modèle « " + nomModele + " » en cours…");
+  fetch(base + "/api/whatsapp-send", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-jeton": secret },
+    body: JSON.stringify({ jeton: secret, tel: dest,
+      template: { nom: mo.nom, langue: mo.langue, params: mo.variables ? [] : [] } })
+  })
+  .then(function(r) {
+    return r.json().then(function(j) { return { okHttp: r.ok, j: j }; })
+      .catch(function() { return { okHttp: r.ok, j: null }; });
+  })
+  .then(function(rep) {
+    ENVOI_EN_COURS = false;
+    if (!rep.okHttp || !rep.j || rep.j.ok !== true) {
+      pushNotif("⚠️ Modèle WhatsApp échoué : " + ((rep.j && (rep.j.erreur || rep.j.detail)) || "erreur API"));
+      return;
+    }
+    c.fil.push({ qui: "agent", de: MOI, t: h, txt: txtAff, canal: "WhatsApp", wa: true, st: "envoye", tpl: mo.nom });
+    c.extrait = txtAff; c.lu = true; c.heure = h; c.delai = "à l'instant";
+    c.dateLbl = dateLblDe(c, 0);
+    renduFil(); renduListe(); rafraichirFiche(); majBadgeNouveaux();
+    pushNotif("✅ Modèle « " + mo.nom + " » envoyé pour de vrai" + (rep.j.wamid ? " (" + rep.j.wamid + ")" : ""));
+  })
+  .catch(function(e) {
+    ENVOI_EN_COURS = false;
+    pushNotif("⚠️ Envoi du modèle impossible : " + String((e && e.message) || e));
+  });
+}
+/* Brique C5 : envoi EMAIL réel via l'API (SMTP OVH côté serveur) */function envoyerMessageEmailReel(c, inp, v, mail) {
   if (ENVOI_EN_COURS) return;
   ENVOI_EN_COURS = true;
   var btn = document.getElementById("btn-env");
