@@ -4929,6 +4929,7 @@ function renduComptes() {
       '<span class="cpt-infos"><span class="n">' + escCpt(u.nom || u.email) + (estMoi ? " <span style=\"color:#0e5aa7\">(toi)</span>" : "") + '</span><br/>' +
       '<span class="e">' + escCpt(u.email) + " · dernière connexion : " + (u.derniere_connexion ? escCpt(String(u.derniere_connexion).substring(0, 16)).replace("T", " à ") : "jamais") + '</span></span>' +
       '<span class="cpt-badge ' + (u.role === "admin" ? "admin" : "collab") + '">' + (u.role === "admin" ? "admin" : "collaborateur") + '</span>' +
+      '<button class="cpt-btn" title="Réinitialiser le mot de passe — un nouveau mot de passe aléatoire sera généré et affiché UNE SEULE FOIS (les mots de passe existants ne sont jamais stockés en clair, ils ne peuvent pas être relus)" onclick="reinitCompte(' + i + ')">🔑</button>' +
       '<button class="cpt-btn ' + (actif ? "desact" : "actif") + '" onclick="basculerCompte(' + i + ')">' + (actif ? "Désactiver" : "Réactiver") + '</button>' +
       '</div>';
   }).join("");
@@ -4949,6 +4950,57 @@ function basculerCompte(i) {
     renduComptes();
     pushNotif((u.actif === true ? "🛡️ Compte désactivé : " : "🛡️ Compte réactivé : ") + u.nom);
   }).catch(function(e){ alert("Réseau : " + e); });
+}
+/* ===== C6-AUTH-2 : réinitialisation ADMIN d'un mot de passe =====
+   Les mots de passe sont stockés HACHÉS (scrypt à sens unique) dans
+   agent_sav.utilisateurs : ils ne peuvent jamais être relus ni affichés.
+   La réinitialisation génère un nouveau mot de passe aléatoire côté serveur,
+   le stocke haché, et le renvoie en clair UNE SEULE FOIS — affiché dans une
+   boîte dédiée avec bouton copie, pour transmission à la personne. */
+function reinitCompte(i) {
+  var u = COMPTES_LISTE[i];
+  if (!u) return;
+  if (!confirm("Réinitialiser le mot de passe de " + (u.nom || u.email) + " ?\n\nL'ancien mot de passe sera immédiatement invalidé et un nouveau mot de passe aléatoire sera généré (affiché une seule fois).")) return;
+  var b = baseEtJeton();
+  fetch(b.base + "/api/clients-import?jeton=" + encodeURIComponent(b.jeton), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reinitialisation: { email: u.email } })
+  }).then(function(r){ return r.json(); }).then(function(rep){
+    if (!rep.ok) { alert("Échec : " + (rep.erreur || "erreur")); return; }
+    afficherNouveauMdp(u, rep.mot_de_passe || "");
+    pushNotif("🔑 Mot de passe réinitialisé pour " + (u.nom || u.email) + " — nouveau mot de passe affiché.");
+  }).catch(function(e){ alert("Réseau : " + e); });
+}
+function afficherNouveauMdp(u, mdp) {
+  var ex = document.getElementById("mdp-modal");
+  if (ex && ex.parentNode) ex.parentNode.removeChild(ex);
+  var d = document.createElement("div");
+  d.id = "mdp-modal";
+  d.style.cssText = "position:fixed;inset:0;background:rgba(16,28,44,.45);backdrop-filter:blur(2px);z-index:9999;display:flex;align-items:center;justify-content:center;";
+  d.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:400px;width:92%;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.3);">' +
+    '<div style="background:linear-gradient(135deg,#0e5aa7,#1c7ed6);color:#fff;padding:14px 20px;"><h3 style="margin:0;font-size:15px;font-weight:800;">🔑 Nouveau mot de passe</h3></div>' +
+    '<div style="padding:16px 20px;">' +
+    '<p style="margin:0 0 12px;font-size:12px;color:#5A626B;">Compte : <b>' + escCpt(u.nom || u.email) + '</b> · ' + escCpt(u.email) + '<br/>⚠️ Affiché <b>une seule fois</b> — copie-le maintenant et transmets-le à la personne.</p>' +
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">' +
+    '<code id="mdp-nouveau" style="flex:1;background:#f1f4f8;border:1px solid #d7dde5;border-radius:8px;padding:10px 12px;font-size:15px;font-weight:bold;letter-spacing:1px;user-select:all;">' + escCpt(mdp) + '</code>' +
+    '<button class="cpt-btn actif" onclick="copierNouveauMdp(this)">📋 Copier</button>' +
+    '</div>' +
+    '<button class="cpt-btn actif" style="background:#0e5aa7;color:#fff;width:100%;padding:8px 0;" onclick="var m=document.getElementById(\'mdp-modal\');if(m&&m.parentNode)m.parentNode.removeChild(m);">Fermer</button>' +
+    '</div></div>';
+  document.body.appendChild(d);
+}
+function copierNouveauMdp(btn) {
+  var t = document.getElementById("mdp-nouveau");
+  var txt = t ? t.textContent : "";
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(function(){ btn.textContent = "✓ Copié"; }, function(){ btn.textContent = "⚠️ Copie refusée"; });
+  } else {
+    var r = document.createRange(); r.selectNodeContents(t);
+    var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    document.execCommand("copy"); s.removeAllRanges();
+    btn.textContent = "✓ Copié";
+  }
 }
 function creerCompte() {
   var nom = document.getElementById("cpt-nom").value.trim();

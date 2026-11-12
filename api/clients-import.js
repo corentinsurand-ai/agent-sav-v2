@@ -53,13 +53,22 @@
 // ni enseigne) ; 401 secret invalide ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C7-MAINT-1';
+var VERSION = 'C6-AUTH-2';
 var SCHEMA = 'agent_sav';
 
 var clients = require('../lib/clients.js');
 var auth = require('../lib/auth.js');
 
 function env(nom) { return process.env[nom] || ''; }
+
+// --- C6-AUTH-2 : mot de passe aléatoire (12 car., alphabet sans ambiguïté) --
+var ALPHABET_MDP = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+function motDePasseAleatoire() {
+  var octets = require('crypto').randomBytes(12);
+  var sortie = "";
+  for (var i = 0; i < 12; i++) sortie += ALPHABET_MDP[octets[i] % ALPHABET_MDP.length];
+  return sortie;
+}
 
 // Secret : ?secret= (query) ou header x-webhook-secret — même logique que
 // api/sync-clients.js (repli manuel sur req.url inclus).
@@ -317,7 +326,7 @@ module.exports = async function handler(req, res) {
     try { corpsAuth = JSON.parse(String(req.body || '{}')); } catch (e) { corpsAuth = {}; }
   }
   var demandeAuth = paramDe(req, 'auth') === '1' ||
-    (req.method === 'POST' && (corpsAuth.connexion || corpsAuth.utilisateur || corpsAuth.activation || typeof corpsAuth.nouveau_mdp === 'string'));
+    (req.method === 'POST' && (corpsAuth.connexion || corpsAuth.utilisateur || corpsAuth.activation || corpsAuth.reinitialisation || typeof corpsAuth.nouveau_mdp === 'string'));
   if (demandeAuth) {
 
     // ---- POST {connexion:{email, mot_de_passe}} → jeton --------------------
@@ -442,8 +451,29 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // POST {reinitialisation:{email}} → C6-AUTH-2 : réinitialisation ADMIN du
+    // mot de passe d'un compte — génère un mot de passe aléatoire, le stocke
+    // HACHÉ (scrypt), et le renvoie EN CLAIR UNE SEULE FOIS pour que l'admin
+    // le transmette. Les mots de passe existants ne sont jamais révélables
+    // (hash à sens unique) : c'est la seule façon d'« obtenir » un accès.
+    if (corpsAuth.reinitialisation && typeof corpsAuth.reinitialisation === 'object') {
+      var emailR = String(corpsAuth.reinitialisation.email || '').trim().toLowerCase();
+      if (!emailR) return res.status(400).json({ ok: false, erreur: 'email requis' });
+      var mdpR = motDePasseAleatoire();
+      try {
+        var majR = await supabaseEcrire('utilisateurs', 'PATCH',
+          '?email=eq.' + encodeURIComponent(emailR), { mot_de_passe: auth.hacherMotDePasse(mdpR) });
+        if (Array.isArray(majR) && !majR.length) {
+          return res.status(404).json({ ok: false, erreur: 'aucun compte avec cet email' });
+        }
+        return res.status(200).json({ ok: true, brique: 'C6-AUTH', version: VERSION, reinitialise: true, email: emailR, mot_de_passe: mdpR });
+      } catch (e) {
+        return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
+      }
+    }
 
-    return res.status(400).json({ ok: false, erreur: 'action auth inconnue (connexion | utilisateur | activation | nouveau_mdp)' });
+
+    return res.status(400).json({ ok: false, erreur: 'action auth inconnue (connexion | utilisateur | activation | reinitialisation | nouveau_mdp)' });
   }
 
 
