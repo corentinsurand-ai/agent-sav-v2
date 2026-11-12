@@ -2653,7 +2653,9 @@ function majBadgeAuto() {
 }
 function rafraichirAuto() {
   if (!VRAIES_DONNEES || !autoActif()) return;
-  if (typeof document !== "undefined" && document.hidden) return;  // onglet masqué : on saute ce tour
+  /* C8-NOTIF-2 : on ne saute PLUS le tour quand l'onglet est masqué —
+     c'est justement là que les notifications système prennent le relais
+     (le refresh reste à 60 s, très léger). */
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
   var secret = (sessionDe() || {}).jeton || "";
   if (!secret) return;
@@ -2799,9 +2801,9 @@ function descenteFil() {
   m.scrollTop = m.scrollHeight;
   majDescente();
 }
+
 /* ===== Raccourcis clavier : Ctrl/⌘+K = recherche liste, Échap = tout fermer ===== */
 document.addEventListener("keydown", function(ev) {
-
   if ((ev.ctrlKey || ev.metaKey) && (ev.key === "k" || ev.key === "K")) {
     ev.preventDefault();
     var r = document.getElementById("rech-conv");
@@ -3500,9 +3502,9 @@ function commParUid(uid) {
   return { c: c, k: k };
 }
 function editerComm(uid) {
+
   var r = commParUid(uid);
   if (!r.c || !r.k) return;
-
   var v = prompt("Modifier le commentaire interne :", r.k.txt);
   if (v === null) return;                       // Annulé → on ne touche à rien
   v = v.trim();
@@ -4201,9 +4203,9 @@ function lancerNouvelleConv(id) {
     fil: [ { qui: "client", t: h, txt: "Bonjour, c'est encore moi — même souci que la dernière fois, ça recommence." } ],
     comms: []
   };
+
   CONVS.push(n);
   n.dateLbl = dateLblDe(n, 0);
-
   SOCIETES.forEach(function(s){ if (s.ent === c.entreprise && s.convs.indexOf(n.id) < 0) s.convs.push(n.id); });
   ouvrirConvLu(n.id);
   rafraichirFiche();
@@ -4609,7 +4611,15 @@ function majBadgesCycles() {
 }
 function majBadgeNouveaux() {
   var nbNonLus = nonLues().length;
-  if (DERNIER_NB_NONLUS >= 0 && nbNonLus > DERNIER_NB_NONLUS) dingNouveauMessage();
+  if (DERNIER_NB_NONLUS >= 0 && nbNonLus > DERNIER_NB_NONLUS) {
+    /* C8-NOTIF-2 : quelles conversations viennent de passer en non lues ?
+       (pour le ding ET pour la notification système de l'onglet masqué) */
+    var nouvelles = [];
+    try { nonLues().forEach(function(c) { if (DERNIERES_NONLUES.indexOf(c.id) < 0) nouvelles.push(c); }); } catch (e) {}
+    dingNouveauMessage();
+    notifierSysteme(nouvelles);                 /* C8-NOTIF-2 */
+  }
+  try { DERNIERES_NONLUES = nonLues().map(function(c) { return c.id; }); } catch (e) {}
   DERNIER_NB_NONLUS = nbNonLus;
   document.getElementById("btn-nouv-n").textContent = nbNonLus;
   var nb = document.getElementById("nouveaux-nb");
@@ -4894,6 +4904,7 @@ function archivesHtml(ent) {
       return '<div class="suj-conv suj-arch"><span>📦</span><span class="qui">' + c.nom + '</span>' +
         '<span class="cy ' + c.classe + '">' + c.cycle + '</span>' +
         '<span class="tag" title="Date du dernier message" style="background:#eef1f5;color:#475569;">📅 ' + (c.dateLbl || c.heure) + '</span>' +
+
         '<span class="sp"><button class="btn" style="padding:2px 8px;" onclick="voirConv(' + c.id + ')">Voir →</button>' +
         '<button class="btn" style="padding:2px 8px;" title="Désarchiver : la conversation revient dans la boîte de réception" onclick="archiverConv(' + c.id + ', false)">↩️ Désarchiver</button></span></div>' +
         enfs.map(function(e){
@@ -4904,7 +4915,6 @@ function archivesHtml(ent) {
             '<span class="sp"><button class="btn" style="padding:2px 8px;" onclick="voirConv(' + e.id + ')">Voir →</button>' +
             '<button class="btn" style="padding:2px 8px;" title="Détacher du dossier archivé" onclick="detacher(' + e.id + '); rafraichirTout(); renduFil();">↩️ Détacher</button></span></div>';
         }).join("");
-
     }).join("");
 }
 
@@ -5513,6 +5523,12 @@ function majBoutonDing() {
 function basculerDing() {
   DING_ACTIF = !DING_ACTIF;
   try { localStorage.setItem("umob_ding", DING_ACTIF ? "1" : "0"); } catch (e) {}
+  /* C8-NOTIF-2 : le clic sur 🔊 (geste utilisateur) sert aussi à demander
+     l'autorisation de notification système — sans geste, le navigateur
+     peut la refuser. */
+  if (DING_ACTIF && typeof Notification !== "undefined" && Notification.permission === "default") {
+    try { Notification.requestPermission(); } catch (e) {}
+  }
   majBoutonDing();
 }
 function dingNouveauMessage() {
@@ -5533,6 +5549,26 @@ function dingNouveauMessage() {
   } catch (e) {}
 }
 majBoutonDing();
+
+/* ===== C8-NOTIF-2 : notification système quand l'onglet est masqué ========
+   Le badge + le ding ne servent à rien si l'onglet est en arrière-plan :
+   la Notification du navigateur (et mobile, si installée en PWA) prend le
+   relais — un clic dessus rouvre la première conversation concernée.
+   Permission demandée au clic sur 🔊 (geste utilisateur requis). */
+var DERNIERES_NONLUES = [];
+function notifierSysteme(convs) {
+  if (!convs || !convs.length) return;
+  try {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (!document.hidden) return;               // visible : badge + ding suffisent
+    var pl = convs.length > 1 ? "s" : "";
+    var corps = convs.slice(0, 3).map(function(c) {
+      return c.nom + " : " + String(c.extrait || "").slice(0, 60);
+    }).join("\n") + (convs.length > 3 ? "\n… +" + (convs.length - 3) + " autre" + (convs.length - 3 > 1 ? "s" : "") : "");
+    var n = new Notification("💬 " + convs.length + " nouveau" + pl + " message" + pl, { body: corps, tag: "umob-nouveau" });
+    n.onclick = function() { try { window.focus(); } catch (e) {} voirConv(convs[0].id); try { n.close(); } catch (e) {} };
+  } catch (e) {}
+}
 
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
