@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="fr">
 <head>
@@ -698,8 +697,8 @@
   .bo-tabs button.off { background: #EEF2F7; }
   #porte-email:focus, #porte-mdp:focus { outline: none; border-color: #0e5aa7 !important; box-shadow: 0 0 0 3px rgba(14,90,167,.12); }
   #porte-btn:hover { filter: brightness(1.1); }
-
   #porte-btn:active { transform: translateY(1px); }
+
 
   /* ============================================================
      C8-DESIGN-2 : REFONTE PROFONDE — panneaux flottants, Inter,
@@ -1399,8 +1398,8 @@
   <div class="ia-barre">
     <textarea id="ia-saisie" rows="1" placeholder="Pose ta question (fonctionnement, clients, derniers échanges)…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();iaEnvoyer();}"></textarea>
     <button class="ia-mic" id="btn-dictee-ia" onclick="dicterIA()" title="Dicter ta question (reconnaissance vocale du navigateur — Chrome/Edge)" aria-label="Dicter">🎤</button>
-
     <button class="ia-env" id="ia-env-btn" onclick="iaEnvoyer()" title="Envoyer" aria-label="Envoyer">
+
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11.5L20.5 3.8a.5.5 0 0 1 .7.6l-5.9 16.4a.5.5 0 0 1-.9.1l-3.4-6.1-6.9-2.5a.5.5 0 0 1 0-1z"/><path d="M11 13.9l3.4-3.9"/></svg>
     </button>
   </div>
@@ -2100,8 +2099,8 @@ function appliquerVraisClients(liste) {
     });
     /* PAS de conversation créée : les fiches/carnet se remplissent de vrais
        contacts ; une conversation naîtra quand un vrai message arrivera
-
        (brique C4) ou quand un agent en lancera une depuis une fiche. */
+
     s.vraisContacts.push({ nom: nomContact || ent, tel: telE164(cl.telephone), plaque: cl.plaque || "", email: emailContact || "" });
   });
   CONVS = []; SOCIETES = socs; VRAIES_DONNEES = true;
@@ -2801,8 +2800,8 @@ var MODELES_WA = [
   { nom: "demande_complement_information", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nNous avons quelques questions suite à votre demande SAV. Etes-vous disponible pour nous préciser votre besoin ?\nL'équipe technique U'mob" },
   { nom: "reprise_echange", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
-
     txt: "Bonjour,\nNous avons quelques questions suite à votre demande. Êtes-vous disponible ?" },
+
   { nom: "reprise_telephone", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nNous avons bien reçu votre demande SAV par téléphone.\nSeriez-vous disponible pour compléter votre demande ici ?\nL'équipe technique U'mob" },
   { nom: "reprise_contact", categorie: "Marketing", langue: "fr", statut: "Actif", variables: false,
@@ -3502,8 +3501,8 @@ function envoyerProposition(idx, canal) {
     fermerProposition();
     pushNotif("✅ Proposition de maintenance envoyée pour de vrai à " + dest + (estWa && rep.j.wamid ? " (" + rep.j.wamid + ")" : "") +
       (estWa ? " — recharge 🔌 pour voir l'accusé" : ""));
-
   })
+
   .catch(function(e) {
     PROP_ENVOI = false;
     if (btn) { btn.disabled = false; btn.innerHTML = "🚀 Envoyer pour de vrai"; }
@@ -3951,7 +3950,7 @@ function renduFil() {
     (RATTACHE[c.id] ? '<span class="tag" title="Cette conversation est rattachée à une autre — ses messages apparaissent dans le fil principal">📎 rattachée à '+ (convParId(RATTACHE[c.id])||{nom:"?"}).nom +'</span>' : '')+
     (enfantsRattaches(c.id).length ? '<span class="tag">📎 '+enfantsRattaches(c.id).length+' conversation(s) rattachée(s)</span>' : '')+
     c.tags.map(function(t){return '<span class="tag">'+t+'</span>';}).join("") +
-    '<span>📞 '+c.contact.tel+'</span>'+(c.contact.email ? '<span title="Adresse email du client — canal ✉️ actif">✉️ <a href="mailto:'+c.contact.email+'" style="color:inherit;">'+c.contact.email+'</a></span>' : '')+'<span>🛵 '+c.contact.plaque+'</span><span>⏱️ dernier message : '+c.delai+'</span><span>👤 '+(c.assigne ? "assignée à " + avatar(c.assigne) + ' <b>'+c.assigne+"</b>" : "<b>non assignée</b>")+'</span></div>';
+    '<span>📞 '+c.contact.tel+'</span>'+(c.contact.email ? '<span title="Adresse email du client — canal ✉️ actif">✉️ <a href="mailto:'+c.contact.email+'" style="color:inherit;">'+c.contact.email+'</a></span>' : '')+'<span>🛵 '+c.contact.plaque+'</span><span>⏱️ dernier message : '+c.delai+'</span><span>👤 '+(c.assigne ? "assignée à " + avatar(c.assigne) + ' <b>'+c.assigne+"</b>" : "<b>non assignée</b>")+'</span>'+(VRAIES_DONNEES ? vuTagConv(c) : '')+'</div>';
 
   var LIB = { client:"Client", agent:"Agent IA U'mob", collab:"Collègue" };
   var CLS = { client:"entrant", agent:"agent", collab:"collab" };
@@ -3983,6 +3982,12 @@ function renduFil() {
       d.className = "bulle-note";
       if (RECH_FIL && it.k.txt.toLowerCase().indexOf(RECH_FIL.toLowerCase()) < 0) d.classList.add("sans"); else nbTrouves++;
       var mentions = personnesTaguees(it.k.txt);
+      /* C17-VU : personnes taguées ayant ouvert la conversation APRÈS ce
+         commentaire → « 👁️ vu par » (l'auteur et moi exclus) */
+      var vuIx = (ACT_BAS[cleConv(c)] || {}).vu || {};
+      var vus = mentions.filter(function(p) {
+        return p !== it.k.a && p !== MOI && vuPlusRecentQue(vuIx[p], it.k.t);
+      });
       /* C15-ACT-2 : boutons éditer/supprimer sur les commentaires AVEC uid
          (les vieux commentaires d'avant la v73 n'en ont pas → pas de boutons) */
       var btnsC = it.k.uid
@@ -3991,7 +3996,8 @@ function renduFil() {
           '<a href="javascript:void(0)" onclick="supprimerComm(\'' + it.k.uid + '\')" title="Supprimer ce commentaire">🗑️</a></span>' : '';
       d.innerHTML = '<div class="h">📌 ' + avatar(it.k.a) + ' Commentaire interne — ' + it.k.a + ' · ' + it.k.t + (it.k.mod ? ' · <i style="opacity:.7;">modifié</i>' : '') + btnsC + '</div>' +
         surligner(it.k.txt, RECH_FIL) +
-        (mentions.length ? ' <span class="tag" style="background:#fef3c7;color:#92400e;">👤 ' + mentions.join(", ") + ' tagué(s)</span>' : '');
+        (mentions.length ? ' <span class="tag" style="background:#fef3c7;color:#92400e;">👤 ' + mentions.join(", ") + ' tagué(s)</span>' : '') +
+        (vus.length ? ' <span class="tag" style="background:#e6f7ef;color:#1d7a4f;">👁️ vu par ' + vus.join(", ") + '</span>' : '');
       m.appendChild(d);
     }
   });
@@ -4197,19 +4203,20 @@ function rafraichirFiche() {
         (s.scooters.length ? s.scooters.map(function(x){
           return '<div class="ligne-ctc" style="flex-direction:column;align-items:flex-start;gap:2px;">' +
             '<span><b style="color:#0e5aa7;">🛵 ' + x.plaque + '</b> <span class="petit">· ' + x.produit + '</span></span>' +
+
             '<span class="petit">📄 ' + x.contrat + '</span></div>';
         }).join("") : '<div class="petit" style="color:#8a93a3;">Aucun scooter au parc.</div>')) +
     '</div>' +
 
     '<div class="fiche-sec" style="margin-bottom:14px;">' +
       fsTete("maint", "fs-violet", "🔧", "Maintenances & contrats") +
-
       fsCorps("maint", maintsBloc(s, "petit")) +
     '</div>';
 }
 
 function voirConv(id) {
   marquerLecture(convParId(id));
+  marquerVu(convParId(id));               /* C17-VU : accusé de vue persisté */
   SELID = id; SELSENT = null; renduListe(); renduFil();
   if (estMobile()) basculerVueMobile("volet-fil");   /* C14-MOBILE : ouvrir une conversation = vue fil plein écran */
 }
@@ -4301,6 +4308,7 @@ function fermerCarnet() {
 function voirConvCarnet(id) {
   fermerCarnet();
   marquerLecture(convParId(id));
+  marquerVu(convParId(id));               /* C17-VU : accusé de vue persisté */
   SELID = id; SELSENT = null; renduListe(); renduFil();
   if (estMobile()) basculerVueMobile("volet-fil");   /* C14-MOBILE */
 }
@@ -4896,6 +4904,7 @@ function convLigneSujet(c) {
     '<span class="tag" title="Date du dernier message" style="background:#eef1f5;color:#475569;">📅 ' + (c.dateLbl || c.heure) + '</span>' +
     '<span class="sp">' +
       '<button class="btn" style="padding:2px 8px;" title="Corriger le sujet détecté" onclick="sujetEditer(' + c.id + ')">✏️</button>' +
+
       '<button class="btn" style="padding:2px 8px;" title="Voir la conversation" onclick="voirConv(' + c.id + ')">Voir →</button>' +
       '<button class="btn" style="padding:2px 8px;" title="Rattacher cette conversation à une autre (dossier)" onclick="ouvrirRattache(' + c.id + ')">🔗</button>' +
       '<button class="btn" style="padding:2px 8px;" title="Archiver" onclick="archiverConv(' + c.id + ', true)">🗄️</button>' +
@@ -4904,7 +4913,6 @@ function convLigneSujet(c) {
       return '<div class="suj-conv suj-enfant" style="background:#f8fafc;"><span>📎</span>' +
         '<span class="qui">' + e.nom + '</span>' +
         '<span class="cy ' + e.classe + '">' + e.cycle + '</span>' +
-
         '<span class="tag">📁 ' + sujetDetecte(e) + '</span>' +
         '<span class="tag" title="Date du dernier message" style="background:#eef1f5;color:#475569;">📅 ' + (e.dateLbl || e.heure) + '</span>' +
         '<span class="sp">' +
@@ -5174,6 +5182,11 @@ function chargerActions(base, jeton) {
             if (cx) cx.comms = cx.comms.filter(function(k) { return k.uid !== cuid; });
           }
           n++;
+        } else if (typ === "vu") {
+          /* C17-VU : qui a ouvert la conversation, quand (dernier par personne,
+             silencieux — n'augmente pas le compteur "actions restaurées") */
+          var qui = String(d.valeur || d.auteur || "").trim();
+          if (qui) { ix.vu = ix.vu || {}; if (!ix.vu[qui] || ix.vu[qui] < h) ix.vu[qui] = h; }
         } else if (typ === "cycle" || typ === "assigne") {
           if (!ix[typ + "_a"] || ix[typ + "_a"] <= h) {
             ix[typ] = String(d.valeur === null ? "" : (d.valeur || ""));
@@ -5206,6 +5219,43 @@ function chargerActions(base, jeton) {
 /* garde-fou : les données respond.io ne JAMAIS écraser un choix manuel
    restauré/rejoué par C15-ACT (lors des fusions du refresh auto). */
 function actManuelle(c) { return ACT_BAS[cleConv(c)] || null; }
+
+/* ===== C17-VU : accusés de vue équipe ======================================
+   À l'ouverture d'une conversation, on enregistre QUI l'a ouverte (action
+   'vu' persistée → rejouée sur tous les appareils). Un commentaire @mention
+   affiche « 👁️ vu par X » si X a ouvert la conversation APRÈS le commentaire. */
+function marquerVu(c) {
+  if (!c || !VRAIES_DONNEES) return;
+  var ix = actIndex(cleConv(c));
+  ix.vu = ix.vu || {};
+  ix.vu[MOI] = new Date().toISOString();
+  persisterAction("vu", cleConv(c), MOI, null);
+}
+/* "jj/mm hh:mm" d'un commentaire vs horodatage ISO d'un « vu » (année
+   courante, repli année précédente si la date est dans le futur) */
+function vuPlusRecentQue(vuIso, tLabel) {
+  if (!vuIso) return false;
+  var v = new Date(vuIso);
+  if (isNaN(v)) return false;
+  var p = String(tLabel || "").split(/[\s\/:]+/);
+  if (p.length < 4) return false;
+  var d = new Date(new Date().getFullYear(), parseInt(p[1], 10) - 1, parseInt(p[0], 10), parseInt(p[2], 10), parseInt(p[3], 10));
+  if (isNaN(d)) return false;
+  if (d.getTime() > Date.now() + 60000) d = new Date(d.getTime() - 365 * 86400000);
+  return v.getTime() >= d.getTime();
+}
+function vuPar(c) {
+  var ix = (ACT_BAS[cleConv(c)] || {}).vu || {};
+  return Object.keys(ix).filter(function(p) { return p !== MOI; });
+}
+function vuTagConv(c) {
+  var ps = vuPar(c);
+  if (!ps.length) return '';
+  return '<span class="tag" title="Consultée en dernier par : ' + ps.map(function(p) {
+    var ix = (ACT_BAS[cleConv(c)] || {}).vu || {};
+    return p + (ix[p] ? ' — ' + heureWa(ix[p]).t : '');
+  }).join(', ') + '">👁️ vu par ' + ps.slice(0, 2).join(", ") + (ps.length > 2 ? " +" + (ps.length - 2) : '') + '</span>';
+}
 
 /* ==================== C16-KPI : console de contrôle ========================
    KPI calculés EN DIRECT sur les conversations chargées (aucune requête
@@ -5555,6 +5605,7 @@ function verifierSession() {
    rafraîchissement auto démarre. Plus de secret partagé dans le navigateur :
    toutes les requêtes partent avec le JETON de session (12 h). */
 var CHARGEMENT_AUTO_FAIT = false;
+
 function apresConnexion() {
   fermerPorte();
   majBadgeAuth(); majBadgeAuto();
@@ -5605,7 +5656,6 @@ function porteConnexion() {
   if (btn) { btn.disabled = true; btn.textContent = "Connexion…"; }
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
   fetch(base + "/api/clients-import", {
-
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ connexion: { email: email.trim(), mot_de_passe: mdp } })
