@@ -850,6 +850,10 @@
   .volet.replie .volet-bar::before { content: ""; margin-right: 0; }
   .volet.replie aside.filters, .volet.replie section.liste { border-right: none; }
   .volet-pli:focus-visible { outline: 2px solid #1273d1; outline-offset: 1px; }
+  /* C23-MOB-3 : bouton retour du volet fil — MÊME style que .volet-pli (sinon
+     chrome par défaut du navigateur en desktop = « bordure bizarre ») */
+  .btn-ret { border: none; background: #EEF4FB; color: #3a4a60; width: 20px; height: 20px; border-radius: 6px; cursor: pointer; font-size: 13px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .btn-ret:hover { background: #DDEBF9; }
 
   /* C8-VOLET-2 : bouton plier les infos client (l2) */
   .l2-pli { width: 30px; padding: 4px 0 !important; text-align: center; font-size: 12px; flex: none; }
@@ -1016,7 +1020,7 @@
     .volet-bar { padding: 9px 12px; touch-action: manipulation; }
     .volet-bar .aide { display: none; }
     #volet-fil .volet-bar { display: flex; align-items: center; gap: 8px; }
-    #volet-fil .btn-ret { display: inline-flex; align-items: center; justify-content: center; flex: none; border: none; background: #EEF4FB; color: #0e5aa7; font-weight: 700; font-size: 12px; padding: 6px 11px; border-radius: 999px; }
+    #volet-fil .btn-ret { display: inline-flex; }   /* même style que .volet-pli (règle de base) */
     /* fil : espacements resserrés, saisie adaptée au clavier tactile */
     .fil-head { padding: 8px 10px; }
     .rech-fil { padding: 0 10px; }
@@ -1395,11 +1399,11 @@
       <svg viewBox="0 0 14 14" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2.5 2.5l9 9M11.5 2.5l-9 9"/></svg>
     </button>
   </div>
+
   <div class="ia-corps" id="ia-corps"></div>
   <div class="ia-barre">
     <textarea id="ia-saisie" rows="1" placeholder="Pose ta question (fonctionnement, clients, derniers échanges)…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();iaEnvoyer();}"></textarea>
     <button class="ia-mic" id="btn-dictee-ia" onclick="dicterIA()" title="Dicter ta question (reconnaissance vocale du navigateur — Chrome/Edge)" aria-label="Dicter">🎤</button>
-
     <button class="ia-env" id="ia-env-btn" onclick="iaEnvoyer()" title="Envoyer" aria-label="Envoyer">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11.5L20.5 3.8a.5.5 0 0 1 .7.6l-5.9 16.4a.5.5 0 0 1-.9.1l-3.4-6.1-6.9-2.5a.5.5 0 0 1 0-1z"/><path d="M11 13.9l3.4-3.9"/></svg>
     </button>
@@ -2096,11 +2100,11 @@ function appliquerVraisClients(liste) {
         if (nc) nomContact = nc + (l.fonction ? " (" + l.fonction + ")" : "");
       }
       if (!s.contact_sc && nomContact) s.contact_sc = nomContact + " — " + telE164(cl.telephone);
+
       if (!emailContact && l.email) emailContact = String(l.email).trim();
     });
     /* PAS de conversation créée : les fiches/carnet se remplissent de vrais
        contacts ; une conversation naîtra quand un vrai message arrivera
-
        (brique C4) ou quand un agent en lancera une depuis une fiche. */
     s.vraisContacts.push({ nom: nomContact || ent, tel: telE164(cl.telephone), plaque: cl.plaque || "", email: emailContact || "" });
   });
@@ -2797,11 +2801,11 @@ var MODELES_WA = [
     txt: "Bonjour,\npour traiter votre demande SAV, nous avons besoin d'un retour à l'email qui vous a été envoyé récemment.\nÉquipe technique U'mob" },
   { nom: "relance_demande_incomplete", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nVotre demande d'intervention est toujours ouverte, mais ne peut être qualifiée et finalisée, car nous restons dans l'attente de votre retour. Nous nous tenons disponibles.\nService client U'MOB" },
+
   { nom: "validation_inter", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nMerci pour ces informations, nous les transmettrons au technicien qui reviendra vers vous pour vous donner la date et l'horaire d'intervention." },
   { nom: "confirmation_demande_complete", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nNous avons bien enregistré votre demande SAV.\nNous la transmettons au technicien qui reviendra vers vous pour vous donner la date et l'heure d'intervention.\nL'équipe Technique U'mob" },
-
   { nom: "confirmation_commande_expedition", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nVotre demande est complète. Votre commande est en préparation et sera bientôt expédiée.\nL'équipe Technique U'mob" },
   { nom: "demande_complement_information", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
@@ -3498,11 +3502,11 @@ function envoyerProposition(idx, canal) {
   })
   .then(function(rep) {
     PROP_ENVOI = false;
+
     if (!rep.okHttp || !rep.j || rep.j.ok !== true) {
       if (btn) { btn.disabled = false; btn.innerHTML = "🚀 Envoyer pour de vrai"; }
       pushNotif("⚠️ Proposition " + (estWa ? "WhatsApp" : "email") + " échouée : " +
         ((rep.j && (rep.j.erreur || rep.j.detail)) || "erreur API"));
-
       return;
     }
     fermerProposition();
@@ -4199,11 +4203,11 @@ function rafraichirFiche() {
         (FICHE_OUVERTS.sujets ?
           sujetsArbreHtml(s.ent) +
           archivesHtml(s.ent) +
+
           '<div class="petit" style="margin-top:7px;color:#9aa4b1;font-size:10.5px;">📁 Sujet détecté automatiquement (✏️ pour corriger) · 🔗 rattacher · 🗄 archiver</div>'
           : '<div class="petit" style="color:#8a93a3;">▶ ' + convs.filter(function(c){ return !c.archive && !RATTACHE[c.id]; }).length + ' conversation(s) — clique pour dérouler</div>') +
       '</div>' +
     '</div>' +
-
 
     '<div class="fiche-sec">' +
       fsTete("contacts", "fs-teal", "📞", "Contacts de la société") +
@@ -4900,11 +4904,11 @@ var SUJET_REGLES = [
 ];
 var SUJET_DEFAUT = "📝 Autre demande";
 
+
 function sujetDetecte(c) {
   if (SUJET_MANUEL[c.id]) return SUJET_MANUEL[c.id];
   var txt = (c.extrait + " " + c.fil.map(function(m){ return m.txt; }).join(" ")).toLowerCase();
   var best = null, sc = 0;
-
   SUJET_REGLES.forEach(function(r){
     var n = 0;
     r[1].forEach(function(k){ if (txt.indexOf(k) >= 0) n++; });
@@ -5601,11 +5605,11 @@ function appliquerMoiSession(nomComplet) {
   if (!prenom) return;
   if (!PROFILS[prenom]) {
     var utilisees = Object.keys(PROFILS).map(function(n){ return PROFILS[n].col; });
+
     PROFILS[prenom] = {
       ic: ICONES_PROFILS[Object.keys(PROFILS).length % ICONES_PROFILS.length],
       col: COULEURS_PROFILS.filter(function(c){ return utilisees.indexOf(c) < 0; })[0] || COULEURS_PROFILS[0]
     };
-
     sauvegarderProfils();
   }
   if (MOI !== prenom) {
