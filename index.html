@@ -3750,7 +3750,13 @@ function filtreMesCycle(cy) {
   MESCY_ON = cy;
   FX.ass = "moi";
   FX.cycle = (cy === "tous") ? "tous" : cy;
-  document.querySelectorAll("[data-fc],[data-fx],[data-fa]").forEach(function(c){ c.classList.remove("on"); });
+  /* C22-FILTRE : on allume AUSSI les pastilles du volet filtres qui
+     correspondent à l'état réel (canal tous, cycle choisi, assignation « Mes
+     conversations ») → le filtre actif reste visible, plus de conversations
+     qui « disparaissent » sans raison. */
+  document.querySelectorAll("[data-fc]").forEach(function(c){ c.classList.toggle("on", c.getAttribute("data-fc") === "tous"); });
+  document.querySelectorAll("[data-fx]").forEach(function(c){ c.classList.toggle("on", c.getAttribute("data-fx") === FX.cycle); });
+  document.querySelectorAll("[data-fa]").forEach(function(c){ c.classList.toggle("on", c.getAttribute("data-fa") === "moi"); });
   renduMesCycles();
   renduListe();
 }
@@ -4197,13 +4203,13 @@ function rafraichirFiche() {
             '<span class="qui">' + c.nom + '</span>' +
             '<span class="num">' + c.contact.tel + '</span>' +
             (c.contact.email ? '<span class="num">✉️ ' + c.contact.email + '</span>' : '') +
+
             '<span class="cy ' + c.classe + '">' + c.cycle + '</span>' +
             '<span style="margin-left:auto;display:flex;gap:5px;align-items:center;flex-wrap:wrap;">' +
               (c.id === SELID ? '<span class="petit">● ouverte</span>'
                               : '<button class="btn btn-voir" onclick="voirConv(' + c.id + ')" title="Ouvrir cette conversation dans le fil">Ouvrir →</button>') +
               '<button class="btn" title="Nouvelle conversation avec ce contact (démo : simule un nouveau message du client)" onclick="lancerNouvelleConv(' + c.id + ')">💬 Nouvelle</button>' +
             '</span>' +
-
           '</div>';
         }).join("") : ((s.vraisContacts && s.vraisContacts.length)
           ? s.vraisContacts.map(function(v, i){
@@ -4898,13 +4904,13 @@ function sujetDetecte(c) {
 function sujetOrdre(lab) {
   for (var i = 0; i < SUJET_REGLES.length; i++) if (SUJET_REGLES[i][0] === lab) return i;
   return SUJET_REGLES.length + 1;
+
 }
 
 CONVS.forEach(function(c){ if (c.archive === undefined) c.archive = false; });
 convParId(14).archive = true; /* démo : dossier traité rangé dans les Archives */
 
 /* ----- rattachement ----- */
-
 function estRattache(c) { return !!RATTACHE[c.id]; }
 function enfantsRattaches(id) { return CONVS.filter(function(c){ return RATTACHE[c.id] === id; }); }
 function rattacher(id, parentId) {
@@ -5599,13 +5605,13 @@ function appliquerMoiSession(nomComplet) {
 function seConnecter() {
   var email = document.getElementById("auth-email").value.trim();
   var mdp = document.getElementById("auth-mdp").value;
+
   var msg = document.getElementById("auth-msg");
   if (!email || !mdp) { msg.textContent = "Email et mot de passe requis."; return; }
   msg.textContent = "Connexion…";
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
   fetch(base + "/api/clients-import", {
     method: "POST",
-
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ connexion: { email: email, mot_de_passe: mdp } })
   }).then(function(r){ return r.json(); }).then(function(rep){
