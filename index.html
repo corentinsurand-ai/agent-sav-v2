@@ -5392,8 +5392,9 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
               if (!dejaC) { c.comms.push(co); n++; }
             }
             /* C18-RT : en refresh auto, un commentaire posté par un autre
-               est annoncé, le tien ne l'est pas (tu viens de l'écrire) */
-            if (mode === "auto" && co.a && co.a !== MOI) nouveaux.push({ a: co.a, cle: cle });
+               est annoncé, le tien ne l'est pas (tu viens de l'écrire).
+               C36 : on embarque l'uid pour un dédoublonnage persistant. */
+            if (mode === "auto" && co.a && co.a !== MOI) nouveaux.push({ a: co.a, cle: cle, uid: co.uid || (co.a + "|" + co.txt) });
           }
         } else if (typ === "comm_edite" || typ === "comm_supprime") {
           /* C15-ACT-2 : édition/suppression d'un commentaire — le même objet
@@ -5497,6 +5498,13 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
             var cN = convParCle(x.cle);
             /* C34-NOTIF-NAV : la notif porte la conversation (id + clé) → le
                clic dans le panneau 🔔 ouvre directement le bon fil. */
+            /* C36-NOTIF-DEDUP : dédoublonnage persistant (localStorage) — un
+               commentaire ne notifie qu'une fois par appareil, même avec
+               plusieurs onglets ouverts ou après rechargement. */
+            var keyC = "comm|" + (x.uid || "");
+            var vusC = notifsVues();
+            if (vusC.indexOf(keyC) >= 0) return;
+            vusC.push(keyC); sauverNotifsVues(vusC);
             pushNotif("💬 Nouveau commentaire de " + x.a + (cN && cN.nom ? " — " + cN.nom : ""), cN ? cN.id : null, x.cle);
           });
           if (!nouveaux.length && n) pushNotif("🔄 " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe mise(s) à jour");
@@ -5597,6 +5605,7 @@ function renduConsole() {
   actives.forEach(function(c) {
     var tri = (c.fil || []).filter(function(m) { return m.ts && !isNaN(new Date(m.ts)); })
       .map(function(m) { return { qui: m.qui, t: new Date(m.ts).getTime() }; })
+
       .sort(function(a, b) { return a.t - b.t; });
     var dernierClient = null;
     tri.forEach(function(m) {
@@ -5605,7 +5614,6 @@ function renduConsole() {
       if (k >= 0) { if (m.qui === "client") ent[k]++; else if (m.qui === "agent") sor[k]++; }
       if (m.qui === "client") dernierClient = m.t;
       else if (dernierClient !== null && m.t > dernierClient && m.t - dernierClient < 30 * 86400000) {
-
         delais.push(m.t - dernierClient); dernierClient = null;
       }
     });
