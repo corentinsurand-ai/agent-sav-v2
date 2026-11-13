@@ -3904,9 +3904,9 @@ function dessinerConv(c, conteneur) {
   var d = document.createElement("div");
   var actif = (c.id===SELID) || (SELSENT && c.entreprise===SELSENT);
   d.className = "conv" + (actif ? " on" : "");
-  d.innerHTML = convAvatarHtml(c.nom, c.canal) +
+  d.innerHTML = convAvatarHtml(nomAff(c), c.canal) +
     '<div class="conv-c">' +
-    '<div class="conv-l1"><div class="nom">'+c.nom+'</div><div class="heure" title="Heure du dernier message">'+heureDernierMsg(c)+(c.lu ? "" : ' <span class="badge-new" title="1 nouveau message non lu">💬 1</span>')+'</div></div>' +
+    '<div class="conv-l1"><div class="nom">'+nomAff(c)+'</div><div class="heure" title="Heure du dernier message">'+heureDernierMsg(c)+(c.lu ? "" : ' <span class="badge-new" title="1 nouveau message non lu">💬 1</span>')+'</div></div>' +
     (VUE === "entreprise" ? '<div class="sousnom">'+c.contact.tel+'</div>' : '') +
     '<div class="extrait">'+(c.lu ? c.extrait : '<b>'+c.extrait+'</b>')+'</div>' +
     '<div class="meta"><span class="dot'+(c.lu?' lu':'')+'"></span>'+
@@ -3946,7 +3946,7 @@ function renduFil() {
     return;
   }
   document.getElementById("filhead").innerHTML =
-    '<div class="l1">'+convAvatarHtml(c.nom, c.canal, true)+'<b>'+c.nom+'</b><span class="cy '+c.classe+(ACTIF?' cliquable':'')+'" '+(ACTIF ? 'onclick="ouvrirMenuCycles(event,'+c.id+')" title="Cliquer pour changer le cycle de la conversation"' : '')+'>'+c.cycle+(ACTIF?' ▾':'')+'</span>'+
+    '<div class="l1">'+convAvatarHtml(nomAff(c), c.canal, true)+'<b>'+nomAff(c)+'</b><span class="cy '+c.classe+(ACTIF?' cliquable':'')+'" '+(ACTIF ? 'onclick="ouvrirMenuCycles(event,'+c.id+')" title="Cliquer pour changer le cycle de la conversation"' : '')+'>'+c.cycle+(ACTIF?' ▾':'')+'</span>'+
     '<select class="ass-sel" onchange="assignerConv('+c.id+', this.value)" title="Assigner la conversation à un membre de l\'équipe">'+optionsAssigne(c.assigne)+'</select>'+
     '<button class="btn" id="btn-fiche" onclick="basculeFiche()" style="margin-left:auto;" title="Afficher/masquer la fiche de cette entreprise (comme Coordonnées dans Respond)">🏢 Fiche entreprise</button>'+filMetaBouton()+'</div>'+
     '<div'+l2Ouvre()+'><span>🏢 '+c.entreprise+'</span>' +
@@ -4287,6 +4287,14 @@ function lancerNouvelleConv(id) {
 var CARNET_SEL = null; /* { type:"contact", id } ou { type:"societe", ent } */
 
 function convParId(id) { return CONVS.filter(function(c) { return c.id === id; })[0]; }
+/* C20-DOUBLON-NOM : si le nom du contact est STRICTEMENT identique au nom de
+   l'entreprise (normalisé), on n'affiche qu'une fois — sinon on garde
+   « Entreprise + Contact » (une entreprise peut avoir plusieurs contacts). */
+function normNom(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9àâäéèêëîïôöùûüç]+/gi, " ").trim(); }
+function nomAff(c) {
+  var n = normNom(c.nom), e = normNom(c.entreprise);
+  return (n && n === e) ? c.entreprise : c.nom;
+}
 function socParEnt(e) { return SOCIETES.filter(function(s) { return s.ent === e; })[0]; }
 
 function initiales(txt) {
@@ -4896,6 +4904,7 @@ function detacher(id) {
   delete RATTACHE[id];
   var cd = convParId(id);                          /* C15-ACT : persistance du détachement */
   if (cd) { var cld = cleConv(cd); persisterAction("detache", cld, "", null); var ixd = actIndex(cld); delete ixd.rattache; delete ixd.rattache_a; }
+
 }
 function convsDeSociete(ent) { return CONVS.filter(function(c){ return c.entreprise === ent; }); }
 function convsArchivees(ent) { return convsDeSociete(ent).filter(function(c){ return c.archive; }); }
@@ -4904,7 +4913,6 @@ function convsArchivees(ent) { return convsDeSociete(ent).filter(function(c){ re
 function convLigneSujet(c) {
   return '<div class="suj-conv" id="cvj-' + c.id + '"><span>' + (c.canal === "WhatsApp" ? "💬" : "✉️") + '</span>' +
     '<span class="qui">' + c.nom + '</span>' +
-
     '<span class="cy ' + c.classe + '">' + c.cycle + '</span>' +
     '<span class="tag" title="Sujet principal détecté automatiquement" style="' + (SUJET_MANUEL[c.id] ? "background:#fff7ed;color:#c2410c;" : "") + '">📁 ' + sujetDetecte(c) + '</span>' +
     '<span class="tag" title="Date du dernier message" style="background:#eef1f5;color:#475569;">📅 ' + (c.dateLbl || c.heure) + '</span>' +
@@ -5597,6 +5605,7 @@ function seConnecter() {
 }
 function seDeconnecter() {
   localStorage.removeItem("umob_session");
+
   arreterAuto();
   majBadgeAuth(); majBadgeAuto();
   afficherPorte();
@@ -5605,7 +5614,6 @@ function seDeconnecter() {
 function verifierSession() {
   var s = sessionDe();
   if (!s || !s.jeton) return;
-
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
   fetch(base + "/api/clients-import?auth=1&jeton=" + encodeURIComponent(s.jeton))
     .then(function(r){ return r.json(); })
