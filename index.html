@@ -1104,7 +1104,7 @@
     </div>
 
     <div class="f-sec" id="fsec-mescycles">
-      <h3 onclick="basculeFiltreSec('mescycles')"><span class="fs-f">▾</span> 🗂 Mes conversations par cycle <span class="n" id="mescycles-qui" style="font-size:10px;color:#8a93a3;background:#eef1f5;border-radius:999px;padding:1px 7px;"></span></h3>
+      <h3 onclick="basculeFiltreSec('mescycles')"><span class="fs-f">▾</span> 🗂 Conversations par cycle <span class="n" id="mescycles-qui" style="font-size:10px;color:#8a93a3;background:#eef1f5;border-radius:999px;padding:1px 7px;"></span></h3>
       <div class="f-sec-chips" id="mes-cycles-chips"></div>
     </div>
 
@@ -3735,12 +3735,12 @@ function renduMesCycles() {
   var box = document.getElementById("mes-cycles-chips");
   if (!box) return;
   var qui = document.getElementById("mescycles-qui");
-  if (qui) qui.textContent = MOI;
+  if (qui) qui.textContent = "";  /* C22-FILTRE-3 : volet = toutes les conversations, plus de « qui » */
   var toutes = CONVS.filter(function(c){ return !c.archive && !RATTACHE[c.id]; });
-  var mes = CONVS.filter(function(c){ return !c.archive && !RATTACHE[c.id] && c.assigne === MOI; });
   box.innerHTML = CYCLES_LISTE.map(function(cy){
-    /* C22-FILTRE-2 : « tous » = TOUTES les conversations (pas seulement les miennes) */
-    var n = (cy === "tous") ? toutes.length : mes.filter(function(c){ return c.cycle === cy; }).length;
+    /* C22-FILTRE-3 : pastilles = TOUTES les conversations du cycle (compteur
+       global), le filtre d'assignation n'est jamais posé par ce volet */
+    var n = toutes.filter(function(c){ return cy === "tous" || c.cycle === cy; }).length;
     if (cy !== "tous" && n === 0) return "";
     var lbl = (cy === "tous") ? "Toutes les conversations" : cy;
     var cl = classeCycle(cy);
@@ -3750,11 +3750,10 @@ function renduMesCycles() {
 }
 function filtreMesCycle(cy) {
   MESCY_ON = cy;
-  /* C22-FILTRE-2 : « tous » remet le filtre assignation sur « Toutes » (et non
-     « moi ») → revenir à tous affiche bien toutes les conversations ; un cycle
-     précis reste limité à MES conversations de ce cycle. */
-  if (cy === "tous") { FX.ass = "tous"; FX.cycle = "tous"; }
-  else { FX.ass = "moi"; FX.cycle = cy; }
+  /* C22-FILTRE-3 : une pastille de cycle (ou « tous ») n'applique JAMAIS le
+     filtre d'assignation — on voit TOUTES les conversations du cycle choisi. */
+  FX.ass = "tous";
+  FX.cycle = (cy === "tous") ? "tous" : cy;
   /* C22-FILTRE : on allume AUSSI les pastilles du volet filtres qui
      correspondent à l'état réel (canal tous, cycle choisi, assignation) →
      le filtre actif reste visible, plus de conversations qui « disparaissent ». */
@@ -4203,8 +4202,8 @@ function rafraichirFiche() {
       fsCorps("contacts",
         (convs.length ? convs.map(function(c){
           return '<div class="ligne-ctc">' +
-
             '<span>' + (c.canal==="WhatsApp"?"💬":"✉️") + '</span>' +
+
             '<span class="qui">' + c.nom + '</span>' +
             '<span class="num">' + c.contact.tel + '</span>' +
             (c.contact.email ? '<span class="num">✉️ ' + c.contact.email + '</span>' : '') +
@@ -4904,8 +4903,8 @@ function sujetDetecte(c) {
     if (n > sc) { sc = n; best = r[0]; }
   });
   return best || SUJET_DEFAUT;
-
 }
+
 function sujetOrdre(lab) {
   for (var i = 0; i < SUJET_REGLES.length; i++) if (SUJET_REGLES[i][0] === lab) return i;
   return SUJET_REGLES.length + 1;
@@ -5605,8 +5604,8 @@ function appliquerMoiSession(nomComplet) {
     MOI = prenom;
     try { majEquipe(); renduListe(); renduMesCycles(); } catch (e) {}
   }
-
 }
+
 function seConnecter() {
   var email = document.getElementById("auth-email").value.trim();
   var mdp = document.getElementById("auth-mdp").value;
