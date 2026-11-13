@@ -1017,7 +1017,6 @@
     .volet-bar .aide { display: none; }
     #volet-fil .volet-bar { display: flex; align-items: center; gap: 8px; }
     #volet-fil .btn-ret { display: inline-flex; align-items: center; justify-content: center; flex: none; border: none; background: #EEF4FB; color: #0e5aa7; font-weight: 700; font-size: 12px; padding: 6px 11px; border-radius: 999px; }
-    #volet-fil .volet-bar .vt { display: none; }   /* C23-MOB : évite « ← Conversations Conversation » en double */
     /* fil : espacements resserrés, saisie adaptée au clavier tactile */
     .fil-head { padding: 8px 10px; }
     .rech-fil { padding: 0 10px; }
@@ -1151,7 +1150,7 @@
 
   <!-- ===== Volet 3 : fil ===== -->
   <section class="fil volet" id="volet-fil">
-    <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet"><button class="btn-ret" onclick="basculerVueMobile('volet-liste')" title="Retour aux conversations">← Conversations</button><span class="vt">Conversation</span> <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
+    <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet"><button class="btn-ret" onclick="basculerVueMobile('volet-liste')" title="Retour aux conversations">←</button><span class="vt">Conversation</span> <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
     <div class="fil-head" id="filhead"></div>
     <div class="rech-fil">
       <input id="rech-fil" placeholder="🔎 Rechercher dans la conversation (ex. « batt »)…" oninput="RECH_FIL = this.value; renduFil();" />
@@ -1399,8 +1398,8 @@
   <div class="ia-corps" id="ia-corps"></div>
   <div class="ia-barre">
     <textarea id="ia-saisie" rows="1" placeholder="Pose ta question (fonctionnement, clients, derniers échanges)…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();iaEnvoyer();}"></textarea>
-
     <button class="ia-mic" id="btn-dictee-ia" onclick="dicterIA()" title="Dicter ta question (reconnaissance vocale du navigateur — Chrome/Edge)" aria-label="Dicter">🎤</button>
+
     <button class="ia-env" id="ia-env-btn" onclick="iaEnvoyer()" title="Envoyer" aria-label="Envoyer">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11.5L20.5 3.8a.5.5 0 0 1 .7.6l-5.9 16.4a.5.5 0 0 1-.9.1l-3.4-6.1-6.9-2.5a.5.5 0 0 1 0-1z"/><path d="M11 13.9l3.4-3.9"/></svg>
     </button>
@@ -2100,8 +2099,8 @@ function appliquerVraisClients(liste) {
       if (!emailContact && l.email) emailContact = String(l.email).trim();
     });
     /* PAS de conversation créée : les fiches/carnet se remplissent de vrais
-
        contacts ; une conversation naîtra quand un vrai message arrivera
+
        (brique C4) ou quand un agent en lancera une depuis une fiche. */
     s.vraisContacts.push({ nom: nomContact || ent, tel: telE164(cl.telephone), plaque: cl.plaque || "", email: emailContact || "" });
   });
@@ -2801,8 +2800,8 @@ var MODELES_WA = [
   { nom: "validation_inter", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nMerci pour ces informations, nous les transmettrons au technicien qui reviendra vers vous pour vous donner la date et l'horaire d'intervention." },
   { nom: "confirmation_demande_complete", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
-
     txt: "Bonjour,\nNous avons bien enregistré votre demande SAV.\nNous la transmettons au technicien qui reviendra vers vous pour vous donner la date et l'heure d'intervention.\nL'équipe Technique U'mob" },
+
   { nom: "confirmation_commande_expedition", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nVotre demande est complète. Votre commande est en préparation et sera bientôt expédiée.\nL'équipe Technique U'mob" },
   { nom: "demande_complement_information", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
@@ -3502,8 +3501,8 @@ function envoyerProposition(idx, canal) {
     if (!rep.okHttp || !rep.j || rep.j.ok !== true) {
       if (btn) { btn.disabled = false; btn.innerHTML = "🚀 Envoyer pour de vrai"; }
       pushNotif("⚠️ Proposition " + (estWa ? "WhatsApp" : "email") + " échouée : " +
-
         ((rep.j && (rep.j.erreur || rep.j.detail)) || "erreur API"));
+
       return;
     }
     fermerProposition();
@@ -4203,8 +4202,8 @@ function rafraichirFiche() {
           '<div class="petit" style="margin-top:7px;color:#9aa4b1;font-size:10.5px;">📁 Sujet détecté automatiquement (✏️ pour corriger) · 🔗 rattacher · 🗄 archiver</div>'
           : '<div class="petit" style="color:#8a93a3;">▶ ' + convs.filter(function(c){ return !c.archive && !RATTACHE[c.id]; }).length + ' conversation(s) — clique pour dérouler</div>') +
       '</div>' +
-
     '</div>' +
+
 
     '<div class="fiche-sec">' +
       fsTete("contacts", "fs-teal", "📞", "Contacts de la société") +
@@ -4904,8 +4903,8 @@ var SUJET_DEFAUT = "📝 Autre demande";
 function sujetDetecte(c) {
   if (SUJET_MANUEL[c.id]) return SUJET_MANUEL[c.id];
   var txt = (c.extrait + " " + c.fil.map(function(m){ return m.txt; }).join(" ")).toLowerCase();
-
   var best = null, sc = 0;
+
   SUJET_REGLES.forEach(function(r){
     var n = 0;
     r[1].forEach(function(k){ if (txt.indexOf(k) >= 0) n++; });
@@ -5605,8 +5604,8 @@ function appliquerMoiSession(nomComplet) {
     PROFILS[prenom] = {
       ic: ICONES_PROFILS[Object.keys(PROFILS).length % ICONES_PROFILS.length],
       col: COULEURS_PROFILS.filter(function(c){ return utilisees.indexOf(c) < 0; })[0] || COULEURS_PROFILS[0]
-
     };
+
     sauvegarderProfils();
   }
   if (MOI !== prenom) {
