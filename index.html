@@ -1104,7 +1104,7 @@
     </div>
 
     <div class="f-sec" id="fsec-mescycles">
-      <h3 onclick="basculeFiltreSec('mescycles')"><span class="fs-f">▾</span> 🗂 Conversations par cycle <span class="n" id="mescycles-qui" style="font-size:10px;color:#8a93a3;background:#eef1f5;border-radius:999px;padding:1px 7px;"></span></h3>
+      <h3 onclick="basculeFiltreSec('mescycles')"><span class="fs-f">▾</span> 🗂 Mes conversations par cycle <span class="n" id="mescycles-qui" style="font-size:10px;color:#8a93a3;background:#eef1f5;border-radius:999px;padding:1px 7px;"></span></h3>
       <div class="f-sec-chips" id="mes-cycles-chips"></div>
     </div>
 
@@ -3704,6 +3704,13 @@ var FICHE = false;
 
 function filtre(type, val, el) {
   FX[type] = val;
+  /* C22-FILTRE-4 : cliquer sur un CYCLE dans le menu en haut enlève
+     automatiquement le filtre d'assignation → on voit toutes les conversations
+     du cycle, assignées ou non. */
+  if (type === "cycle") {
+    FX.ass = "tous";
+    document.querySelectorAll("[data-fa]").forEach(function(c){ c.classList.toggle("on", c.getAttribute("data-fa") === "tous"); });
+  }
   var attr = (type === "canal") ? "data-fc" : (type === "cycle") ? "data-fx" : "data-fa";
   document.querySelectorAll("["+attr+"]").forEach(function(c){ c.classList.remove("on"); });
   el.classList.add("on");
@@ -3735,14 +3742,13 @@ function renduMesCycles() {
   var box = document.getElementById("mes-cycles-chips");
   if (!box) return;
   var qui = document.getElementById("mescycles-qui");
-  if (qui) qui.textContent = "";  /* C22-FILTRE-3 : volet = toutes les conversations, plus de « qui » */
-  var toutes = CONVS.filter(function(c){ return !c.archive && !RATTACHE[c.id]; });
+  if (qui) qui.textContent = MOI;
+  var mes = CONVS.filter(function(c){ return !c.archive && !RATTACHE[c.id] && c.assigne === MOI; });
   box.innerHTML = CYCLES_LISTE.map(function(cy){
-    /* C22-FILTRE-3 : pastilles = TOUTES les conversations du cycle (compteur
-       global), le filtre d'assignation n'est jamais posé par ce volet */
-    var n = toutes.filter(function(c){ return cy === "tous" || c.cycle === cy; }).length;
+    /* volet 🗂 = MES conversations par cycle (« tous » = toutes mes convs) */
+    var n = (cy === "tous") ? mes.length : mes.filter(function(c){ return c.cycle === cy; }).length;
     if (cy !== "tous" && n === 0) return "";
-    var lbl = (cy === "tous") ? "Toutes les conversations" : cy;
+    var lbl = (cy === "tous") ? "Tous mes dossiers" : cy;
     var cl = classeCycle(cy);
     return '<div class="chip' + (MESCY_ON === cy ? " on" : "") + '" onclick="filtreMesCycle(\'' + cy + '\')">' +
       (cl ? '<span class="cy ' + cl + '">' + lbl + '</span>' : lbl) + ' <span class="n">' + n + '</span></div>';
@@ -3750,10 +3756,11 @@ function renduMesCycles() {
 }
 function filtreMesCycle(cy) {
   MESCY_ON = cy;
-  /* C22-FILTRE-3 : une pastille de cycle (ou « tous ») n'applique JAMAIS le
-     filtre d'assignation — on voit TOUTES les conversations du cycle choisi. */
-  FX.ass = "tous";
-  FX.cycle = (cy === "tous") ? "tous" : cy;
+  /* C22-FILTRE-4 : le volet 🗂 « Mes conversations par cycle » filtre bien sur
+     MOI (y compris « tous » = toutes MES conversations). C'est le menu cycles
+     EN HAUT (filtre()) qui, lui, enlève le filtre d'assignation. */
+  FX.ass = "moi";
+  FX.cycle = cy;
   /* C22-FILTRE : on allume AUSSI les pastilles du volet filtres qui
      correspondent à l'état réel (canal tous, cycle choisi, assignation) →
      le filtre actif reste visible, plus de conversations qui « disparaissent ». */
@@ -4197,13 +4204,13 @@ function rafraichirFiche() {
       '</div>' +
     '</div>' +
 
+
     '<div class="fiche-sec">' +
       fsTete("contacts", "fs-teal", "📞", "Contacts de la société") +
       fsCorps("contacts",
         (convs.length ? convs.map(function(c){
           return '<div class="ligne-ctc">' +
             '<span>' + (c.canal==="WhatsApp"?"💬":"✉️") + '</span>' +
-
             '<span class="qui">' + c.nom + '</span>' +
             '<span class="num">' + c.contact.tel + '</span>' +
             (c.contact.email ? '<span class="num">✉️ ' + c.contact.email + '</span>' : '') +
@@ -4897,6 +4904,7 @@ function sujetDetecte(c) {
   if (SUJET_MANUEL[c.id]) return SUJET_MANUEL[c.id];
   var txt = (c.extrait + " " + c.fil.map(function(m){ return m.txt; }).join(" ")).toLowerCase();
   var best = null, sc = 0;
+
   SUJET_REGLES.forEach(function(r){
     var n = 0;
     r[1].forEach(function(k){ if (txt.indexOf(k) >= 0) n++; });
@@ -4904,7 +4912,6 @@ function sujetDetecte(c) {
   });
   return best || SUJET_DEFAUT;
 }
-
 function sujetOrdre(lab) {
   for (var i = 0; i < SUJET_REGLES.length; i++) if (SUJET_REGLES[i][0] === lab) return i;
   return SUJET_REGLES.length + 1;
@@ -5598,6 +5605,7 @@ function appliquerMoiSession(nomComplet) {
       ic: ICONES_PROFILS[Object.keys(PROFILS).length % ICONES_PROFILS.length],
       col: COULEURS_PROFILS.filter(function(c){ return utilisees.indexOf(c) < 0; })[0] || COULEURS_PROFILS[0]
     };
+
     sauvegarderProfils();
   }
   if (MOI !== prenom) {
@@ -5605,7 +5613,6 @@ function appliquerMoiSession(nomComplet) {
     try { majEquipe(); renduListe(); renduMesCycles(); } catch (e) {}
   }
 }
-
 function seConnecter() {
   var email = document.getElementById("auth-email").value.trim();
   var mdp = document.getElementById("auth-mdp").value;
