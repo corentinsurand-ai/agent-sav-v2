@@ -2472,6 +2472,10 @@ function marquerLecture(c) {
   L[cleConvDe(c)] = { ts: Date.now() };
   try { localStorage.setItem("umob_lus", JSON.stringify(L)); } catch (e) {}
   c.lu = true;
+  /* C35-LU-PARTAGE-2 : l'ouverture est persistée (action "lu" + horodatage)
+     → rejouée sur tous les postes : ouvrir une conv chez Nicolas la marque
+     lue aussi chez Marine. */
+  persisterAction("lu", cleConv(c), new Date().toISOString(), null);
 }
 function marquerNonLecture(c) {
   if (!c) return;
@@ -2484,10 +2488,14 @@ function majLusDepuisStockage() {
   CONVS.forEach(function(c) {
     if (c.lu) return;
     var luStocke = lectureStockeeDe(c);
-    if (!luStocke) return;
+    /* C35-LU-PARTAGE-2 : aussi vrai si un collègue a ouvert la conv (action "lu"
+       persistée) après le dernier message. */
+    var luPartage = ((ACT_BAS[cleConv(c)] || {}).lu_a) || 0;
+    var luMax = Math.max(luStocke, luPartage);
+    if (!luMax) return;
     var der = (c.fil && c.fil[c.fil.length - 1]) || null;
     var tsDer = (der && der.ts) ? new Date(der.ts).getTime() : 0;
-    if (luStocke >= tsDer) c.lu = true;
+    if (luMax >= tsDer) c.lu = true;
   });
 }
 function fusionnerFil(c, fil) {
@@ -2518,10 +2526,14 @@ function fusionnerFil(c, fil) {
   var der = (c.fil && c.fil.length) ? c.fil[c.fil.length - 1] : null;
   if (der && der.txt) c.extrait = String(der.txt);
   /* v36 : déjà lue + aucun message plus récent que la dernière lecture
-     → reste lue (plus de « tout redevient non lu » au rechargement). */
+     → reste lue (plus de « tout redevient non lu » au rechargement).
+     C35-LU-PARTAGE-2 : la lecture partagée (action "lu" d'un collègue) compte
+     aussi — c'est elle qui rend la conv lue sur tous les postes. */
   var luStocke = lectureStockeeDe(c);
+  var luPartage = ((ACT_BAS[cleConv(c)] || {}).lu_a) || 0;
+  var luMax = Math.max(luStocke, luPartage);
   var tsDer = (der && der.ts) ? new Date(der.ts).getTime() : 0;
-  c.lu = (!luStocke || tsDer > luStocke) ? false : true;
+  c.lu = (!luMax || tsDer > luMax) ? false : true;
   if (der && der.canal) c.canal = der.canal;
 }
 /* C11-HIST : l'API globale plafonne à 1000 messages (fenêtre des plus récents)
@@ -2789,6 +2801,7 @@ function chargerEmailsManuel() {
   if (!base || !secret) { afficherPorte(); return; }
   pushLog("📧 Chargement des emails réels…");
   chargerEmails(String(base).replace(/\/+$/, ""), secret);
+
 }
 function lancerConvVrai(ent, i) {
   var s = socParEnt(ent);
@@ -2801,7 +2814,6 @@ function lancerConvVrai(ent, i) {
     id: id, nom: v.nom, entreprise: ent, canal: "WhatsApp",
     cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [],
     heure: "—", delai: "", lu: true, assigne: asRio || null,
-
     extrait: "Conversation lancée par l'équipe U'mob (vraie fiche client)",
     contact: { tel: v.tel, plaque: v.plaque, email: v.email || "" }, fil: [], comms: []
   });
@@ -3490,6 +3502,7 @@ function proposerMaintenance(idx, canal) {
   m.innerHTML =
     '<div style="background:#fff;border-radius:14px;width:min(560px,94vw);max-height:88vh;overflow:auto;padding:18px 20px;box-shadow:0 12px 40px rgba(15,23,42,.25);font-family:inherit;">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
+
         '<div style="font-weight:800;color:#0e5aa7;font-size:15px;">📩 Proposition de maintenance — ' + escTxt(s.ent) + '</div>' +
         '<button class="btn" onclick="fermerProposition()" style="font-size:14px;">✕</button>' +
       '</div>' +
@@ -3502,7 +3515,6 @@ function proposerMaintenance(idx, canal) {
     '</div>';
   document.body.appendChild(m);
 }
-
 function envoyerProposition(idx, canal) {
   if (PROP_ENVOI) return;
   var s = SOCIETES[idx];
@@ -4191,6 +4203,7 @@ function renduFil() {
       var btnsC = it.k.uid
         ? ' <span style="float:right;font-size:10.5px;white-space:nowrap;">' +
           '<a href="javascript:void(0)" onclick="editerComm(\'' + it.k.uid + '\')" title="Modifier ce commentaire" style="margin-right:6px;">✏️</a>' +
+
           '<a href="javascript:void(0)" onclick="supprimerComm(\'' + it.k.uid + '\')" title="Supprimer ce commentaire">🗑️</a></span>' : '';
       d.innerHTML = '<div class="h">📌 ' + avatar(it.k.a) + ' Commentaire interne — ' + it.k.a + ' · ' + it.k.t + (it.k.mod ? ' · <i style="opacity:.7;">modifié</i>' : '') + btnsC + '</div>' +
         surligner(it.k.txt, RECH_FIL) +
@@ -4203,7 +4216,6 @@ function renduFil() {
   enfantsRattaches(c.id).forEach(function(e){
     var sep = document.createElement("div");
     sep.style.cssText = "align-self:center;font-size:10.5px;color:#9aa4b1;background:#eef1f5;border-radius:999px;padding:3px 10px;";
-
     sep.textContent = "📎 conversation rattachée : " + e.nom + " · " + sujetDetecte(e);
     m.appendChild(sep);
     e.fil.forEach(function(msg){
@@ -4892,6 +4904,7 @@ function majBadgeNouveaux() {
     try { nonLues().forEach(function(c) { if (DERNIERES_NONLUES.indexOf(c.id) < 0) nouvelles.push(c); }); } catch (e) {}
     dingNouveauMessage();
     notifierSysteme(nouvelles);                 /* C8-NOTIF-2 */
+
   }
   try { DERNIERES_NONLUES = nonLues().map(function(c) { return c.id; }); } catch (e) {}
   DERNIER_NB_NONLUS = nbNonLus;
@@ -4904,7 +4917,6 @@ function ouvrirConvLu(id) {
   var c = CONVS.filter(function(x) { return x.id === id; })[0];
   if (c) { marquerLecture(c); chargerHistoriqueConv(c); }
   voirConv(id);
-
   majBadgeNouveaux();
 }
 function ouvrirNouveaux() {
@@ -5417,6 +5429,21 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
             var tsVu = h ? new Date(h).getTime() : 0;
             if (!tsDerVu || (tsVu && tsVu >= tsDerVu)) { if (!cVu.lu) { cVu.lu = true; nVu++; } }
           }
+        } else if (typ === "lu") {
+          /* C35-LU-PARTAGE-2 : action "lu" persistée à l'ouverture d'une conv →
+             la conv est lue pour tout le monde si la lecture est après le
+             dernier message. Stockée dans l'index (lu_a) pour que fusionnerFil
+             et majLusDepuisStockage la prennent en compte à chaque refresh. */
+          var tsLu = h ? new Date(h).getTime() : 0;
+          if (tsLu && (!ix.lu_a || ix.lu_a < tsLu)) {
+            ix.lu_a = tsLu;
+            var cL = convParCle(cle);
+            if (cL) {
+              var derL = (cL.fil && cL.fil[cL.fil.length - 1]) || null;
+              var tsDerL = derL && derL.ts ? new Date(derL.ts).getTime() : 0;
+              if (!tsDerL || tsLu >= tsDerL) { if (!cL.lu) { cL.lu = true; nVu++; } }
+            }
+          }
         } else if (typ === "notif") {
           /* C25-NOTIF-EQUIPE : notif persistée (@mention / assignation).
              Ne notifie que si je suis le destinataire et que l'action n'a pas
@@ -5578,6 +5605,7 @@ function renduConsole() {
       if (k >= 0) { if (m.qui === "client") ent[k]++; else if (m.qui === "agent") sor[k]++; }
       if (m.qui === "client") dernierClient = m.t;
       else if (dernierClient !== null && m.t > dernierClient && m.t - dernierClient < 30 * 86400000) {
+
         delais.push(m.t - dernierClient); dernierClient = null;
       }
     });
@@ -5605,7 +5633,6 @@ function renduConsole() {
 
   var html = '';
   /* cartes : 2 héro (conversations, réponse médiane) en dégradé bleu plein */
-
   html += '<div class="kpi-grille">' +
     kpiCarte(actives.length, "Conversations actives", true) +
     kpiCarte(nonLues, "Non lues 💬") +
