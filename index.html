@@ -3590,6 +3590,9 @@ function ajouterComm() {
   /* C15-ACT-2 : uid unique → permet édition/suppression persistée */
   var uid = "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
   c.comms.push({ a: MOI, t: maintenant(), txt: v, uid: uid });
+  /* C29-DOUBLON-COMM : enregistrer aussi dans l'index de rejoue, sinon le
+     refresh auto (C18-RT) repousse le commentaire une 2e fois dans c.comms. */
+  actIndex(cleConv(c)).commentaires.push({ a: MOI, t: maintenant(), txt: v, uid: uid });
   persisterAction("commentaire", cleConv(c), v, { uid: uid, heure: maintenant() });   /* C15-ACT */
   /* notification si quelqu'un est tagué (@Marine, @Nicolas…) */
   personnesTaguees(v).forEach(function(p){
@@ -4200,10 +4203,10 @@ function renduFil() {
       '<div class="comm-champ">' +
         '<input id="nv-comm" placeholder="Ajouter un commentaire interne (visible par l\'équipe uniquement)… Tape @ pour mentionner" oninput="suggMentions()" onkeydown="return commKey(event)" onblur="setTimeout(fermerSugg,150)"/>' +
         '<div id="mentions-sugg" style="display:none"></div>' +
+
       '</div>' +
       '<div id="volet-mentions" style="display:none"></div>' +
       '<button class="btn primaire" onclick="ajouterComm()" title="Publier le commentaire interne (signé : '+MOI+')">Commenter</button>' +
-
     '</div>';
 
   rafraichirFiche();
@@ -4901,10 +4904,10 @@ function majNewConvChamps() {
   document.getElementById("nc-bloc-mail").style.display = wa ? "none" : "";
 }
 function creerNouvelleConv() {
+
   var nom = (document.getElementById("nc-nom").value || "").trim();
   var tel = telE164(document.getElementById("nc-tel").value || "");
   var mail = (document.getElementById("nc-mail").value || "").trim();
-
   var wa = NEWCONV_CANAL === "WhatsApp";
   if (wa && (!tel || tel.replace(/[^+0-9]/g, "").length < 8)) { alert("Renseigne un numéro WhatsApp valide (ex : +33 6 12 34 56 78)."); return; }
   if (!wa && (mail.indexOf("@") < 1 || mail.indexOf(".") < 3)) { alert("Renseigne une adresse email valide (ex : client@exemple.fr)."); return; }
@@ -5341,7 +5344,13 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
           if (!deja) {
             ix.commentaires.push(co);
             var c = convParCle(cle);
-            if (c) { c.comms.push(co); n++; }
+            /* C29-DOUBLON-COMM : dédoublonnage aussi contre c.comms (par uid,
+               repli a+txt) — sinon un commentaire posté localement puis rejoué
+               apparaissait en double après le 1er refresh auto. */
+            if (c) {
+              var dejaC = c.comms.some(function(k) { return co.uid ? k.uid === co.uid : (k.a === co.a && k.txt === co.txt); });
+              if (!dejaC) { c.comms.push(co); n++; }
+            }
             /* C18-RT : en refresh auto, un commentaire posté par un autre
                est annoncé, le tien ne l'est pas (tu viens de l'écrire) */
             if (mode === "auto" && co.a && co.a !== MOI) nouveaux.push({ a: co.a, cle: cle });
@@ -5596,6 +5605,7 @@ function renduConsole() {
   html += '<div class="kpi-sec">📁 Top sujets</div>';
   sujetsTries.forEach(function(s) { html += barreKpi(s, parSujet[s], parSujet[sujetsTries[0]]); });
   html += '<div style="margin-top:12px;"><button class="btn" onclick="renduConsole()">🔄 Recalculer</button> ' +
+
     '<span class="petit" style="color:#8a93a3;font-size:10.5px;">KPI calculés sur les conversations chargées dans cette page — non lues = jamais ouvertes ici, réponse médiane = écart entre un message client et la réponse agent qui suit.</span></div>';
   el.innerHTML = html;
 }
@@ -5605,7 +5615,6 @@ function kpiCarte(v, lab, hero) { return '<div class="kpi-carte' + (hero ? " her
 var COMPTES_LISTE = [];
 function baseEtJeton() {
   var s = sessionDe();
-
   return { base: (localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app"),
            jeton: (s && s.jeton) || "", qui: (s && s.utilisateur) || null };
 }
