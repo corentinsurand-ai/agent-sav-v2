@@ -1,3 +1,5 @@
+
+
 <!doctype html>
 <html lang="fr">
 <head>
@@ -696,9 +698,9 @@
   .suj-conv.suj-arch { background: #F2F6FA; }
   .bo-tabs button.off { background: #EEF2F7; }
   #porte-email:focus, #porte-mdp:focus { outline: none; border-color: #0e5aa7 !important; box-shadow: 0 0 0 3px rgba(14,90,167,.12); }
+
   #porte-btn:hover { filter: brightness(1.1); }
   #porte-btn:active { transform: translateY(1px); }
-
 
   /* ============================================================
      C8-DESIGN-2 : REFONTE PROFONDE — panneaux flottants, Inter,
@@ -1397,9 +1399,9 @@
     <div class="ia-head-tit"><b>Assistant IA U'mob</b><span class="ia-head-st">en ligne — doc + données clients</span></div>
     <button class="ia-x" onclick="iaBasculer()" title="Fermer" aria-label="Fermer l'assistant">
       <svg viewBox="0 0 14 14" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2.5 2.5l9 9M11.5 2.5l-9 9"/></svg>
+
     </button>
   </div>
-
   <div class="ia-corps" id="ia-corps"></div>
   <div class="ia-barre">
     <textarea id="ia-saisie" rows="1" placeholder="Pose ta question (fonctionnement, clients, derniers échanges)…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();iaEnvoyer();}"></textarea>
@@ -2098,9 +2100,9 @@ function appliquerVraisClients(liste) {
       if (!nomContact) {
         var nc = [l.prenom, l.nom_contact].filter(String).join(" ");
         if (nc) nomContact = nc + (l.fonction ? " (" + l.fonction + ")" : "");
+
       }
       if (!s.contact_sc && nomContact) s.contact_sc = nomContact + " — " + telE164(cl.telephone);
-
       if (!emailContact && l.email) emailContact = String(l.email).trim();
     });
     /* PAS de conversation créée : les fiches/carnet se remplissent de vrais
@@ -2512,13 +2514,38 @@ function fusionnerFil(c, fil) {
    l'ouverture d'une conversation WhatsApp, on charge son historique DÉDIÉ
    (?tel= — jusqu'à 1000 messages pour CE numéro) UNE fois par session. */
 function chargerHistoriqueConv(c) {
-  if (!c || c._histCharge || c.canal !== "WhatsApp") return;
-  var d = String((c.contact && c.contact.tel) || "").replace(/\D/g, "");
-  if (!d) return;
-  c._histCharge = true;
+  if (!c || c._histCharge) return;
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
   var secret = (sessionDe() || {}).jeton || "";
   if (!secret) return;
+  if (c.canal === "Email") {
+    /* C26-MAIL-HIST : historique mail complet par adresse (cap 1000 côté API,
+       dédup par mid via fusionnerFil) — une fois par session et par contact. */
+    var em = String((c.contact && c.contact.email) || "").trim();
+    if (!em) return;
+    c._histCharge = true;
+    fetch(base + "/api/emails?jeton=" + encodeURIComponent(secret) + "&email=" + encodeURIComponent(em) + "&limite=1000")
+      .then(function(r) { return r.json(); })
+      .then(function(rep) {
+        if (!rep || rep.ok !== true || !Array.isArray(rep.messages)) return;
+        var filM = rep.messages.map(function(m) {
+          var h = heureWa(m.recu_a);
+          if (m.sens === "sortant") {
+            return { qui: "agent", de: m.from_nom || MOI, t: h.t, txt: String(m.texte || ""), suj: m.sujet || "", canal: "Email", st: "envoye", ts: m.recu_a, mid: m.message_id };
+          }
+          return { qui: "client", t: h.t, txt: String(m.texte || ""), suj: m.sujet || "", canal: "Email", ts: m.recu_a, mid: m.message_id };
+        });
+        fusionnerFil(c, filM);
+        c.dateLbl = dateLblDe(c, 0);
+        if (SELID === c.id || (SELSENT && c.entreprise === SELSENT)) { renduFil(); renduListe(); rafraichirFiche(); }
+      })
+      .catch(function() {});
+    return;
+  }
+  if (c.canal !== "WhatsApp") return;
+  var d = String((c.contact && c.contact.tel) || "").replace(/\D/g, "");
+  if (!d) return;
+  c._histCharge = true;
   fetch(base + "/api/whatsapp-messages?jeton=" + encodeURIComponent(secret) + "&tel=" + encodeURIComponent(d))
     .then(function(r) { return r.json(); })
     .then(function(rep) {
@@ -2774,6 +2801,7 @@ function revenirDonneesDemo() {
   FICHE_OUVERTS = {}; RECH_TXT = ""; RECH_FIL = "";
   renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
   pushNotif("↩ Données de démonstration restaurées.");
+
 }
 
 /* ===== Outils d'envoi (modèle respond.io) : raccourcis, modèles WA, pièces jointes ===== */
@@ -2801,7 +2829,6 @@ var MODELES_WA = [
     txt: "Bonjour,\npour traiter votre demande SAV, nous avons besoin d'un retour à l'email qui vous a été envoyé récemment.\nÉquipe technique U'mob" },
   { nom: "relance_demande_incomplete", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nVotre demande d'intervention est toujours ouverte, mais ne peut être qualifiée et finalisée, car nous restons dans l'attente de votre retour. Nous nous tenons disponibles.\nService client U'MOB" },
-
   { nom: "validation_inter", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nMerci pour ces informations, nous les transmettrons au technicien qui reviendra vers vous pour vous donner la date et l'horaire d'intervention." },
   { nom: "confirmation_demande_complete", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
@@ -3046,6 +3073,8 @@ function assignerConv(id, val) {
   persisterAction("assigne", cleConv(c), c.assigne || "", null);   /* C15-ACT */
   if (c.assigne === MOI && avant !== MOI)
     pushNotif("👤 La conversation de " + c.nom + " t'a été assignée", id);
+  else if (c.assigne && c.assigne !== MOI && c.assigne !== avant)
+    persisterAction("notif", cleConv(c), c.assigne, { txt: "👤 " + c.nom + " t'a été assignée par " + MOI, cle: cleConv(c) });  /* C25-NOTIF-EQUIPE */
   renduListe(); renduFil(); renduMesCycles();
 }
 
@@ -3473,6 +3502,7 @@ function envoyerProposition(idx, canal) {
   var dest = estWa ? ((contact.tel || "").replace(/\D/g, "")) : (contact.email || "");
   if (!dest) { pushNotif("⚠️ Destinataire manquant."); return; }
   var corps = null;
+
   if (estWa) {
     var p1 = document.getElementById("prop-param1");
     var modeleW = MODELES_WA.filter(function(mo) { return mo.nom === WA_MODELE_MAINTENANCE.nom; })[0] || {};
@@ -3502,7 +3532,6 @@ function envoyerProposition(idx, canal) {
   })
   .then(function(rep) {
     PROP_ENVOI = false;
-
     if (!rep.okHttp || !rep.j || rep.j.ok !== true) {
       if (btn) { btn.disabled = false; btn.innerHTML = "🚀 Envoyer pour de vrai"; }
       pushNotif("⚠️ Proposition " + (estWa ? "WhatsApp" : "email") + " échouée : " +
@@ -3554,6 +3583,7 @@ function ajouterComm() {
   /* notification si quelqu'un est tagué (@Marine, @Nicolas…) */
   personnesTaguees(v).forEach(function(p){
     if (p === MOI) pushNotif("📌 Tu as été tagué dans un commentaire interne — " + c.nom, c.id);
+    else persisterAction("notif", cleConv(c), p, { txt: "📌 " + MOI + " t'a mentionné dans un commentaire — " + c.nom, cle: cleConv(c) });  /* C25-NOTIF-EQUIPE */
   });
   renduFil();
 }
@@ -3628,6 +3658,23 @@ function personnesTaguees(txt) {
 
 /* ===== NOTIFICATIONS : assignation + tags dans les commentaires ===== */
 var NOTIFS = [];
+/* C25-NOTIF-EQUIPE : actions "notif" déjà vues sur cet appareil (cap 500) —
+   évite de re-notifier à chaque refresh auto. */
+function notifsVues() {
+  try { var v = JSON.parse(localStorage.getItem("umob_notifs_vues") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; }
+}
+function sauverNotifsVues(v) {
+  try { localStorage.setItem("umob_notifs_vues", JSON.stringify((v || []).slice(-500))); } catch (e) {}
+}
+/* C25-NOTIF-EQUIPE : notification navigateur pour une notif d'équipe (hors
+   notifierSysteme qui prend des conversations) — seulement si autorisé. */
+function notifierEquipe(txt) {
+  try {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    var nn = new Notification(txt, { tag: "umob-equipe" });
+    nn.onclick = function() { try { window.focus(); } catch (e) {} try { nn.close(); } catch (e) {} };
+  } catch (e) {}
+}
 function pushNotif(txt, convId) {
   NOTIFS.unshift({ lu: false, txt: txt, conv: convId || null, t: maintenant() });
   majBadgeNotifs();
@@ -4156,6 +4203,7 @@ function basculeFiche() {
   rafraichirFiche();
 }
 
+
 function entrepriseCourante() {
   if (SELSENT) return SELSENT;
   var c = CONVS.filter(function(x){ return x.id === SELID; })[0];
@@ -4203,7 +4251,6 @@ function rafraichirFiche() {
         (FICHE_OUVERTS.sujets ?
           sujetsArbreHtml(s.ent) +
           archivesHtml(s.ent) +
-
           '<div class="petit" style="margin-top:7px;color:#9aa4b1;font-size:10.5px;">📁 Sujet détecté automatiquement (✏️ pour corriger) · 🔗 rattacher · 🗄 archiver</div>'
           : '<div class="petit" style="color:#8a93a3;">▶ ' + convs.filter(function(c){ return !c.archive && !RATTACHE[c.id]; }).length + ' conversation(s) — clique pour dérouler</div>') +
       '</div>' +
@@ -4857,6 +4904,7 @@ function ouvrirCtx() {
   ouvrirConvLu(id);
 }
 function actionCtxArchiver() {
+
   var c = convParId(CTX_ID);
   if (!c) return;
   c.archive = !c.archive;
@@ -4903,7 +4951,6 @@ var SUJET_REGLES = [
   ["💳 Paiement",               ["paiement", "payer", "prélèvement", "prelevement", "carte"]]
 ];
 var SUJET_DEFAUT = "📝 Autre demande";
-
 
 function sujetDetecte(c) {
   if (SUJET_MANUEL[c.id]) return SUJET_MANUEL[c.id];
@@ -5238,6 +5285,24 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
              silencieux — n'augmente pas le compteur "actions restaurées") */
           var qui = String(d.valeur || d.auteur || "").trim();
           if (qui) { ix.vu = ix.vu || {}; if (!ix.vu[qui] || ix.vu[qui] < h) { ix.vu[qui] = h; nVu++; } }  /* C18-RT : nVu déclenche le re-rendu silencieux */
+        } else if (typ === "notif") {
+          /* C25-NOTIF-EQUIPE : notif persistée (@mention / assignation).
+             Ne notifie que si je suis le destinataire et que l'action n'a pas
+             encore été vue sur cet appareil (clé horodatage|auteur|dest). */
+          var dest = String(d.valeur || "").trim();
+          var txtN = String((d.detail && d.detail.txt) || "");
+          var cleN = String((d.detail && d.detail.cle) || cle);
+          var keyN = h + "|" + String(a.auteur || "") + "|" + dest;
+          if (dest === MOI && txtN) {
+            var vusN = notifsVues();
+            if (vusN.indexOf(keyN) < 0) {
+              vusN.push(keyN); sauverNotifsVues(vusN);
+              var cN = convParCle(cleN);
+              pushNotif(txtN, cN ? cN.id : null);
+              notifierEquipe(txtN);
+              n++;
+            }
+          }
         } else if (typ === "cycle" || typ === "assigne") {
           if (!ix[typ + "_a"] || ix[typ + "_a"] <= h) {
             ix[typ] = String(d.valeur === null ? "" : (d.valeur || ""));
@@ -5540,6 +5605,7 @@ function reinitCompte(i) {
     body: JSON.stringify({ reinitialisation: { email: u.email } })
   }).then(function(r){ return r.json(); }).then(function(rep){
     if (!rep.ok) { alert("Échec : " + (rep.erreur || "erreur")); return; }
+
     afficherNouveauMdp(u, rep.mot_de_passe || "");
     pushNotif("🔑 Mot de passe réinitialisé pour " + (u.nom || u.email) + " — nouveau mot de passe affiché.");
   }).catch(function(e){ alert("Réseau : " + e); });
@@ -5605,7 +5671,6 @@ function appliquerMoiSession(nomComplet) {
   if (!prenom) return;
   if (!PROFILS[prenom]) {
     var utilisees = Object.keys(PROFILS).map(function(n){ return PROFILS[n].col; });
-
     PROFILS[prenom] = {
       ic: ICONES_PROFILS[Object.keys(PROFILS).length % ICONES_PROFILS.length],
       col: COULEURS_PROFILS.filter(function(c){ return utilisees.indexOf(c) < 0; })[0] || COULEURS_PROFILS[0]
