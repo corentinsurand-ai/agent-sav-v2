@@ -281,6 +281,9 @@
   .mention-item { padding: 7px 10px; cursor: pointer; font-size: 12.5px; display: flex; align-items: center; gap: 8px; }
   .mention-item.on, .mention-item:hover { background: #EEF4FB; }
   .mention-ic { width: 20px; height: 20px; border-radius: 50%; color: #fff; font-size: 10px; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 20px; }
+  /* C32-NOTIF-LOG */
+  .nv-log-titre { font-size: 10.5px; color: #697180; text-transform: uppercase; letter-spacing: .4px; padding: 10px 12px 4px; border-top: 1px solid var(--bord2); margin-top: 6px; }
+  .nv-log-item { padding: 4px 12px; font-size: 11px; color: #8a93a3; opacity: .8; }
   .ass-sel { border: 1px solid var(--bord2); border-radius: 8px; padding: 4px 8px; font-size: 12px; background: var(--card); color: var(--ink); }
   .saisie { background: var(--card); border-top: 1px solid var(--bord); padding: 12px 18px 14px; }
   .saisie .barre { display: flex; gap: 8px; align-items: center; background: #F3F5F2; border: 1.5px solid var(--bord2); border-radius: 16px; padding: 6px 6px 6px 14px; transition: border-color .15s, box-shadow .15s, background .15s; }
@@ -695,9 +698,9 @@
   #auth-tete { background: var(--grad-bleu); }
   #auth-ok { background: var(--grad-bleu); }
   .prof-item, .cpt-ligne, .suj-conv { border-color: var(--bord); }
+
   .prof-pick button:hover { background: #EEF4FB; border-color: #b9d3ee; }
   .cpt-badge.admin { background: #e2f0fc; color: #0e5aa7; }
-
 
   /* --- connexion (porte) : entrées arrondies sur fonds bleus --- */
   #auth-corps input { border-radius: 10px; }
@@ -1396,10 +1399,10 @@
 <!-- C8-ASSIST-2c : assistant IA de la plateforme — design refait (bulle bas droite) -->
 <button id="ia-bulle" class="ia-bulle" onclick="iaBasculer()" title="Assistant IA — questions sur le fonctionnement de la plateforme et sur les clients" aria-label="Ouvrir l'assistant IA">
   <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+
     <path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/>
     <path d="M18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" stroke-width="1.4"/>
   </svg>
-
 </button>
 <div id="ia-fen" class="ia-fen cache">
   <div class="ia-head">
@@ -2021,7 +2024,7 @@ function chargerVraisClients() {
      navigateur sans umob_api_nb personnalisé, ex. Nicolas. */
   var nb = parseInt(localStorage.getItem("umob_api_nb") || "1000", 10) || 1000;
   if (nb > 5000) nb = 5000;
-  pushNotif("🔌 Chargement des vraies conversations…");
+  pushLog("🔌 Chargement des vraies conversations…");
   fetch(base + "/api/clients-import?jeton=" + encodeURIComponent(s.jeton) + "&liste=1&limite=" + nb)
     .then(function(r) { return r.json(); })
     .then(function(rep) {
@@ -2097,10 +2100,10 @@ function appliquerVraisClients(liste) {
        (champ maintenances du miroir, rattachés par code_client) */
     if (Array.isArray(cl.maintenances)) {
       cl.maintenances.forEach(function(m) {
+
         if (m && m.code_client && !s.maintenances.some(function(x) { return x.code_client === m.code_client; })) {
           s.maintenances.push(m);
         }
-
       });
     }
     var nomContact = "", emailContact = "";
@@ -2126,7 +2129,7 @@ function appliquerVraisClients(liste) {
   SELID = null; SELSENT = null;
   FICHE_OUVERTS = {}; RECH_TXT = ""; RECH_FIL = "";
   renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
-  pushNotif("✅ " + socs.length + " sociétés chargées (" + liste.length + " contacts)");
+  pushLog("✅ " + socs.length + " sociétés chargées (" + liste.length + " contacts)");
 }
 /* ===== C4 : vrais messages WhatsApp (via /api/whatsapp-messages) =====
    Après l'import des clients 🔌, on récupère les derniers messages enregistrés
@@ -2385,12 +2388,12 @@ function chargerMessagesWhatsApp(base, secret, cb) {
       var nProsp = creerConvsProspects(parWa);
       if (nProsp) {
         creees += nProsp;
-        pushNotif("📞 " + nProsp + " prospect(s) respond.io importé(s) — contacts assignés hors carnet.");
+        pushLog("📞 " + nProsp + " prospect(s) respond.io importé(s) — contacts assignés hors carnet.");
       }
       if (creees) {
         majLusDepuisStockage();
         renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
-        pushNotif("💬 " + creees + " conversation(s) WhatsApp réelle(s)" + (inconnus ? " (" + inconnus + " numéro(s) hors carnet ignorés)" : "") + ".");
+        pushLog("💬 " + creees + " conversation(s) WhatsApp réelle(s)" + (inconnus ? " (" + inconnus + " numéro(s) hors carnet ignorés)" : "") + ".");
       }
       if (cb) cb();                                // emails ensuite (fusion multi-canal)
     })
@@ -2716,11 +2719,11 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
       if (creees) {
         majLusDepuisStockage();
         renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
-        pushNotif("✉️ " + creees + " conversation(s) Email réelle(s)" + (ignores.length ? " (" + ignores.length + " adresse(s) hors carnet ignorées : " + ignores.join(", ") + ")" : "") + ".");
+        pushLog("✉️ " + creees + " conversation(s) Email réelle(s)" + (ignores.length ? " (" + ignores.length + " adresse(s) hors carnet ignorées : " + ignores.join(", ") + ")" : "") + ".");
       } else if (ignores.length) {
-        pushNotif("✉️ " + rep.messages.length + " email(s) récupéré(s) mais AUCUN expéditeur ne figure dans le carnet clients — ignorés : " + ignores.join(", ") + ".");
+        pushLog("✉️ " + rep.messages.length + " email(s) récupéré(s) mais AUCUN expéditeur ne figure dans le carnet clients — ignorés : " + ignores.join(", ") + ".");
       } else if (rep.messages.length) {
-        pushNotif("✉️ Aucun email à afficher.");
+        pushLog("✉️ Aucun email à afficher.");
       }
     })
     .catch(function() { /* brique C5.2 pas encore configurée — silencieux */ })
@@ -2784,7 +2787,7 @@ function chargerEmailsManuel() {
   var base = localStorage.getItem("umob_api_base") || "";
   var secret = (sessionDe() || {}).jeton || "";
   if (!base || !secret) { afficherPorte(); return; }
-  pushNotif("📧 Chargement des emails réels…");
+  pushLog("📧 Chargement des emails réels…");
   chargerEmails(String(base).replace(/\/+$/, ""), secret);
 }
 function lancerConvVrai(ent, i) {
@@ -2798,14 +2801,14 @@ function lancerConvVrai(ent, i) {
     id: id, nom: v.nom, entreprise: ent, canal: "WhatsApp",
     cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [],
     heure: "—", delai: "", lu: true, assigne: asRio || null,
+
     extrait: "Conversation lancée par l'équipe U'mob (vraie fiche client)",
     contact: { tel: v.tel, plaque: v.plaque, email: v.email || "" }, fil: [], comms: []
   });
-
   s.convs.push(id);
   SELID = id; SELSENT = null;
   renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); rafraichirFiche();
-  pushNotif("💬 Conversation créée avec " + v.nom + " — vrais messages à la bascule C4.");
+  pushLog("💬 Conversation créée avec " + v.nom + " — vrais messages à la bascule C4.");
 }
 function revenirDonneesDemo() {
   if (!CONVS_DEMO) { pushNotif("Les données de démo sont déjà actives."); return; }
@@ -2813,7 +2816,7 @@ function revenirDonneesDemo() {
   SELID = CONVS.length ? CONVS[0].id : null;
   FICHE_OUVERTS = {}; RECH_TXT = ""; RECH_FIL = "";
   renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
-  pushNotif("↩ Données de démonstration restaurées.");
+  pushLog("↩ Données de démonstration restaurées.");
 }
 
 /* ===== Outils d'envoi (modèle respond.io) : raccourcis, modèles WA, pièces jointes ===== */
@@ -3499,10 +3502,10 @@ function proposerMaintenance(idx, canal) {
     '</div>';
   document.body.appendChild(m);
 }
+
 function envoyerProposition(idx, canal) {
   if (PROP_ENVOI) return;
   var s = SOCIETES[idx];
-
   if (!s) return;
   var dm = donneesMaintSoc(s);
   var contact = ((s.vraisContacts || []).filter(function(v) { return (canal === "wa") ? v.tel : v.email; }))[0]
@@ -3742,6 +3745,15 @@ function insererMention(nom) {
 
 /* ===== NOTIFICATIONS : assignation + tags dans les commentaires ===== */
 var NOTIFS = [];
+/* C32-NOTIF-LOG : messages d'activité (chargements, imports) — jamais comptés
+   dans le badge, section à part dans le panneau, régénérés à chaque refresh. */
+var LOGS = [];
+function pushLog(txt) {
+  LOGS.unshift({ txt: txt, t: maintenant() });
+  if (LOGS.length > 100) LOGS.length = 100;
+  var p = document.getElementById("notifs");
+  if (p && p.classList.contains("ouvert")) renduNotifs();
+}
 /* C25-NOTIF-EQUIPE : actions "notif" déjà vues sur cet appareil (cap 500) —
    évite de re-notifier à chaque refresh auto. */
 function notifsVues() {
@@ -3783,6 +3795,12 @@ function renduNotifs() {
       '<span class="e">' + (cible ? '💬 ' + cible.nom + ' — ' + cible.extrait : '') + '</span></span>' +
       '<span class="h">' + n.t + '</span></div>';
   }).join("");
+  /* C32-NOTIF-LOG : section « Activité » (hors badge) */
+  if (LOGS.length) {
+    corps.innerHTML += '<div class="nv-log-titre">⚙️ Activité (rechargements)</div>' + LOGS.map(function(l){
+      return '<div class="nv-log-item"><span class="h">' + l.t + '</span> ' + escTxt(l.txt) + '</div>';
+    }).join("");
+  }
 }
 function lireNotif(i) {
   /* C31-NOTIF-NAV : clic → conversation d'où vient la notif, même si la cible
@@ -4185,6 +4203,7 @@ function renduFil() {
   enfantsRattaches(c.id).forEach(function(e){
     var sep = document.createElement("div");
     sep.style.cssText = "align-self:center;font-size:10.5px;color:#9aa4b1;background:#eef1f5;border-radius:999px;padding:3px 10px;";
+
     sep.textContent = "📎 conversation rattachée : " + e.nom + " · " + sujetDetecte(e);
     m.appendChild(sep);
     e.fil.forEach(function(msg){
@@ -4203,7 +4222,6 @@ function renduFil() {
   document.getElementById("rech-fil-nb").textContent = RECH_FIL ? (nbTrouves + " message" + (nbTrouves > 1 ? "s" : "") + " sur " + c.fil.length) : "";
   if (!RECH_FIL) m.scrollTop = m.scrollHeight;
   m.onscroll = majDescente;
-
   majDescente();
 
   var cz = document.getElementById("commzone");
@@ -4886,6 +4904,7 @@ function ouvrirConvLu(id) {
   var c = CONVS.filter(function(x) { return x.id === id; })[0];
   if (c) { marquerLecture(c); chargerHistoriqueConv(c); }
   voirConv(id);
+
   majBadgeNouveaux();
 }
 function ouvrirNouveaux() {
@@ -4904,7 +4923,6 @@ function ouvrirNouvelleConv() {
 }
 function fermerNouvelleConv() {
   document.getElementById("nouvconv").classList.remove("ouvert");
-
 }
 function newconvCanal(v) { NEWCONV_CANAL = v; majNewConvChamps(); }
 function majNewConvChamps() {
@@ -5441,7 +5459,7 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
           });
           if (!nouveaux.length && n) pushNotif("🔄 " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe mise(s) à jour");
         } else if (n) {
-          pushNotif("📨 " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe restaurée(s)");
+          pushLog("📨 " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe restaurée(s)");
         }
       }
       if (cb) cb();
@@ -5587,6 +5605,7 @@ function renduConsole() {
     '<div class="kpi-boite"><div class="kpi-sec" style="margin-top:0;">📡 Canaux</div>' +
     '<div class="kpi-donut" style="background:conic-gradient(#0e5aa7 0 ' + pcWa + '%, #37b97c ' + pcWa + '% 100%);"><b>' + totalCanaux + '</b></div>' +
     '<div class="kpi-legende">' +
+
     '<span><i style="background:#0e5aa7;"></i>💬 WhatsApp : ' + nbWa + '</span>' +
     '<span><i style="background:#37b97c;"></i>✉️ Email : ' + nbMail + '</span>' +
     '</div></div>' +
@@ -5605,7 +5624,6 @@ function renduConsole() {
     '<span><i style="background:#37b97c;"></i>⬆ Envoyés : ' + sor.reduce(function(a, b) { return a + b; }, 0) + '</span></div>' +
     '</div></div>';
   html += '<div class="kpi-sec">⏱️ Charge par cycle de vie</div>';
-
   CYCLES_LISTE.forEach(function(cy) {
     if (cy !== "tous") html += barreKpi(cy, parCycle[cy], maxCycle);
   });
