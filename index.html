@@ -5407,6 +5407,16 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
              silencieux — n'augmente pas le compteur "actions restaurées") */
           var qui = String(d.valeur || d.auteur || "").trim();
           if (qui) { ix.vu = ix.vu || {}; if (!ix.vu[qui] || ix.vu[qui] < h) { ix.vu[qui] = h; nVu++; } }  /* C18-RT : nVu déclenche le re-rendu silencieux */
+          /* C33-LU-PARTAGE : un membre de l'équipe a ouvert la conversation après
+             le dernier message → elle passe lue pour tout le monde (l'état « lu »
+             local umob_lus reste par appareil ; ici c'est la source partagée). */
+          var cVu = convParCle(cle);
+          if (cVu && qui) {
+            var derVu = (cVu.fil && cVu.fil[cVu.fil.length - 1]) || null;
+            var tsDerVu = derVu && derVu.ts ? new Date(derVu.ts).getTime() : 0;
+            var tsVu = h ? new Date(h).getTime() : 0;
+            if (!tsDerVu || (tsVu && tsVu >= tsDerVu)) { if (!cVu.lu) { cVu.lu = true; nVu++; } }
+          }
         } else if (typ === "notif") {
           /* C25-NOTIF-EQUIPE : notif persistée (@mention / assignation).
              Ne notifie que si je suis le destinataire et que l'action n'a pas
@@ -5595,6 +5605,7 @@ function renduConsole() {
     kpiCarte(nonLues, "Non lues 💬") +
     kpiCarte(nonAssign, "Non assignées 👤") +
     kpiCarte(nbComms, "Commentaires internes") +
+
     kpiCarte(ent.reduce(function(a, b) { return a + b; }, 0), "Messages reçus (7 j)") +
     kpiCarte(medDelai === null ? "—" : fmtDelaiKpi(medDelai), "Réponse médiane ⏱️", true) +
     '</div>';
@@ -5605,7 +5616,6 @@ function renduConsole() {
     '<div class="kpi-boite"><div class="kpi-sec" style="margin-top:0;">📡 Canaux</div>' +
     '<div class="kpi-donut" style="background:conic-gradient(#0e5aa7 0 ' + pcWa + '%, #37b97c ' + pcWa + '% 100%);"><b>' + totalCanaux + '</b></div>' +
     '<div class="kpi-legende">' +
-
     '<span><i style="background:#0e5aa7;"></i>💬 WhatsApp : ' + nbWa + '</span>' +
     '<span><i style="background:#37b97c;"></i>✉️ Email : ' + nbMail + '</span>' +
     '</div></div>' +
