@@ -1718,14 +1718,14 @@ function maintsHtmlReelles(s) {
           l += ' — <b>' + st.consommes + '</b> consommé(s) sur <b>' + st.droits + '</b>' +
                 ' · <b style="color:' + (st.restants > 0 ? "#1c7ed6" : "#c0392b") + ';">reste ' + st.restants + '</b>';
           if (st.periode_courante) {
-            l += ' <span style="color:#8a93a3;">(année du ' + escTxt(dateFr(st.periode_courante.debut)) +
+            l += ' <span style="color:#8a93a3;">(contrat en cours du ' + escTxt(dateFr(st.periode_courante.debut)) +
                  ' au ' + escTxt(dateFr(st.periode_courante.fin)) + ')</span>';
           }
         }
         l += '</span>';
       }
       /* Détail par année contractuelle (anniversaires), de la plus récente à
-         la plus ancienne ; l'année en cours est en gras avec fond bleu pâle. */
+         la plus ancienne ; le contrat en cours est en gras avec fond bleu pâle. */
       if (Array.isArray(st.par_annee) && st.par_annee.length) {
         l += '<span class="petit" style="display:flex;flex-wrap:wrap;gap:3px;">' +
           st.par_annee.map(function(a) {
@@ -1737,18 +1737,16 @@ function maintsHtmlReelles(s) {
               (a.restants <= 0 ? ' <span style="color:#c0392b;">(épuisé)</span>' : '') + '</span>';
           }).join("") + '</span>';
       }
-      /* Toutes les dates de passages comptés : pastilles bleues = dans
-         l'année contractuelle en cours (consomment le quota annuel),
-         grisées = années précédentes. */
+      /* C38-HORS-QUOTA : seules les dates de passages du contrat en cours
+         sont affichées (ce sont elles qui consomment le quota) — les
+         passages antérieurs au début du contrat ne sont plus listés. */
       var dates = Array.isArray(st.dates_passages) ? st.dates_passages : (st.derniere ? [st.derniere] : []);
-      if (dates.length) {
-        var debC = (st.periode_courante && st.periode_courante.debut) || st.contrat_debut || "";
-        l += '<span class="petit" style="line-height:1.9;">🔧 Passages réalisés : ' +
-          dates.map(function(dd) {
-            var avant = debC && dd < debC;
-            return '<span title="' + (avant ? "année contractuelle antérieure — quota de l époque"
-              : "comptabilisée dans le quota de l année en cours") + '" style="display:inline-block;background:' +
-              (avant ? "#eef1f5;color:#8a93a3;" : "#e2f0fc;color:#0e5aa7;") +
+      var debC = (st.periode_courante && st.periode_courante.debut) || st.contrat_debut || "";
+      var datesContrat = dates.filter(function(dd) { return !(debC && dd < debC); });
+      if (datesContrat.length) {
+        l += '<span class="petit" style="line-height:1.9;">🔧 Passages réalisés (contrat en cours) : ' +
+          datesContrat.map(function(dd) {
+            return '<span title="comptabilisé dans le quota du contrat en cours" style="display:inline-block;background:#e2f0fc;color:#0e5aa7;' +
               'border-radius:9px;padding:1px 7px;margin:1px 3px 1px 0;font-weight:600;">' + escTxt(dateFr(dd)) + '</span>';
           }).join("") + '</span>';
       }
@@ -2100,9 +2098,9 @@ function appliquerVraisClients(liste) {
     /* C7-MAINT : comptages de maintenances fusionnés par le backend
        (champ maintenances du miroir, rattachés par code_client) */
     if (Array.isArray(cl.maintenances)) {
-
       cl.maintenances.forEach(function(m) {
         if (m && m.code_client && !s.maintenances.some(function(x) { return x.code_client === m.code_client; })) {
+
           s.maintenances.push(m);
         }
       });
@@ -2801,9 +2799,9 @@ function rafraichirAuto() {
        vus, cycles…) → nouveau commentaire d'un collègue = apparaît dans le
        fil sans recharger ; « vu » d'un collègue = 👁️ mis à jour tout seul. */
     chargerEmails(base, secret, function() { chargerActions(base, secret, null, "auto"); });
-
   });
   AUTO_DERNIERE = Date.now();
+
   majBadgeAuto();
 }
 function demarrerAuto() {
@@ -3425,7 +3423,7 @@ function envoyerModeleWa(nomModele) {
 /* ===== C7-PROP-1 : proposer une maintenance (email réel ou modèle WhatsApp
    approuvé) — boutons sous le solde de maintenances (fiche + carnet). ===== */
 function donneesMaintSoc(s) {
-  /* premier site avec pack : droits/restants/année en cours/dernier passage */
+  /* premier site avec pack : droits/restants/contrat en cours/dernier passage */
   var sites = [];
   (s.maintenances || []).forEach(function(m) {
     (((m && m.donnees) || {}).sites || []).forEach(function(st) { sites.push(st); });
@@ -3447,7 +3445,7 @@ function corpsPropositionEmail(s, dm) {
   if (dm.restants !== undefined && dm.restants !== null) {
     l.push("");
     if (dm.periode_courante) {
-      l.push("Sur l'année contractuelle en cours (du " + dateFr(dm.periode_courante.debut) +
+      l.push("Sur le contrat en cours (du " + dateFr(dm.periode_courante.debut) +
         " au " + dateFr(dm.periode_courante.fin) + "), il vous reste " + dm.restants +
         " passage(s) de maintenance inclus dans votre contrat.");
     } else {
@@ -3502,9 +3500,9 @@ function proposerMaintenance(idx, canal) {
     var avecVars = modeleW.variables === true || /\{\{/.test(apercu);
     corpsModal =
       '<div style="margin:10px 0 4px;font-size:10.5px;font-weight:700;color:#7A8079;text-transform:uppercase;">Modèle approuvé WhatsApp : ' + escTxt(WA_MODELE_MAINTENANCE.nom) + ' (fr)</div>' +
-
       '<div style="background:#f4f9f6;border:1px solid #b9e4cd;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#1f2937;white-space:pre-wrap;">' + escTxt(apercuRempli) + '</div>' +
       '<div style="margin-top:8px;font-size:11px;color:#697180;">⚠️ Message proactif : seuls les modèles <b>approuvés par WhatsApp</b> peuvent être envoyés hors fenêtre de 24 h. Le texte exact vit chez Meta.</div>' +
+
       (avecVars
         ? '<div style="margin-top:10px;font-size:11px;font-weight:700;color:#374151;">Prénom du destinataire :</div>' +
           '<input id="prop-param1" value="' + escTxt(pre) + '" style="width:100%;box-sizing:border-box;margin-top:4px;padding:7px 9px;border:1px solid #d3dae4;border-radius:7px;font-size:13px;">'
@@ -4203,9 +4201,9 @@ function renduFil() {
       var b = document.createElement("div");
       var kc = msg.canal || c.canal;
       b.className = "bulle "+CLS[msg.qui]+(kc === "WhatsApp" ? " can-wa" : kc === "Email" ? " can-mail" : "");
-
       b.title = "Message " + kc;
       if (RECH_FIL && (String(msg.suj || "") + " " + msg.txt).toLowerCase().indexOf(RECH_FIL.toLowerCase()) < 0) b.classList.add("sans"); else nbTrouves++;
+
       b.innerHTML = '<div class="h"><span class="h-qui">'+auteurMsg(msg)+'</span> · '+msg.t+' '+(kc ? logoCanal(kc) : '')+cocheHtml(statutDe(msg, c.fil))+'</div>'+objetHtml(msg, RECH_FIL)+corpsMsgHtml(msg, RECH_FIL)+expediteurHtml(msg) +
         (msg.pj ? (msg.img
             ? '<div class="mini" style="'+(msg.url ? 'background-image:url(' + msg.url + ');background-size:cover;' : '')+'">'+(msg.url ? "" : "🖼 " + msg.pj)+'</div>'
@@ -4904,9 +4902,9 @@ function nonLues() { return CONVS.filter(function(c) { return !c.lu && !c.archiv
 function majBadgesCycles() {
   var parCycle = {};
   CONVS.forEach(function(c) { if (!c.lu) parCycle[c.cycle] = (parCycle[c.cycle] || 0) + 1; });
-
   var chips = document.querySelectorAll('.chip[data-fx]');
   for (var i = 0; i < chips.length; i++) {
+
     var ch = chips[i];
     var cy = ch.getAttribute('data-fx');
     var nb = cy === 'tous' ? nonLues().length : (parCycle[cy] || 0);
@@ -5605,9 +5603,9 @@ function ouvrirConsole() {
   renduConsole();
 }
 function fermerConsole() { document.getElementById("kpi").classList.remove("ouvert"); }
-
 function fmtDelaiKpi(ms) {
   if (ms < 60000) return "< 1 min";
+
   var mn = Math.round(ms / 60000);
   if (mn < 60) return mn + " min";
   var h = Math.floor(mn / 60), r = mn % 60;
