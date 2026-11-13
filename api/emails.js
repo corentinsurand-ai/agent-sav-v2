@@ -212,7 +212,8 @@ async function lireEmails(u) {
   var limite = Math.min(parseInt(u.searchParams.get('limite') || '50', 10) || 50, 1000);  /* C26-MAIL-HIST : cap 500 -> 1000 (max lignes Supabase) */
   var email = (u.searchParams.get('email') || '').trim();
 
-  var selBase = 'message_id,sens,from_addr,from_nom,to_addr,sujet,texte,recu_a,lu';
+  var selBase = 'message_id,sens,from_addr,from_nom,to_addr,sujet,texte,recu_a,lu'
+    + (u.searchParams.get('brut') ? ',brut' : '');  /* C27-DEBUG : &brut=1 pour inspecter le brut */
   function cheminAvec(sel) {
     if (email) {
       return 'emails?select=' + sel
