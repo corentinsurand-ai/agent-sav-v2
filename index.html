@@ -5436,7 +5436,10 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
             }
           }
         } else if (typ === "cycle" || typ === "assigne") {
-          if (!ix[typ + "_a"] || ix[typ + "_a"] <= h) {
+          /* C34-NOTIF-SPAM : « < » strict — ne rejouer que si strictement plus
+             récent, sinon chaque refresh auto recomptait toutes les actions
+             existantes (<=) et renvoyait une notif « 🔄 » toutes les 60 s. */
+          if (!ix[typ + "_a"] || ix[typ + "_a"] < h) {
             ix[typ] = String(d.valeur === null ? "" : (d.valeur || ""));
             ix[typ + "_a"] = h;
             var c2 = convParCle(cle);
@@ -5465,7 +5468,9 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
         if (mode === "auto") {
           nouveaux.forEach(function(x) {
             var cN = convParCle(x.cle);
-            pushNotif("💬 Nouveau commentaire de " + x.a + (cN && cN.nom ? " — " + cN.nom : ""));
+            /* C34-NOTIF-NAV : la notif porte la conversation (id + clé) → le
+               clic dans le panneau 🔔 ouvre directement le bon fil. */
+            pushNotif("💬 Nouveau commentaire de " + x.a + (cN && cN.nom ? " — " + cN.nom : ""), cN ? cN.id : null, x.cle);
           });
           if (!nouveaux.length && n) pushNotif("🔄 " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe mise(s) à jour");
         } else if (n) {
@@ -5600,12 +5605,12 @@ function renduConsole() {
 
   var html = '';
   /* cartes : 2 héro (conversations, réponse médiane) en dégradé bleu plein */
+
   html += '<div class="kpi-grille">' +
     kpiCarte(actives.length, "Conversations actives", true) +
     kpiCarte(nonLues, "Non lues 💬") +
     kpiCarte(nonAssign, "Non assignées 👤") +
     kpiCarte(nbComms, "Commentaires internes") +
-
     kpiCarte(ent.reduce(function(a, b) { return a + b; }, 0), "Messages reçus (7 j)") +
     kpiCarte(medDelai === null ? "—" : fmtDelaiKpi(medDelai), "Réponse médiane ⏱️", true) +
     '</div>';
