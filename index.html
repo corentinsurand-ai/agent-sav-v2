@@ -1133,7 +1133,8 @@
     <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet"><button class="volet-pli" onclick="event.stopPropagation();plierVolet('volet-liste')" title="Réduire / agrandir ce volet">‹</button><span class="vt">Conversations</span> <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
     <div class="liste-head">
       <b>Conversations</b>
-      <input class="rech-conv" id="rech-conv" placeholder="🔎 Tél, plaque, nom…" oninput="RECH_TXT = this.value; renduListe();" />
+      <input class="rech-conv" id="rech-conv" placeholder="🔎 Tél, plaque, nom, entreprise…" oninput="RECH_TXT = this.value; renduListe();" />
+      <span class="compteur" id="rech-nb" title="Nombre de résultats de la recherche"></span>
       <span class="compteur" id="nb"></span>
       <button class="btn" title="Rafraîchir" onclick="alert('Dans la vraie C1 : recharge via l\u2019API respond.io (lecture seule).')">⟳</button>
     </div>
@@ -1398,8 +1399,8 @@
   <div class="ia-barre">
     <textarea id="ia-saisie" rows="1" placeholder="Pose ta question (fonctionnement, clients, derniers échanges)…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();iaEnvoyer();}"></textarea>
     <button class="ia-mic" id="btn-dictee-ia" onclick="dicterIA()" title="Dicter ta question (reconnaissance vocale du navigateur — Chrome/Edge)" aria-label="Dicter">🎤</button>
-    <button class="ia-env" id="ia-env-btn" onclick="iaEnvoyer()" title="Envoyer" aria-label="Envoyer">
 
+    <button class="ia-env" id="ia-env-btn" onclick="iaEnvoyer()" title="Envoyer" aria-label="Envoyer">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11.5L20.5 3.8a.5.5 0 0 1 .7.6l-5.9 16.4a.5.5 0 0 1-.9.1l-3.4-6.1-6.9-2.5a.5.5 0 0 1 0-1z"/><path d="M11 13.9l3.4-3.9"/></svg>
     </button>
   </div>
@@ -2099,8 +2100,8 @@ function appliquerVraisClients(liste) {
     });
     /* PAS de conversation créée : les fiches/carnet se remplissent de vrais
        contacts ; une conversation naîtra quand un vrai message arrivera
-       (brique C4) ou quand un agent en lancera une depuis une fiche. */
 
+       (brique C4) ou quand un agent en lancera une depuis une fiche. */
     s.vraisContacts.push({ nom: nomContact || ent, tel: telE164(cl.telephone), plaque: cl.plaque || "", email: emailContact || "" });
   });
   CONVS = []; SOCIETES = socs; VRAIES_DONNEES = true;
@@ -2800,8 +2801,8 @@ var MODELES_WA = [
     txt: "Bonjour,\nMerci pour ces informations, nous les transmettrons au technicien qui reviendra vers vous pour vous donner la date et l'horaire d'intervention." },
   { nom: "confirmation_demande_complete", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nNous avons bien enregistré votre demande SAV.\nNous la transmettons au technicien qui reviendra vers vous pour vous donner la date et l'heure d'intervention.\nL'équipe Technique U'mob" },
-  { nom: "confirmation_commande_expedition", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
 
+  { nom: "confirmation_commande_expedition", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nVotre demande est complète. Votre commande est en préparation et sera bientôt expédiée.\nL'équipe Technique U'mob" },
   { nom: "demande_complement_information", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour,\nNous avons quelques questions suite à votre demande SAV. Etes-vous disponible pour nous préciser votre besoin ?\nL'équipe technique U'mob" },
@@ -3501,8 +3502,8 @@ function envoyerProposition(idx, canal) {
       if (btn) { btn.disabled = false; btn.innerHTML = "🚀 Envoyer pour de vrai"; }
       pushNotif("⚠️ Proposition " + (estWa ? "WhatsApp" : "email") + " échouée : " +
         ((rep.j && (rep.j.erreur || rep.j.detail)) || "erreur API"));
-      return;
 
+      return;
     }
     fermerProposition();
     pushNotif("✅ Proposition de maintenance envoyée pour de vrai à " + dest + (estWa && rep.j.wamid ? " (" + rep.j.wamid + ")" : "") +
@@ -3763,11 +3764,17 @@ function basculeVue(v) {
 
 
 function visible(c){
-  if (c.archive || RATTACHE[c.id]) return false;
-  if (FX.ass === "moi" && c.assigne !== MOI) return false;
-  if (FX.ass === "aucun" && c.assigne) return false;
-  if ((FX.canal !== "tous" && c.canal !== FX.canal) || (FX.cycle !== "tous" && c.cycle !== FX.cycle)) return false;
-  if (!RECH_TXT) return true;
+  /* C21-RECH : quand une recherche est active, elle est GLOBALE — on ignore
+     les exclusions habituelles (archivée 📦, rattachée 📎, filtres assignation/
+     canal/cycle) pour ne manquer aucune conversation ; les badges dans la ligne
+     signalent leur statut. Sans recherche, comportement habituel. */
+  if (!RECH_TXT) {
+    if (c.archive || RATTACHE[c.id]) return false;
+    if (FX.ass === "moi" && c.assigne !== MOI) return false;
+    if (FX.ass === "aucun" && c.assigne) return false;
+    if ((FX.canal !== "tous" && c.canal !== FX.canal) || (FX.cycle !== "tous" && c.cycle !== FX.cycle)) return false;
+    return true;
+  }
   return correspondTxt([c.nom, c.entreprise, c.extrait, c.contact.tel, c.contact.plaque, c.cycle,
     c.fil.map(function(m){ return m.txt; }).join(" "),
     c.comms.map(function(m){ return m.txt; }).join(" ")], RECH_TXT);
@@ -3849,6 +3856,9 @@ function renduListe() {
     return dernierTs(b) - dernierTs(a);
   });
   var n = liste.length;
+  /* C21-RECH : compteur de résultats affiché quand une recherche est active */
+  var rn = document.getElementById("rech-nb");
+  if (rn) rn.textContent = RECH_TXT ? (n + " résultat" + (n > 1 ? "s" : "")) : "";
   if (VUE === "entreprise") {
     var groupes = {};
     var ordre = [];
@@ -3912,7 +3922,12 @@ function dessinerConv(c, conteneur) {
     '<div class="meta"><span class="dot'+(c.lu?' lu':'')+'"></span>'+
     '<span class="tag" title="Date du dernier message">📅 '+(c.dateLbl || c.heure)+'</span>'+
     '<span class="tag" title="'+(c.assigne ? "Assignée à "+c.assigne : "Non assignée")+'" style="'+(c.assigne ? (c.assigne === MOI ? "background:#dcfce7;color:#166534;font-weight:700;" : "background:#eef1f5;color:#475569;") : "background:#fee2e2;color:#991b1b;")+'">'+(c.assigne ? avatar(c.assigne) + " " + c.assigne : "—")+'</span>'+
-    '<span class="cy '+c.classe+'">'+c.cycle+'</span></div></div>';
+    '<span class="cy '+c.classe+'">'+c.cycle+'</span>'+
+    /* C21-RECH : badges statut quand la conversation est rendue hors de son
+       état habituel (visible uniquement via la recherche globale) */
+    (c.archive ? '<span class="tag" title="Conversation archivée">📦 archivée</span>' : '')+
+    (RATTACHE[c.id] ? '<span class="tag" title="Rattachée à une autre conversation">📎 rattachée</span>' : '')+
+    '</div></div>';
   d.onclick = function(){ ouvrirConvLu(c.id); };
   d.oncontextmenu = function(ev){ menuContext(ev, c.id); };
   el.appendChild(d);
@@ -4188,6 +4203,7 @@ function rafraichirFiche() {
                               : '<button class="btn btn-voir" onclick="voirConv(' + c.id + ')" title="Ouvrir cette conversation dans le fil">Ouvrir →</button>') +
               '<button class="btn" title="Nouvelle conversation avec ce contact (démo : simule un nouveau message du client)" onclick="lancerNouvelleConv(' + c.id + ')">💬 Nouvelle</button>' +
             '</span>' +
+
           '</div>';
         }).join("") : ((s.vraisContacts && s.vraisContacts.length)
           ? s.vraisContacts.map(function(v, i){
@@ -4203,7 +4219,6 @@ function rafraichirFiche() {
     '</div>' +
 
     '<div class="fiche-sec">' +
-
       fsTete("parc", "fs-orange", "🛵", "Parc & contrats de service") +
       fsCorps("parc",
         (s.scooters.length ? s.scooters.map(function(x){
@@ -4889,6 +4904,7 @@ CONVS.forEach(function(c){ if (c.archive === undefined) c.archive = false; });
 convParId(14).archive = true; /* démo : dossier traité rangé dans les Archives */
 
 /* ----- rattachement ----- */
+
 function estRattache(c) { return !!RATTACHE[c.id]; }
 function enfantsRattaches(id) { return CONVS.filter(function(c){ return RATTACHE[c.id] === id; }); }
 function rattacher(id, parentId) {
@@ -4904,7 +4920,6 @@ function detacher(id) {
   delete RATTACHE[id];
   var cd = convParId(id);                          /* C15-ACT : persistance du détachement */
   if (cd) { var cld = cleConv(cd); persisterAction("detache", cld, "", null); var ixd = actIndex(cld); delete ixd.rattache; delete ixd.rattache_a; }
-
 }
 function convsDeSociete(ent) { return CONVS.filter(function(c){ return c.entreprise === ent; }); }
 function convsArchivees(ent) { return convsDeSociete(ent).filter(function(c){ return c.archive; }); }
@@ -5590,6 +5605,7 @@ function seConnecter() {
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
   fetch(base + "/api/clients-import", {
     method: "POST",
+
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ connexion: { email: email, mot_de_passe: mdp } })
   }).then(function(r){ return r.json(); }).then(function(rep){
@@ -5605,7 +5621,6 @@ function seConnecter() {
 }
 function seDeconnecter() {
   localStorage.removeItem("umob_session");
-
   arreterAuto();
   majBadgeAuth(); majBadgeAuto();
   afficherPorte();
