@@ -1,3 +1,5 @@
+successfully downloaded text file (SHA: ce48af1c27371dc89432f475b649894bbba7e752)
+resource
 // ============================================================================
 // Agent SAV U'mob v2 — C5.2 : /api/emails — Email entrant + lecture, UNE route
 //
@@ -89,7 +91,7 @@ async function poller(user, pass, host) {
   // ---- 1. Point de reprise : dernier uid importe -------------------------
   var colonneUid = true;
   var dernierUid = 0;
-  var rMax = await fetch(urlSupabase('emails?select=uid_imap&order=uid_imap.desc&limit=5'), { headers: teteSupa() });
+  var rMax = await fetch(urlSupabase('emails?select=uid_imap&order=uid_imap.desc.nullslast&limit=5'), { headers: teteSupa() });
   if (rMax.ok) {
     var lignesMax = await rMax.json();
     if (Array.isArray(lignesMax)) {
