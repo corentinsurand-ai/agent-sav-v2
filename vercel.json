@@ -1,10 +1,19 @@
+/home/user/work/vercel.json
 {
   "version": 2,
-  "regions": ["fra1"],
+  "regions": [
+    "fra1"
+  ],
   "crons": [
     {
       "path": "/api/sync-clients",
       "schedule": "0 5 * * *"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/wa-config",
+      "destination": "/api/whatsapp-messages?waConfig=1"
     }
   ]
 }

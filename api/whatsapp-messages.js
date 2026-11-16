@@ -1,3 +1,4 @@
+/home/user/work/wm-merged.js
 // ============================================================================
 // Agent SAV U'mob v2 — C4 : /api/whatsapp-messages — lecture des messages
 // WhatsApp enregistrés (plateforme maison C1/C4/C2)
@@ -127,6 +128,19 @@ function nettoyerImport(s) {
 }
 
 module.exports = async function handler(req, res) {
+  // ---- C5-REALTIME : branche wa-config (fusion wa-config.js, limite 12 fonctions Vercel)
+  // Reachable via la rewrite vercel.json : /api/wa-config -> /api/whatsapp-messages?waConfig=1
+  if (/(?:^|[?&])waConfig=1(?:&|$)/.test(req.url || '')) {
+    if (req.method !== 'GET') return res.status(405).json({ ok: false, erreur: 'methode non autorisee' });
+    var authW = require('../lib/auth');
+    if (!authW.authentifierRequete(secretDe(req), jetonDe(req)).ok) {
+      return res.status(401).json({ ok: false, erreur: 'secret invalide' });
+    }
+    var urlS = env('SUPABASE_URL').replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
+    var anonS = env('SUPABASE_ANON_KEY') || '';
+    if (!urlS) return res.status(500).json({ ok: false, erreur: 'SUPABASE_URL manquante' });
+    return res.status(200).json({ ok: true, url: urlS, anon: anonS, schema: SCHEMA, table: 'wa_messages' });
+  }
   // CORS — la plateforme (navigateur) lit cette route en direct.
   try { res.setHeader('Access-Control-Allow-Origin', '*'); } catch (e) {}
   if (req.method === 'OPTIONS') {
