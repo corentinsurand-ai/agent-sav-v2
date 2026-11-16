@@ -4082,13 +4082,21 @@ function renduListe() {
   if (rn) rn.textContent = RECH_TXT ? (n + " résultat" + (n > 1 ? "s" : "")) : "";
   if (VUE === "entreprise") {
     var groupes = {};
-    var ordre = [];
     liste.forEach(function(c){
-      var e = c.entreprise || "Sans entreprise";
-      if (!groupes[e]) { groupes[e] = []; ordre.push(e); }
-      groupes[e].push(c);
+      var e = c.entreprise || "";
+      if (!e) return;                                  /* v43: sans entreprise → pas de groupe, rendu dans le flux chrono */
+      (groupes[e] = groupes[e] || []).push(c);
     });
-    ordre.forEach(function(e){
+    /* v43: on fusionne bandeaux d'entreprises et conversations sans entreprise,
+       le tout trié par date du dernier message (descendant) */
+    var items = Object.keys(groupes).map(function(e){
+      return { type: "grp", e: e, at: dernierTs(groupes[e][0]) };
+    });
+    liste.forEach(function(c){ if (!c.entreprise) items.push({ type: "conv", c: c, at: dernierTs(c) }); });
+    items.sort(function(a, b){ return b.at - a.at; });
+    items.forEach(function(it){
+      if (it.type === "conv") { dessinerConv(it.c, el); return; }
+      var e = it.e;
       var g = groupes[e];
       var h = document.createElement("div");
       h.className = "grp" + (SELSENT===e ? " on" : "");
