@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="fr">
 <head>
@@ -2398,6 +2397,28 @@ function chargerMessagesWhatsApp(base, secret, cb) {
         majLusDepuisStockage();
         renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
         pushLog("💬 " + creees + " conversation(s) WhatsApp réelle(s)" + (inconnus ? " (" + inconnus + " numéro(s) hors carnet ignorés)" : "") + ".");
+      }
+      /* C40-PHOTOS backfill (v100) : médias reçus AVANT le déploiement C40 —
+         rattrapage auto une fois par chargement de page (les media id Meta
+         expirent après 7 jours). Si des médias ont été stockés, on recharge
+         les messages WhatsApp pour afficher les photos tout de suite. */
+      if (secret && !window.__backfillMedia) {
+        window.__backfillMedia = true;
+        var backfillMedia = function(n) {
+          fetch(base + "/api/whatsapp-messages?jeton=" + encodeURIComponent(secret) + "&backfill_media=1")
+            .then(function(r) { return r.json(); })
+            .then(function(rep) {
+              if (!rep || !rep.ok) return;
+              if (rep.stockes > 0) pushLog("🖼 " + rep.stockes + " média(s) rattrapé(s) (reçus avant C40-PHOTOS).");
+              if (rep.a_traiter > 0 && rep.traites > 0 && n < 10) {
+                setTimeout(function() { backfillMedia(n + 1); }, 1200);
+              } else if (rep.stockes > 0) {
+                chargerMessagesWhatsApp(base, secret, null);
+              }
+            })
+            .catch(function() {});
+        };
+        backfillMedia(0);
       }
       if (cb) cb();                                // emails ensuite (fusion multi-canal)
     })

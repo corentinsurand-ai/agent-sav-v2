@@ -31,7 +31,7 @@
 // Réponses : 200 ; 401 secret ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C4-MEDIA-1';
+var VERSION = 'C4-MEDIA-2';
 var SCHEMA = 'agent_sav';
 
 // null tant que la présence des colonnes C2 n'est pas confirmée ;
@@ -235,6 +235,71 @@ module.exports = async function handler(req, res) {
 
   if (!env('SUPABASE_URL') || !env('SUPABASE_SERVICE_KEY')) {
     return res.status(500).json({ ok: false, erreur: 'configuration Supabase manquante (SUPABASE_URL, SUPABASE_SERVICE_KEY)' });
+  }
+
+  // ---- C4-MEDIA-2 : rattrapage des médias reçus AVANT le déploiement C40-PHOTOS
+  // GET ?backfill_media=1 → messages de type média des 7 derniers jours (les
+  // media id Meta expirent après 7 jours) sans brut._media.url : on télécharge
+  // + stocke le média (lib/media.js) et on PATCH brut._media (+ texte si
+  // placeholder '[média reçu]'). Max 10 traités par appel (limite durée Vercel),
+  // en parallèle. Le front reboucle tant qu'il reste des candidats.
+  if (paramDe(req, 'backfill_media') === '1') {
+    try {
+      var media = require('../lib/media');
+      var ilYa7j = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
+      var rB = await fetch(urlSupabase('wa_messages',
+        'select=wamid,type,texte,brut&type=in.(image,video,audio,document,sticker)&recu_a=gte.' +
+        encodeURIComponent(ilYa7j) + '&order=recu_a.desc&limit=200'), {
+        method: 'GET',
+        headers: {
+          'apikey': env('SUPABASE_SERVICE_KEY'),
+          'Authorization': 'Bearer ' + env('SUPABASE_SERVICE_KEY'),
+          'Accept-Profile': SCHEMA
+        }
+      });
+      var corpsB = '';
+      try { corpsB = await rB.text(); } catch (e) { corpsB = ''; }
+      if (!rB.ok) {
+        return res.status(500).json({ ok: false, erreur: 'Supabase wa_messages ' + rB.status + ' — ' + corpsB.substring(0, 300) });
+      }
+      var rows = corpsB ? JSON.parse(corpsB) : [];
+      var aTraiter = rows.filter(function(r0) {
+        var md = media.mediaDeBrut(r0.brut);
+        return md && !(r0.brut && r0.brut._media && r0.brut._media.url);
+      });
+      var tranche = aTraiter.slice(0, 10);
+      var stockes = 0;
+      await Promise.all(tranche.map(async function(r0) {
+        var md = media.mediaDeBrut(r0.brut);
+        var url = await media.stockerMedia(md, r0.wamid);
+        if (!url) return;
+        var newBrut = r0.brut;
+        newBrut._media = media.mediaStockee(md, url);
+        var newTexte = r0.texte;
+        if (String(r0.texte || '') === '[média reçu]' && !md.caption) newTexte = media.placeholderDe(md.kind);
+        else if (md.caption && String(r0.texte || '') === '[média reçu]') newTexte = md.caption;
+        try {
+          var rP = await fetch(urlSupabase('wa_messages', 'wamid=eq.' + encodeURIComponent(r0.wamid)), {
+            method: 'PATCH',
+            headers: {
+              'apikey': env('SUPABASE_SERVICE_KEY'),
+              'Authorization': 'Bearer ' + env('SUPABASE_SERVICE_KEY'),
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal',
+              'Content-Profile': SCHEMA
+            },
+            body: JSON.stringify({ brut: newBrut, texte: newTexte })
+          });
+          if (rP.ok) stockes++;
+        } catch (e) { /* best effort */ }
+      }));
+      return res.status(200).json({
+        ok: true, brique: 'C4', version: VERSION, mode: 'backfill_media',
+        total: rows.length, a_traiter: aTraiter.length, traites: tranche.length, stockes: stockes
+      });
+    } catch (e) {
+      return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
+    }
   }
 
   // Historique d'un numéro précis
