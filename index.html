@@ -1204,6 +1204,7 @@
         <button class="outil-btn ob-rouge" id="btn-dictee" onclick="dicter()" title="Dicter ton message (reconnaissance vocale du navigateur — Chrome/Edge)"><span class="ob-ico">🎤</span></button>
         <button class="btn primaire" id="btn-env" disabled onclick="envoyerMessage()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M3.5 11.5L20.5 3.8a.5.5 0 0 1 .7.6l-5.9 16.4a.5.5 0 0 1-.9.1l-3.4-6.1-6.9-2.5a.5.5 0 0 1 0-1z"/><path d="M11 13.9l3.4-3.9"/></svg> Envoyer</button>
       </div>
+      <div class="note-c2" id="note-c2"></div>
     </div>
   </section>
 
@@ -3139,6 +3140,25 @@ function assignerConv(id, val) {
 /* ===== Brique C2 : écriture — drapeau, envoi de message, changement de cycle ===== */
 var ACTIF = true; /* v33 : écriture (C2) permanente — le MODE LECTURE (C1) est supprimé */
 function basculeModeC2() { /* conservée pour compat : plus rien à basculer */ }
+/* v44: fenêtre de 24 h WhatsApp — dernier message ENTRANT du client */
+function dernierMsgClientTs(c) {
+  for (var i = (c.fil || []).length - 1; i >= 0; i--) {
+    var m = c.fil[i];
+    if (m.qui === "client") { var t = Date.parse(m.ts || m.T || ""); if (!isNaN(t)) return t; }
+  }
+  return 0;
+}
+function fenetre24hExpiree(c) {
+  if (!c || !c.wa) return false;
+  var t = dernierMsgClientTs(c);
+  if (!t) return true;                                 /* aucun message entrant → hors fenêtre */
+  return (Date.now() - t) > 24 * 3600 * 1000;
+}
+function delaiDepuisMs(ms) {
+  var h = Math.floor(ms / 3600000);
+  if (h < 48) return h + " h";
+  return Math.floor(h / 24) + " j";
+}
 function majSaisieC2() {
   var inp = document.getElementById("nv-msg"), btn = document.getElementById("btn-env");
   var cn = document.getElementById("canal-envoi");
@@ -3150,6 +3170,13 @@ function majSaisieC2() {
   inp.placeholder = "Écrire au client…";
   var note = document.getElementById("note-c2");
   if (note) note.innerHTML = "✅ Écriture active : ton message part en tant que <b>" + iconeDe(MOI) + " " + MOI + "</b> — envoi réel WhatsApp/Email selon le canal choisi.";
+  /* v44: avertissement fenêtre 24 h expirée (texte libre rejeté par Meta hors fenêtre) */
+  var c = convParId(SELID);
+  if (note && ACTIF && CANAL_ENVOI === "WhatsApp" && c && c.wa && fenetre24hExpiree(c)) {
+    var t = dernierMsgClientTs(c);
+    note.innerHTML = "⚠️ <b>Fenêtre de 24 h expirée</b>" + (t ? " — dernier message du client il y a <b>" + delaiDepuisMs(Date.now() - t) + "</b>" : " — le client n'a jamais écrit") +
+      " : un texte libre sera <b>rejeté par WhatsApp</b> (statut « failed »). Utilise un <b>modèle approuvé</b> (volet Outils → Modèles WA, clic direct sur le modèle) pour écrire hors fenêtre.";
+  }
 }
 var CANAL_ENVOI = "WhatsApp";
 function setCanalEnvoi(v) {
@@ -4478,7 +4505,7 @@ function rafraichirFiche() {
 function voirConv(id) {
   marquerLecture(convParId(id));
   marquerVu(convParId(id));               /* C17-VU : accusé de vue persisté */
-  SELID = id; SELSENT = null; renduListe(); renduFil();
+  SELID = id; SELSENT = null; renduListe(); renduFil(); majSaisieC2();   /* v44: rafraîchit l'avertissement fenêtre 24 h */
   if (estMobile()) basculerVueMobile("volet-fil");   /* C14-MOBILE : ouvrir une conversation = vue fil plein écran */
 }
 /* ===== C14-MOBILE : navigation un volet à la fois (≤ 860 px) ============
