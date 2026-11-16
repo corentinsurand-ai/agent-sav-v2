@@ -2657,7 +2657,10 @@ function corpsMsgHtml(msg, rech) {
     var habillage = "<base target=\"_blank\"><style>body{margin:10px;font:13px/1.45 -apple-system,'Segoe UI',Arial,sans-serif;color:#1f2937;background:#fff;word-wrap:break-word;} img{max-width:100%;} table{max-width:100%;}</style>";
     return '<iframe class="mail-frame" sandbox="" loading="lazy" srcdoc="' + escapeAttr(habillage + msg.html) + '" title="Corps HTML du message"></iframe>';
   }
-  return surligner(msg.txt, rech) + citeHtml(msg, rech);
+  var t = String(msg.txt || "");
+  var mm = t.match(/^\[modèle ([^\]]+)\]/);           /* v41: afficher le corps du modèle, pas juste « [modèle …] » */
+  if (mm) { var moT = MODELES_WA.filter(function(x){ return x.nom === mm[1]; })[0]; if (moT) t = moT.txt; }
+  return surligner(t, rech) + citeHtml(msg, rech);
 }
 /* Signature email re-formatée : le texte brut aplati tout sur une ligne —
    on réinsère les sauts de ligne aux endroits caractéristiques d'une
@@ -4123,6 +4126,13 @@ function convAvatarHtml(nom, canal, gd) {
   return '<span class="cav' + (gd ? " gd" : "") + '" style="background:' + colDe(nom) + ';">' + escTxt(init) +
     '<span class="cch">' + ico + '</span></span>';
 }
+/* v41: extrait lisible — remplace « [modèle x] » par le corps du modèle */
+function extraitAff(c) {
+  var t = String(c.extrait || "");
+  var mm = t.match(/^\[modèle ([^\]]+)\]/);
+  if (mm) { var mo = MODELES_WA.filter(function(x){ return x.nom === mm[1]; })[0]; if (mo) t = mo.txt; }
+  return t;
+}
 function dessinerConv(c, conteneur) {
   var el = conteneur || document.getElementById("convs");
   var d = document.createElement("div");
@@ -4132,7 +4142,7 @@ function dessinerConv(c, conteneur) {
     '<div class="conv-c">' +
     '<div class="conv-l1"><div class="nom">'+nomAff(c)+'</div><div class="heure" title="Heure du dernier message">'+heureDernierMsg(c)+(c.lu ? "" : ' <span class="badge-new" title="1 nouveau message non lu">💬 1</span>')+'</div></div>' +
     (VUE === "entreprise" ? '<div class="sousnom">'+c.contact.tel+'</div>' : '') +
-    '<div class="extrait">'+(c.lu ? c.extrait : '<b>'+c.extrait+'</b>')+'</div>' +
+    '<div class="extrait">'+(c.lu ? extraitAff(c) : '<b>'+extraitAff(c)+'</b>')+'</div>' +
     '<div class="meta"><span class="dot'+(c.lu?' lu':'')+'"></span>'+
     '<span class="tag" title="Date du dernier message">📅 '+(c.dateLbl || c.heure)+'</span>'+
     '<span class="tag" title="'+(c.assigne ? "Assignée à "+c.assigne : "Non assignée")+'" style="'+(c.assigne ? (c.assigne === MOI ? "background:#dcfce7;color:#166534;font-weight:700;" : "background:#eef1f5;color:#475569;") : "background:#fee2e2;color:#991b1b;")+'">'+(c.assigne ? avatar(c.assigne) + " " + c.assigne : "—")+'</span>'+
