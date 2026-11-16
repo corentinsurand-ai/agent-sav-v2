@@ -2349,9 +2349,10 @@ function chargerMessagesWhatsApp(base, secret, cb) {
         var dernier = msgs[msgs.length - 1];
         var t = TEST_WA[d];
         if (!t && RIO_PROSP_PAR_TEL[d]) return;          // prospects respond.io gérés plus bas
-        if (!t) t = { ent: "Hors carnet", nom: nomProfilOu(dernier.nom_profil, d), plaque: "", email: "" };  // v39: numéro inconnu du carnet → conversation créée quand même
-        var s = socParEnt(t.ent);
-        if (!s) {
+        var inconnu = !t;                                // v40: inconnu = conversation SANS fiche entreprise
+        if (inconnu) t = { ent: "", nom: nomProfilOu(dernier.nom_profil, d), plaque: "", email: "" };  // v39/v40: numéro inconnu du carnet → conversation créée quand même, sans société
+        var s = inconnu ? null : socParEnt(t.ent);
+        if (!inconnu && !s) {
           s = { ent: t.ent, siren: "", siege: "", livraison: "Même adresse", contact_sc: "",
                 risque: "RAS", classeR: "ok", scooters: [], convs: [],
                 vraisContacts: [{ nom: t.nom, tel: "+" + d, plaque: t.plaque, email: t.email || "" }] };
@@ -2374,13 +2375,13 @@ function chargerMessagesWhatsApp(base, secret, cb) {
         var asRio = assignRioTel(d);                /* C12-ASSIGN : assignation respond.io */
         nid++;
         CONVS.push({
-          id: nid, nom: nomProfilOu(dernier.nom_profil, t.nom), entreprise: t.ent, canal: "WhatsApp",
+          id: nid, nom: nomProfilOu(dernier.nom_profil, t.nom), entreprise: inconnu ? "" : t.ent, canal: "WhatsApp",
           cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
           lu: false, wa: true, extrait: String(dernier.texte || ""),
           assigne: asRio || null,
           contact: { tel: "+" + d, plaque: t.plaque, email: emailParTel("+" + d) }, fil: fil, comms: []
         });
-        s.convs.push(nid);
+        if (s) s.convs.push(nid);
         creees++;
       });
       inconnus = 0;                                    // v39: plus aucun numéro ignoré, tous créent une conversation
