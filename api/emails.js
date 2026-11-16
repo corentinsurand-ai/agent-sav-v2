@@ -1,3 +1,5 @@
+successfully downloaded text file (SHA: 852c44f9bddbfd61a339e3db9a9eb1fad7dc5251)
+resource
 successfully downloaded text file (SHA: ce48af1c27371dc89432f475b649894bbba7e752)
 resource
 // ============================================================================
@@ -23,7 +25,7 @@ var imap = require('../lib/imap');
 var mail = require('../lib/mail');
 
 var VERSION = 'C5.3-HTML-1';
-var MAX_PAR_RUN = 8;
+var MAX_PAR_RUN = 25;   /* v46: rattrapage plus rapide (25/run) */
 
 function urlSupabase(chemin) {
   var base = (process.env.SUPABASE_URL || '')
@@ -123,12 +125,14 @@ async function poller(user, pass, host) {
   try {
     var uids;
     if (dernierUid === 0) {
-      // Premier run : ne pas importer tout l'historique -> les 8 derniers seulement
-      uids = await boite.chercherNouveaux(0, 500);
-      uids = uids.slice(-MAX_PAR_RUN);
-    } else {
-      uids = await boite.chercherNouveaux(dernierUid, MAX_PAR_RUN);
+      // v46: aucun uid_imap en base (imports respond.io sans uid) -> prendre le UIDNEXT de la boite
+      try {
+        var rS = await boite.api.command('STATUS INBOX (UIDNEXT)');
+        var mn = /UIDNEXT (\d+)/.exec(rS);
+        if (mn) dernierUid = Math.max(0, parseInt(mn[1], 10) - 1 - MAX_PAR_RUN);
+      } catch (eS) {}
     }
+    uids = await boite.chercherNouveaux(dernierUid, MAX_PAR_RUN);
     resultat.uids = uids;
 
     for (var i = 0; i < uids.length; i++) {
