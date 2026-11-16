@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root {
     font-family: Inter, system-ui, -apple-system, sans-serif;
@@ -2814,6 +2815,47 @@ function rafraichirAuto() {
 
   majBadgeAuto();
 }
+
+/* ===== v45: TEMPS RÉEL — Supabase Realtime sur agent_sav.wa_messages ========
+   Le webhook /api/whatsapp-webhook écrit chaque message dans Supabase ;
+   on s'abonne en websocket aux INSERT → rechargement immédiat des messages
+   (+ ding + notification) sans attendre le polling 60 s. */
+var WA_RT = null;
+function demarrerRealtime() {
+  try {
+    if (WA_RT || typeof supabase === "undefined" || !supabase.createClient) return;
+    var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
+    var secret = (sessionDe() || {}).jeton || "";
+    if (!secret) return;
+    fetch(base + "/api/wa-config?jeton=" + encodeURIComponent(secret))
+      .then(function(r){ return r.json(); })
+      .then(function(cfg){
+        if (!cfg || !cfg.ok || !cfg.anon) { pushLog("ℹ️ Realtime inactif (pas de clé anon) — polling 60 s."); return; }
+        var client = supabase.createClient(cfg.url, cfg.anon);
+        WA_RT = client.channel("wa_messages_rt")
+          .on("postgres_changes", { event: "INSERT", schema: cfg.schema || "agent_sav", table: cfg.table || "wa_messages" }, function(payload){
+            var m = payload && payload.new;
+            if (m && m.sens === "entrant") {
+              try { dingNouveauMessage(); } catch (e) {}
+              var base2 = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
+              var s2 = (sessionDe() || {}).jeton || "";
+              chargerMessagesWhatsApp(base2, s2, function(){ chargerActions(base2, s2, null, "rt"); });
+              AUTO_DERNIERE = Date.now(); majBadgeAuto();
+              var nom = (m.nom_profil || m.wa_id || "Nouveau message");
+              notifierSysteme([{ id: null, nom: nom, extrait: String(m.texte || "").slice(0, 80) }]);
+              pushNotif("⚡ Nouveau message WhatsApp de " + nom);
+            } else {
+              var base3 = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
+              var s3 = (sessionDe() || {}).jeton || "";
+              chargerMessagesWhatsApp(base3, s3, null);
+            }
+          })
+          .subscribe(function(status){ if (status === "SUBSCRIBED") pushLog("⚡ Temps réel actif (Supabase Realtime)."); });
+      })
+      .catch(function(){ /* silencieux : le polling 60 s prend le relais */ });
+  } catch (e) {}
+}
+
 function demarrerAuto() {
   arreterAuto();
   if (!VRAIES_DONNEES || !autoActif()) { majBadgeAuto(); return; }
@@ -5998,6 +6040,7 @@ function apresConnexion() {
   if (!CHARGEMENT_AUTO_FAIT) {
     CHARGEMENT_AUTO_FAIT = true;
     chargerVraisClients();
+    setTimeout(demarrerRealtime, 3000);
   }
 }
 var PORTE_OUVERTE = false;
