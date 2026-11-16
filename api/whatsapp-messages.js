@@ -1,4 +1,4 @@
-/home/user/work/wm-merged.js
+/home/user/work/wm2.js
 // ============================================================================
 // Agent SAV U'mob v2 — C4 : /api/whatsapp-messages — lecture des messages
 // WhatsApp enregistrés (plateforme maison C1/C4/C2)
@@ -27,7 +27,7 @@
 // Réponses : 200 ; 401 secret ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C4-IMP-1';
+var VERSION = 'C4-IMP-2';
 var SCHEMA = 'agent_sav';
 
 // null tant que la présence des colonnes C2 n'est pas confirmée ;
@@ -156,7 +156,7 @@ module.exports = async function handler(req, res) {
     return res.status(401).json({ ok: false, erreur: 'secret invalide' });
   }
 
-  // ---- C4-IMP-1 : POST {importer:[…]} → import de l'historique respond.io
+  // ---- C4-IMP-2 : POST {importer:[…]} → import de l'historique respond.io
   // (messages WhatsApp historiques récupérés de l'API Platform respond.io ;
   //  upsert sur wamid → régénérable sans doublons, max 200 par appel)
   if (req.method === 'POST') {
