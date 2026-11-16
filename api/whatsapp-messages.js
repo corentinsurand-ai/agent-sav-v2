@@ -31,7 +31,7 @@
 // Réponses : 200 ; 401 secret ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C4-MEDIA-2';
+var VERSION = 'C4-MEDIA-3';
 var SCHEMA = 'agent_sav';
 
 // null tant que la présence des colonnes C2 n'est pas confirmée ;
@@ -140,7 +140,7 @@ module.exports = async function handler(req, res) {
     if (req.method !== 'GET') return res.status(405).json({ ok: false, erreur: 'methode non autorisee' });
     var authW = require('../lib/auth');
     if (!authW.authentifierRequete(secretDe(req), jetonDe(req)).ok) {
-      return res.status(401).json({ ok: false, erreur: 'secret invalide' });
+      return res.status(401).json({ ok: false, erreur: 'secret invalide', version: VERSION });
     }
     var urlS = env('SUPABASE_URL').replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
     var anonS = env('SUPABASE_ANON_KEY') || '';
@@ -159,7 +159,7 @@ module.exports = async function handler(req, res) {
 
   var authA = require('../lib/auth');
   if (!authA.authentifierRequete(secretDe(req), jetonDe(req)).ok) {
-    return res.status(401).json({ ok: false, erreur: 'secret invalide' });
+    return res.status(401).json({ ok: false, erreur: 'secret invalide', version: VERSION });
   }
 
   // ---- C4-IMP-2 : POST {importer:[…]} → import de l'historique respond.io

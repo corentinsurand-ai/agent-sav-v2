@@ -1071,6 +1071,7 @@
   <button class="btn-nouv btn-mob" id="btn-mob-filtres" onclick="basculerVueMobile(VUE_MOBILE === 'volet-filtres' ? 'volet-liste' : 'volet-filtres')" title="Filtres">☰</button>
   <button class="btn-nouv btn-mob" id="btn-mob-liste" onclick="basculerVueMobile('volet-liste')" title="Conversations">💬</button>
   <div class="spacer"></div>
+  <span class="badge-ver" id="badge-ver" title="Version de la plateforme chargée dans ce navigateur">…</span>
   <button class="btn-nouv" id="btn-nouv" onclick="ouvrirNouveaux()">🔔 Nouveaux messages<span class="n" id="btn-nouv-n">0</span></button>
   <button class="btn-nouv" id="btn-newconv" onclick="ouvrirNouvelleConv()" title="Démarrer une conversation avec un nouveau contact (numéro WhatsApp ou adresse email) — le premier message part réellement">➕ Nouvelle conversation</button>
   <button class="btn-nouv" onclick="ouvrirNotifs()" title="Assignations et tags reçus">🔔 Notifications<span class="n" id="btn-notif-n">0</span></button>
@@ -6278,6 +6279,8 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
+var VER_FRONT = 'v101 · C4-MEDIA-3 · C40-PHOTOS';
+try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
 if (!sessionDe()) afficherPorte();   /* v32 : sans session → porte de connexion */

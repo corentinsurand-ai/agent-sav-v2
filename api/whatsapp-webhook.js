@@ -46,6 +46,7 @@
 // ============================================================================
 
 var SCHEMA = 'agent_sav';
+var VERSION = 'C40-PHOTOS-v101';
 var BUCKET_MEDIA = 'wa-media';
 var GRAPH_VERSION = 'v21.0';
 var media = require('../lib/media');
@@ -245,11 +246,11 @@ module.exports = async function handler(req, res) {
     if (mode === 'subscribe' && token && token === attendu && challenge) {
       return res.status(200).send(challenge);
     }
-    return res.status(403).send('verification echouee');
+    return res.status(403).json({ ok: false, erreur: 'verification echouee', version: VERSION });
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ ok: false, erreur: 'methode non autorisee' });
+    return res.status(405).json({ ok: false, erreur: 'methode non autorisee', version: VERSION });
   }
 
   // POST : enregistrer les messages + statuts — 200 TOUJOURS (même si
