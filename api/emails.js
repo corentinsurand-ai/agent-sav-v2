@@ -1,7 +1,4 @@
-successfully downloaded text file (SHA: 852c44f9bddbfd61a339e3db9a9eb1fad7dc5251)
-resource
-successfully downloaded text file (SHA: ce48af1c27371dc89432f475b649894bbba7e752)
-resource
+/home/user/work/emails.js
 // ============================================================================
 // Agent SAV U'mob v2 — C5.2 : /api/emails — Email entrant + lecture, UNE route
 //
@@ -125,12 +122,16 @@ async function poller(user, pass, host) {
   try {
     var uids;
     if (dernierUid === 0) {
-      // v46: aucun uid_imap en base (imports respond.io sans uid) -> prendre le UIDNEXT de la boite
+      // v47: aucun uid_imap en base (imports respond.io sans uid) -> point de
+      // reprise via UID SEARCH ALL (commande eprouvee) : on recule de
+      // MAX_PAR_RUN pour importer les derniers messages de la boite.
       try {
-        var rS = await boite.api.command('STATUS INBOX (UIDNEXT)');
-        var mn = /UIDNEXT (\d+)/.exec(rS);
-        if (mn) dernierUid = Math.max(0, parseInt(mn[1], 10) - 1 - MAX_PAR_RUN);
-      } catch (eS) {}
+        var rAll = await boite.api.command('UID SEARCH ALL');
+        var nums = (String(rAll).match(/\d+/g) || []).map(Number).filter(function (n) { return n > 100; });
+        var maxUid = nums.length ? Math.max.apply(null, nums) : 0;
+        resultat.debug_uidmax = maxUid;
+        if (maxUid > 0) dernierUid = Math.max(0, maxUid - MAX_PAR_RUN);
+      } catch (eS) { resultat.debug_uidmax = 'ERR:' + String(eS && eS.message || eS).substring(0, 120); }
     }
     uids = await boite.chercherNouveaux(dernierUid, MAX_PAR_RUN);
     resultat.uids = uids;
