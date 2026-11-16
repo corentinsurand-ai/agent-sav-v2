@@ -1,3 +1,4 @@
+/home/user/work/wa-config-probe.js
 // ============================================================================
 // Agent SAV U'mob v2 — /api/wa-config — config publique Supabase Realtime
 // RÔLE : renvoyer au navigateur l'URL Supabase + la clé ANON (publique) pour
@@ -47,7 +48,7 @@ module.exports = async function handler(req, res) {
 
   var authA = require('../lib/auth');
   if (!authA.authentifierRequete(secretDe(req), jetonDe(req)).ok) {
-    return res.status(401).json({ ok: false, erreur: 'secret invalide' });
+    return res.status(401).json({ ok: false, erreur: 'secret invalide PROBE48' });
   }
   var url = env('SUPABASE_URL').replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
   var anon = env('SUPABASE_ANON_KEY') || '';
