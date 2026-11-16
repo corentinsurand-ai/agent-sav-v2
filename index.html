@@ -2659,7 +2659,11 @@ function corpsMsgHtml(msg, rech) {
   }
   var t = String(msg.txt || "");
   var mm = t.match(/^\[modèle ([^\]]+)\]/);           /* v41: afficher le corps du modèle, pas juste « [modèle …] » */
-  if (mm) { var moT = MODELES_WA.filter(function(x){ return x.nom === mm[1]; })[0]; if (moT) t = moT.txt; }
+  if (mm) {
+    var moT = MODELES_WA.filter(function(x){ return x.nom === mm[1]; })[0];
+    if (moT) t = moT.txt;
+    return '<span class="tag" style="background:#e2f0fc;color:#0e5aa7;" title="Envoyé via le modèle WhatsApp approuvé « ' + mm[1] + ' »">🗨 modèle ' + mm[1] + '</span><br>' + surligner(t, rech) + citeHtml(msg, rech);
+  }
   return surligner(t, rech) + citeHtml(msg, rech);
 }
 /* Signature email re-formatée : le texte brut aplati tout sur une ligne —
@@ -4130,7 +4134,7 @@ function convAvatarHtml(nom, canal, gd) {
 function extraitAff(c) {
   var t = String(c.extrait || "");
   var mm = t.match(/^\[modèle ([^\]]+)\]/);
-  if (mm) { var mo = MODELES_WA.filter(function(x){ return x.nom === mm[1]; })[0]; if (mo) t = mo.txt; }
+  if (mm) { var mo = MODELES_WA.filter(function(x){ return x.nom === mm[1]; })[0]; if (mo) t = "🗨 " + mo.txt; }
   return t;
 }
 function dessinerConv(c, conteneur) {
