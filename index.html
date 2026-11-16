@@ -1,5 +1,4 @@
 
-
 <!doctype html>
 <html lang="fr">
 <head>
@@ -262,6 +261,8 @@
   .collab { align-self: flex-end; background: #DDF1EA; border: 1px solid #A7D6C3; border-top-right-radius: 3px; }
   .collab .h { color: #0e766e; font-weight: 600; }
   .bulle .mini { max-width: 220px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-top: 6px; background: #E7E9E0; height: 90px; width: 150px; color: var(--mut); font-size: 11px; }
+  /* C40-PHOTOS : photo reçue via WhatsApp (mépendia stocké, URL publique) */
+  .bulle .msg-img { display: block; max-width: 240px; max-height: 280px; border-radius: 10px; margin-top: 6px; cursor: zoom-in; border: 1px solid var(--bord2); }
 
   .commentaires { border-top: 1px solid var(--bord); background: #FFFCF2; padding: 10px 18px 12px; }
   .commentaires h4 { font-size: 11px; color: #8a6d1a; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
@@ -2247,9 +2248,9 @@ function creerConvsProspects(parWa) {
       if (m.sens === "sortant") {
         var sr = m.statut_reception;
         var st = sr === "sent" ? "envoye" : sr === "delivered" ? "distribue" : sr === "read" ? "lu" : null;
-        return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid };
+        return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
       }
-      return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid };
+      return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
     });
     var dernier = fil[fil.length - 1];
     var cy = p.cycle === "Attente interne" ? "Attente client" : p.cycle;
@@ -2323,9 +2324,9 @@ function chargerMessagesWhatsApp(base, secret, cb) {
             /* C8-IMP-2 : vrai expéditeur respond.io (brut sender_nom — l'API
                n'exposait pas l'expéditeur avant) ; source api → « Agent IA ». */
             if (m.sens === "sortant") {
-              return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid };
+              return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
             }
-            return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid };
+            return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
           });
           /* conversation existante du même contact (ex. créée par un chargement
              Email arrivé avant) → fusion, pas de nouvelle conversation */
@@ -2367,9 +2368,9 @@ function chargerMessagesWhatsApp(base, secret, cb) {
             var st = sr === "sent" ? "envoye" : sr === "delivered" ? "distribue" : sr === "read" ? "lu" : null;
             /* C8-IMP-2 : vrai expéditeur (branche TEST_WA aussi — leçon v21 :
                les 2 branches dupliquées évoluent ENSEMBLE). */
-            return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid };
+            return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
           }
-          return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid };
+          return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
         });
         var ex = convDuContact("+" + d);
         if (ex) { fusionnerFil(ex, fil); qualifierCycleRio(ex, cycleRioTel(d)); qualifierAssignRio(ex, assignRioTel(d)); creees++; return; }
@@ -2608,9 +2609,9 @@ function chargerHistoriqueConv(c) {
         var sr = m.statut_reception;
         var st = sr === "sent" ? "envoye" : sr === "delivered" ? "distribue" : sr === "read" ? "lu" : null;
         if (m.sens === "sortant") {
-          return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid };
+          return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
         }
-        return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid };
+        return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
       });
       fusionnerFil(c, fil);
       c.dateLbl = dateLblDe(c, 0);
@@ -2653,6 +2654,26 @@ function citeHtml(msg, rech) {
    en data URI) ; sinon, bulle texte habituelle + citation repliée. */
 function escapeAttr(x) {
   return String(x == null ? "" : x).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+}
+/* C40-PHOTOS : média WhatsApp reçu — l'API renvoie brut->_media = {kind,id,mime,caption,url}
+   (rempli par /api/whatsapp-webhook, média téléchargé dans le bucket public wa-media). */
+function waPhotoDe(m) {
+  var md = m && m._media;
+  if (md && md.kind === "image" && md.url) return String(md.url);
+  return "";
+}
+function waMediaLien(m) {
+  var md = m && m._media;
+  if (md && md.kind && md.kind !== "image" && md.url) return { kind: md.kind, url: String(md.url) };
+  return null;
+}
+function photoHtml(msg) {
+  if (!msg) return "";
+  var p = waPhotoDe(msg);
+  if (p) return '<a href="' + escapeAttr(p) + '" target="_blank" rel="noopener" title="Ouvrir la photo en grand"><img class="msg-img" loading="lazy" src="' + escapeAttr(p) + '" alt="Photo reçue via WhatsApp"></a>';
+  var l = waMediaLien(msg);
+  if (l) return '<div class="pj">🎞 média ' + escTxt(l.kind) + ' — <a href="' + escapeAttr(l.url) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">ouvrir</a></div>';
+  return "";
 }
 function corpsMsgHtml(msg, rech) {
   if (msg && msg.html) {
@@ -4297,7 +4318,7 @@ function renduFil() {
       b.title = "Message " + kc;
       if (RECH_FIL && (String(msg.suj || "") + " " + msg.txt).toLowerCase().indexOf(RECH_FIL.toLowerCase()) < 0) b.classList.add("sans"); else nbTrouves++;
 
-      b.innerHTML = '<div class="h"><span class="h-qui">'+auteurMsg(msg)+'</span> · '+msg.t+' '+(kc ? logoCanal(kc) : '')+cocheHtml(statutDe(msg, c.fil))+'</div>'+objetHtml(msg, RECH_FIL)+corpsMsgHtml(msg, RECH_FIL)+expediteurHtml(msg) +
+      b.innerHTML = '<div class="h"><span class="h-qui">'+auteurMsg(msg)+'</span> · '+msg.t+' '+(kc ? logoCanal(kc) : '')+cocheHtml(statutDe(msg, c.fil))+'</div>'+objetHtml(msg, RECH_FIL)+corpsMsgHtml(msg, RECH_FIL)+photoHtml(msg)+expediteurHtml(msg) +
         (msg.pj ? (msg.img
             ? '<div class="mini" style="'+(msg.url ? 'background-image:url(' + msg.url + ');background-size:cover;' : '')+'">'+(msg.url ? "" : "🖼 " + msg.pj)+'</div>'
             : '<div class="pj">📎 <b>' + msg.pj + '</b> · ' + msg.taille + '</div>')
@@ -4340,7 +4361,7 @@ function renduFil() {
       b.title = "Message " + kc;
       if (RECH_FIL && (String(msg.suj || "") + " " + msg.txt).toLowerCase().indexOf(RECH_FIL.toLowerCase()) < 0) b.classList.add("sans"); else nbTrouves++;
       var qui = auteurMsg(msg) + (msg.qui === "client" ? " · " + e.nom : "");
-      b.innerHTML = '<div class="h"><span class="h-qui">' + qui + '</span> · ' + msg.t + ' ' + (kc ? logoCanal(kc) : '') + cocheHtml(statutDe(msg, e.fil)) + '</div>' + objetHtml(msg, RECH_FIL) + corpsMsgHtml(msg, RECH_FIL) + expediteurHtml(msg) +
+      b.innerHTML = '<div class="h"><span class="h-qui">' + qui + '</span> · ' + msg.t + ' ' + (kc ? logoCanal(kc) : '') + cocheHtml(statutDe(msg, e.fil)) + '</div>' + objetHtml(msg, RECH_FIL) + corpsMsgHtml(msg, RECH_FIL) + photoHtml(msg) + expediteurHtml(msg) +
         (msg.img ? '<div class="mini">📷 photo</div>' : '');
       m.appendChild(b);
     });
@@ -6243,3 +6264,4 @@ renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); ma
 </script>
 </body>
 </html>
+

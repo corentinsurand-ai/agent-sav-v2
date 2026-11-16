@@ -1,4 +1,3 @@
-/home/user/work/wm2.js
 // ============================================================================
 // Agent SAV U'mob v2 — C4 : /api/whatsapp-messages — lecture des messages
 // WhatsApp enregistrés (plateforme maison C1/C4/C2)
@@ -9,6 +8,9 @@
 // Depuis C4-LEC-2 : les messages ENVOYÉS (sens='sortant', brique C2) sont
 // renvoyés aussi, avec leur statut de distribution (statut_reception :
 // sent | delivered | read | failed) → ✓/✓✓/✓✓ bleu dans le canvas.
+// Depuis C4-MEDIA-1 (16/11) : brut->_media (URL publique du média stocké
+// dans le bucket wa-media) est renvoyé aussi → la plateforme affiche les
+// photos reçues directement dans le fil.
 //
 //   GET ?secret=<WEBHOOK_SECRET>                  → info
 //   GET ?secret=…&liste=1&limite=1000             → les derniers messages
@@ -20,6 +22,8 @@
 // COMPATIBILITÉ : si les colonnes sens/statut_reception n'existent pas
 // encore dans la table (ALTER pas exécuté), on retombe automatiquement sur
 // l'ancien select — la route ne casse jamais la plateforme pendant le setup.
+// brut->_media ne pose AUCUN problème de compatibilité : brut existe depuis
+// toujours (jsonb), la clé _media est simplement absente → null.
 //
 // CORS : Allow-Origin:* comme /api/clients-import (prototype navigateur,
 // authentification par secret jamais présent dans le code).
@@ -27,7 +31,7 @@
 // Réponses : 200 ; 401 secret ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C4-IMP-2';
+var VERSION = 'C4-MEDIA-1';
 var SCHEMA = 'agent_sav';
 
 // null tant que la présence des colonnes C2 n'est pas confirmée ;
@@ -80,7 +84,9 @@ function urlSupabase(table, params) {
 
 // C8-IMP-2 : brut->>sender_nom / sender / sender_id exposent le VRAI
 // expéditeur des messages importés respond.io (léger — pas le brut entier).
-var SELECT_BASE = 'wa_id,nom_profil,texte,type,wamid,recu_a,brut->>sender_nom,brut->>sender,brut->>sender_id';
+// C4-MEDIA-1 : brut->_media (jsonb → objet {kind,id,mime,caption,url}) expose
+// le média téléchargé par le webhook (null si absent — aucun repli requis).
+var SELECT_BASE = 'wa_id,nom_profil,texte,type,wamid,recu_a,brut->>sender_nom,brut->>sender,brut->>sender_id,brut->_media';
 var SELECT_C2 = SELECT_BASE + ',sens,statut_reception';
 
 // Lecture avec repli : tente d'abord select avec les colonnes C2
@@ -271,7 +277,7 @@ module.exports = async function handler(req, res) {
 
   return res.status(200).json({
     ok: true, brique: 'C4', version: VERSION,
-    role: 'lecture des messages WhatsApp (recus par /api/whatsapp-webhook + envoyes par /api/whatsapp-send)',
+    role: 'lecture des messages WhatsApp (recus par /api/whatsapp-webhook + envoyes par /api/whatsapp-send) + médias (brut->_media)',
     liste: 'GET ?liste=1&limite=1000 — derniers messages (canvas : regroupe par telephone)',
     tel: 'GET ?tel=33620476040 — historique chronologique d un numero'
   });
