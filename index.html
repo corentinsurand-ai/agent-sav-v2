@@ -750,7 +750,7 @@
   .conv + .conv { border-top: none; }
   .conv:hover { background: #F1F6FC; box-shadow: 0 1px 4px rgba(15,35,70,.05); }
 
-
+  .conv.on { background: #E8F1FB; box-shadow: inset 3px 0 0 var(--lime), 0 1px 4px rgba(15,35,70,.05); }
   .conv .conv-c { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   .conv .conv-l1 { display: flex; align-items: baseline; gap: 8px; }
   .conv .conv-l1 .nom { flex: 1; min-width: 0; font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1570,7 +1570,7 @@ var SOCIETES = [
       {"plaque": "HJ-480-AN", "produit": "DAILY PRO CHASSIS BLANC", "contrat": "Modèle Confort + 50 — CO02139, 05/02/2026 → 04/04/2030"}
     ], "convs": [5, 6]},
 
-
+    {"ent": "SBN (SUSHI BY NAM)", "siren": "522185636", "siege": "74 Boulevard de la Republique, 06400 Cannes", "livraison": "Même adresse", "contact_sc": "Van Nam SBN (SUSHI BY NAM) (Gérant) — 06 52 95 76 75", "risque": "Impayé", "classeR": "impaye", "scooters": [
       {"plaque": "FT-081-XY", "produit": "S5 Delivery Châssis Noir", "contrat": "Modèle Confort 48 — CO00583, 05/11/2020 → 10/11/2025"},
       {"plaque": "FV-768-DZ", "produit": "S5 DELIVERY CHASSIS NOIR", "contrat": "Modèle Confort 48 — CO01424, 20/11/2020 → 19/11/2024"},
       {"plaque": "FV-937-DZ", "produit": "S5 DELIVERY CHASSIS NOIR", "contrat": "Modèle Confort 48 — CO01424, 20/11/2020 → 19/11/2024"},
@@ -2595,7 +2595,7 @@ function fusionnerFil(c, fil) {
   var tnlF = toutNonLuTs();
   if (tnlF && luMax && luMax < tnlF) luMax = 0;
   var tsDer = (der && der.ts) ? new Date(der.ts).getTime() : 0;
-
+  c.lu = (!luMax || tsDer > luMax) ? false : true;
   if (der && der.canal) c.canal = der.canal;
 }
 /* C11-HIST : l'API globale plafonne à 1000 messages (fenêtre des plus récents)
@@ -3698,7 +3698,7 @@ function envoyerProposition(idx, canal) {
     var p1 = document.getElementById("prop-param1");
     var modeleW = MODELES_WA.filter(function(mo) { return mo.nom === WA_MODELE_MAINTENANCE.nom; })[0] || {};
     var avecVars = modeleW.variables === true;
-
+    corps = { jeton: secret, tel: dest,
       template: { nom: WA_MODELE_MAINTENANCE.nom, langue: WA_MODELE_MAINTENANCE.langue,
         params: avecVars ? [((p1 && p1.value) || "").trim() || prenomContact(s) || ""] : [] } };
   } else {
@@ -4849,7 +4849,7 @@ function renduPageCarnet() {
       (s ?
       '<div class="cp-section"><h3>🏢 Société</h3>' +
         '<div class="cp-ligne"><span class="lab">Enseigne</span><span class="val"><b>' + s.ent + '</b> <span class="risque ' + s.classeR + '">' + s.risque + '</span></span></div>' +
-
+        '<div class="cp-ligne"><span class="lab">SIREN</span><span class="val"><b>' + s.siren + '</b></span></div>' +
         '<div class="cp-ligne"><span class="lab">Siège</span><span class="val">' + s.siege + '</span></div>' +
         '<div class="cp-ligne"><span class="lab">Livraison</span><span class="val">' + s.livraison + '</span></div>' +
         '<div class="cp-ligne"><span class="lab">Contact SC</span><span class="val">' + s.contact_sc + '</span></div>' +
@@ -6020,7 +6020,7 @@ function creerCompte() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ utilisateur: { email: email, nom: nom, role: role, mot_de_passe: mdp } })
-
+  }).then(function(r){ return r.json(); }).then(function(rep){
     if (!rep.ok) { msg.textContent = rep.erreur || "échec de la création."; return; }
     msg.textContent = "";
     document.getElementById("cpt-nom").value = ""; document.getElementById("cpt-email").value = ""; document.getElementById("cpt-mdp").value = "";
