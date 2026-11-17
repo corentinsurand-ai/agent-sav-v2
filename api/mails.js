@@ -396,6 +396,25 @@ module.exports = async function (req, res) {
       } catch (eLst) { return repondre(res, 502, { ok: false, erreur: String(eLst && eLst.message || eLst).substring(0, 300) }); }
     }
 
+    // ---- MODE DEBUG v53 : STATUS d'un dossier quelconque + UID SEARCH ALL
+    if (u.searchParams.get('folderstatus')) {
+      var hF = process.env.SMTP_HOST, uF = process.env.SMTP_USER, pF = process.env.SMTP_PASS;
+      if (!hF || !uF || !pF) return repondre(res, 500, { ok: false, erreur: 'config SMTP absente' });
+      try {
+        var imapF = require('../lib/imap');
+        var boiteF = await imapF.ouvrirBoite({ host: hF, user: uF, pass: pF });
+        var dossier = decodeURIComponent(u.searchParams.get('folderstatus'));
+        var nomDossier = '"' + dossier.replace(/(["\\])/g, '\\$1') + '"';
+        var outF = { ok: true, user: uF, dossier: dossier };
+        try {
+          outF.status = await boiteF.api.command('STATUS ' + nomDossier + ' (MESSAGES UIDNEXT UNSEEN)');
+          await boiteF.api.command('SELECT ' + nomDossier);
+          outF.searchAll = await boiteF.api.command('UID SEARCH ALL');
+        } finally { try { if (boiteF.api.detruire) boiteF.api.detruire(); } catch (eF2) {} }
+        return repondre(res, 200, outF);
+      } catch (eFt) { return repondre(res, 502, { ok: false, erreur: String(eFt && eFt.message || eFt).substring(0, 300) }); }
+    }
+
     // ---- MODE DEBUG v50 : STATUS INBOX (MESSAGES / UIDNEXT / UNSEEN) + UID SEARCH ALL
     if (u.searchParams.get('inboxstatus') === '1') {
       var hS = process.env.SMTP_HOST, uS = process.env.SMTP_USER, pS = process.env.SMTP_PASS;
