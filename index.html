@@ -3437,7 +3437,7 @@ function envoyerMessageWaReel(c, inp, v) {
       finEnvoi();
       return;  // le message n'est PAS ajouté au fil, le champ est conservé
     }
-    c.fil.push({ qui: "agent", de: MOI, t: h, txt: v, canal: "WhatsApp", wa: true, st: "envoye" });
+    c.fil.push({ qui: "agent", de: MOI, t: h, txt: v, canal: "WhatsApp", wa: true, st: "envoye", wamid: (rep.j.wamid || "") });   /* v106: wamid pour dédup + maj statut */
     c.extrait = v; c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
     if (inp) inp.value = ""; majHauteurSaisie();
@@ -3491,7 +3491,7 @@ function envoyerModeleWa(nomModele) {
       }
       return;
     }
-    c.fil.push({ qui: "agent", de: MOI, t: h, txt: txtAff, canal: "WhatsApp", wa: true, st: "envoye", tpl: mo.nom });
+    c.fil.push({ qui: "agent", de: MOI, t: h, txt: txtAff, canal: "WhatsApp", wa: true, st: "envoye", tpl: mo.nom, wamid: (rep.j.wamid || "") });   /* v106 */
     c.extrait = txtAff; c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
     renduFil(); renduListe(); rafraichirFiche(); majBadgeNouveaux();
@@ -3540,7 +3540,7 @@ function envoyerModeleWa(nomModele) {
       finEnvoi();
       return;  // le message n'est PAS ajouté au fil, le champ est conservé
     }
-    c.fil.push(Object.assign({ qui: "agent", de: MOI, t: h, txt: texteFinal, suj: sujet, canal: "Email", st: "envoye" }, htmlFinal ? { html: htmlFinal } : {}));
+    c.fil.push(Object.assign({ qui: "agent", de: MOI, t: h, txt: texteFinal, suj: sujet, canal: "Email", st: "envoye", mid: (rep.j.message_id || "") }, htmlFinal ? { html: htmlFinal } : {}));   /* v106: mid pour dédup */
     c.extrait = v; c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
     if (inp) inp.value = ""; majHauteurSaisie();
@@ -6291,7 +6291,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v105 · C4-MEDIA-3 · C40-PHOTOS';
+var VER_FRONT = 'v106 · C4-MEDIA-3 · C40-PHOTOS';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
