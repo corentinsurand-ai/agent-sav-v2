@@ -4034,7 +4034,7 @@ function surligner(txt, q) {
   if (i < 0) return txt;
   return txt.slice(0, i) + "<mark>" + txt.slice(i, i + q.length) + "</mark>" + surligner(txt.slice(i + q.length), q);
 }
-var SELID = 1;
+var SELID = null;   /* v114: au rechargement, aucune conversation pré-sélectionnée (liste seule) */
 var SELSENT = null;
 var VUE = "contact";   /* v110: vue par défaut = liste plate triée par date du dernier message */
 var GRP_OUVERTS = {}; /* état ▸/▾ par entreprise (triangle dans la liste) */
