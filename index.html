@@ -2248,9 +2248,9 @@ function creerConvsProspects(parWa) {
       if (m.sens === "sortant") {
         var sr = m.statut_reception;
         var st = sr === "sent" ? "envoye" : sr === "delivered" ? "distribue" : sr === "read" ? "lu" : null;
-        return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
+        return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
       }
-      return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
+      return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
     });
     var dernier = fil[fil.length - 1];
     var cy = p.cycle === "Attente interne" ? "Attente client" : p.cycle;
@@ -2324,9 +2324,9 @@ function chargerMessagesWhatsApp(base, secret, cb) {
             /* C8-IMP-2 : vrai expéditeur respond.io (brut sender_nom — l'API
                n'exposait pas l'expéditeur avant) ; source api → « Agent IA ». */
             if (m.sens === "sortant") {
-              return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
+              return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
             }
-            return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
+            return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
           });
           /* conversation existante du même contact (ex. créée par un chargement
              Email arrivé avant) → fusion, pas de nouvelle conversation */
@@ -2368,9 +2368,9 @@ function chargerMessagesWhatsApp(base, secret, cb) {
             var st = sr === "sent" ? "envoye" : sr === "delivered" ? "distribue" : sr === "read" ? "lu" : null;
             /* C8-IMP-2 : vrai expéditeur (branche TEST_WA aussi — leçon v21 :
                les 2 branches dupliquées évoluent ENSEMBLE). */
-            return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
+            return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
           }
-          return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
+          return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
         });
         var ex = convDuContact("+" + d);
         if (ex) { fusionnerFil(ex, fil); qualifierCycleRio(ex, cycleRioTel(d)); qualifierAssignRio(ex, assignRioTel(d)); creees++; return; }
@@ -2631,9 +2631,9 @@ function chargerHistoriqueConv(c) {
         var sr = m.statut_reception;
         var st = sr === "sent" ? "envoye" : sr === "delivered" ? "distribue" : sr === "read" ? "lu" : null;
         if (m.sens === "sortant") {
-          return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
+          return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
         }
-        return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m) };
+        return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
       });
       fusionnerFil(c, fil);
       c.dateLbl = dateLblDe(c, 0);
@@ -2681,17 +2681,19 @@ function escapeAttr(x) {
    (rempli par /api/whatsapp-webhook, média téléchargé dans le bucket public wa-media). */
 function waPhotoDe(m) {
   var md = m && m._media;
+  if (typeof md === "string") { try { md = JSON.parse(md); } catch (e) { md = null; } }
   if (md && md.kind === "image" && md.url) return String(md.url);
   return "";
 }
 function waMediaLien(m) {
   var md = m && m._media;
+  if (typeof md === "string") { try { md = JSON.parse(md); } catch (e) { md = null; } }
   if (md && md.kind && md.kind !== "image" && md.url) return { kind: md.kind, url: String(md.url) };
   return null;
 }
 function photoHtml(msg) {
   if (!msg) return "";
-  var p = waPhotoDe(msg);
+  var p = msg.photo || waPhotoDe(msg);   // v104: l'entrée de fil porte photo (URL), pas _media
   if (p) return '<a href="' + escapeAttr(p) + '" target="_blank" rel="noopener" title="Ouvrir la photo en grand"><img class="msg-img" loading="lazy" src="' + escapeAttr(p) + '" alt="Photo reçue via WhatsApp"></a>';
   var l = waMediaLien(msg);
   if (l) return '<div class="pj">🎞 média ' + escTxt(l.kind) + ' — <a href="' + escapeAttr(l.url) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">ouvrir</a></div>';
@@ -6279,7 +6281,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v103 · C4-MEDIA-3 · C40-PHOTOS';
+var VER_FRONT = 'v104 · C4-MEDIA-3 · C40-PHOTOS';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
