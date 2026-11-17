@@ -1,3 +1,4 @@
+/home/user/work/emails.js
 // ============================================================================
 // Agent SAV U'mob v2 — C5.2 : /api/emails — Email entrant + lecture, UNE route
 //
@@ -394,6 +395,24 @@ module.exports = async function (req, res) {
         try { listeL = await boiteL.api.command('LIST "" "*"'); } finally { try { if (boiteL.api.detruire) boiteL.api.detruire(); } catch (eL) {} }
         return repondre(res, 200, { ok: true, user: uL, list: listeL });
       } catch (eLst) { return repondre(res, 502, { ok: false, erreur: String(eLst && eLst.message || eLst).substring(0, 300) }); }
+    }
+
+    // ---- MODE DEBUG v50 : STATUS INBOX (MESSAGES / UIDNEXT / UNSEEN) + UID SEARCH ALL
+    if (u.searchParams.get('inboxstatus') === '1') {
+      var hS = process.env.SMTP_HOST, uS = process.env.SMTP_USER, pS = process.env.SMTP_PASS;
+      if (!hS || !uS || !pS) return repondre(res, 500, { ok: false, erreur: 'config SMTP absente' });
+      try {
+        var imapS = require('../lib/imap');
+        var boiteS = await imapS.ouvrirBoite({ host: hS, user: uS, pass: pS });
+        var outS = { ok: true, user: uS };
+        try {
+          outS.status = await boiteS.api.command('STATUS INBOX (MESSAGES UIDNEXT UIDVALIDITY UNSEEN)');
+          outS.searchAll = await boiteS.api.command('UID SEARCH ALL');
+          outS.searchLast = await boiteS.api.command('UID SEARCH UID 199982:*');
+          outS.searchRecent = await boiteS.api.command('UID SEARCH UID 199900:*');
+        } finally { try { if (boiteS.api.detruire) boiteS.api.detruire(); } catch (eS2) {} }
+        return repondre(res, 200, outS);
+      } catch (eSt) { return repondre(res, 502, { ok: false, erreur: String(eSt && eSt.message || eSt).substring(0, 300) }); }
     }
 
     // ---- MODE DEBUG C5-ENV-3 : essayer des variantes d'APPEND ------------
