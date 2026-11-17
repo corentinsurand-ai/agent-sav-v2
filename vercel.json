@@ -1,3 +1,4 @@
+/home/user/work/vercel.json
 {
   "version": 2,
   "regions": [
@@ -13,6 +14,10 @@
     {
       "source": "/api/wa-config",
       "destination": "/api/whatsapp-messages?waConfig=1"
+    },
+    {
+      "source": "/api/emails",
+      "destination": "/api/mails"
     }
   ]
 }
