@@ -2410,11 +2410,11 @@ function chargerMessagesWhatsApp(base, secret, cb) {
             .then(function(r) { return r.json(); })
             .then(function(rep) {
               if (!rep || !rep.ok) return;
-              if (rep.stockes > 0) pushLog("🖼 " + rep.stockes + " média(s) rattrapé(s) (reçus avant C40-PHOTOS).");
-              if (rep.a_traiter > 0 && rep.traites > 0 && n < 10) {
+              if (rep.stockes > 0) {
+                pushLog("🖼 " + rep.stockes + " média(s) rattrapé(s) (reçus avant C40-PHOTOS).");
+                chargerMessagesWhatsApp(base, secret, null);   // v102: recharge immediate pour afficher les photos
+              } else if (rep.a_traiter > 0 && rep.traites > 0 && n < 10) {
                 setTimeout(function() { backfillMedia(n + 1); }, 1200);
-              } else if (rep.stockes > 0) {
-                chargerMessagesWhatsApp(base, secret, null);
               }
             })
             .catch(function() {});
@@ -6279,7 +6279,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v101 · C4-MEDIA-3 · C40-PHOTOS';
+var VER_FRONT = 'v103 · C4-MEDIA-3 · C40-PHOTOS';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
