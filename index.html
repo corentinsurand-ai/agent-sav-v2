@@ -1157,7 +1157,7 @@
     <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet"><button class="volet-pli" onclick="event.stopPropagation();plierVolet('volet-liste')" title="Réduire / agrandir ce volet">‹</button><span class="vt">Conversations</span> <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
     <div class="liste-head">
       <b>Conversations</b>
-      <input class="rech-conv" id="rech-conv" placeholder="🔎 Tél, plaque, nom, entreprise…" oninput="RECH_TXT = this.value; renduListe();" />
+      <input class="rech-conv" id="rech-conv" placeholder="🔎 Tél, plaque, nom, entreprise…" oninput="RECH_TXT = this.value; saverRech(); renduListe();" />
       <span class="compteur" id="rech-nb" title="Nombre de résultats de la recherche"></span>
       <span class="compteur" id="nb"></span>
       <button class="btn" title="Rafraîchir" onclick="alert('Dans la vraie C1 : recharge via l\u2019API respond.io (lecture seule).')">⟳</button>
@@ -2047,6 +2047,7 @@ function chargerVraisClients() {
             chargerActions(base, s.jeton);
             /* v116 : restaure la sélection persistée (conversation/groupe + vue) */
             try { var v0 = localStorage.getItem("umob_vue"); if (v0 === "entreprise" || v0 === "contact") { VUE = v0; document.getElementById("tg-ent").classList.toggle("on", VUE === "entreprise"); document.getElementById("tg-ctc").classList.toggle("on", VUE === "contact"); renduListe(); } } catch (e) {}
+            restaurerFiltres();
             restaurerSelection();
             AUTO_DERNIERE = Date.now(); majBadgeAuto(); demarrerAuto();
           });
@@ -4057,8 +4058,26 @@ function filtre(type, val, el) {
   document.querySelectorAll("["+attr+"]").forEach(function(c){ c.classList.remove("on"); });
   el.classList.add("on");
   MESCY_ON = null;
+  saverFx();   /* v117: filtres persistés au rechargement */
   renduMesCycles();
   renduListe();
+}
+/* v117 : état des filtres + recherche persisté (localStorage) et restauré
+   au chargement → F5 = on retrouve exactement la liste telle qu'elle était. */
+function saverFx() { try { localStorage.setItem("umob_fx", JSON.stringify(FX)); } catch (e) {} }
+function saverRech() { try { localStorage.setItem("umob_rech", RECH_TXT || ""); } catch (e) {} }
+function restaurerFiltres() {
+  try {
+    var fx = JSON.parse(localStorage.getItem("umob_fx") || "null");
+    if (fx && typeof fx === "object") {
+      FX.canal = fx.canal || "tous"; FX.cycle = fx.cycle || "tous"; FX.ass = fx.ass || "tous";
+      document.querySelectorAll("[data-fc]").forEach(function(c){ c.classList.toggle("on", c.getAttribute("data-fc") === FX.canal); });
+      document.querySelectorAll("[data-fx]").forEach(function(c){ c.classList.toggle("on", c.getAttribute("data-fx") === FX.cycle); });
+      document.querySelectorAll("[data-fa]").forEach(function(c){ c.classList.toggle("on", c.getAttribute("data-fa") === FX.ass); });
+    }
+    var r = localStorage.getItem("umob_rech") || "";
+    if (r) { RECH_TXT = r; var inp = document.getElementById("rech-conv"); if (inp) inp.value = r; }
+  } catch (e) {}
 }
 
 /* ===== Sections du volet filtres : repliables au clic sur le titre ===== */
