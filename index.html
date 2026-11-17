@@ -2555,12 +2555,22 @@ function fusionnerFil(c, fil) {
     return "k:" + String(f.ts || "") + "|" + String(f.canal || "") + "|" + String(f.qui || "") + "|" + String(f.txt || "").substring(0, 100);
   }
   var vus = {};
-  (c.fil || []).forEach(function(f) { vus[cleDe(f)] = 1; });
+  (c.fil || []).forEach(function(f, i) { vus[cleDe(f)] = i; });
   var nouveaux = [];
   (fil || []).forEach(function(f) {
     var k = cleDe(f);
-    if (vus[k]) return;
-    vus[k] = 1;
+    if (vus[k] !== undefined) {
+      /* v105 : entrée déjà présente → on MET À JOUR son statut (sent → delivered → read)
+         et sa photo (rattrapée par le backfill) au lieu de l'ignorer. */
+      var old = (c.fil || [])[vus[k]];
+      if (old) {
+        if (f.st) old.st = f.st;
+        if (f.photo) old.photo = f.photo;
+        if (f._media) old._media = f._media;
+      }
+      return;
+    }
+    vus[k] = (c.fil || []).length + nouveaux.length;
     nouveaux.push(f);
   });
   if (nouveaux.length) {
@@ -6281,7 +6291,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v104 · C4-MEDIA-3 · C40-PHOTOS';
+var VER_FRONT = 'v105 · C4-MEDIA-3 · C40-PHOTOS';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
