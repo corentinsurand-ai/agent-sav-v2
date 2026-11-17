@@ -4938,6 +4938,10 @@ function creerFicheSociete() {
     vraisContacts: [{ nom: nom || enseigne, tel: telE164(tel), plaque: plaque, email: email }]
   };
   SOCIETES.push(sNew);
+  /* v122 : la fiche est persistée (action "societe", clé stable SOC:<enseigne
+     normalisée>) → rejouée sur tous les postes : un collègue la voit aussi. */
+  persisterAction("societe", "SOC:" + normTxt(enseigne), JSON.stringify(sNew), null);
+  actIndex("SOC:" + normTxt(enseigne)).societe = true;
   renduCarnet();
   ouvrirPageSociete(enseigne);
   pushLog("🏢 Fiche entreprise créée : " + enseigne + " (aucune conversation lancée — bouton 💬 Lancer sur la fiche).");
@@ -5882,6 +5886,22 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
             if (sB && sB.convs.indexOf(cE.id) < 0) sB.convs.push(cE.id);
             n++;
           }
+        } else if (typ === "societe") {
+          /* v122 : fiche entreprise créée par un collègue (bouton ➕ Nouvelle
+             fiche) → recréée ici si absente du carnet (dédup par enseigne
+             normalisée). Les conversations rattachées à cette enseigne
+             s'y retrouvent dès que leurs messages sont chargés. */
+          try {
+            var sN = JSON.parse(String(d.valeur || ""));
+            if (sN && sN.ent && !SOCIETES.some(function(s){ return normTxt(s.ent) === normTxt(sN.ent); })) {
+              if (!Array.isArray(sN.convs)) sN.convs = [];
+              if (!Array.isArray(sN.vraisContacts)) sN.vraisContacts = [];
+              if (!Array.isArray(sN.scooters)) sN.scooters = [];
+              if (!Array.isArray(sN.maintenances)) sN.maintenances = [];
+              SOCIETES.push(sN);
+              n++;
+            }
+          } catch (e3) {}
         }
       });
       /* C18-RT : re-rendu dès qu'une action équipe change (même un simple
@@ -6505,7 +6525,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v121 · Un message envoyé (par toi ou un collègue) remonte la conversation en haut de la liste';
+var VER_FRONT = 'v122 · Les fiches entreprise créées par un collègue apparaissent chez toute l\'équipe';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
