@@ -3140,8 +3140,8 @@ function joindreFichier(inp) {  try {
     var h = new Date().toTimeString().slice(0, 5);
     var kb = f.size > 1048576 ? (f.size / 1048576).toFixed(1) + " Mo" : Math.max(1, Math.round(f.size / 1024)) + " Ko";
     var estImg = /^image\//.test(f.type);
-    try { c.fil.push({ qui: "agent", de: MOI, t: h, txt: estImg ? "🖼 " + f.name : "📎 " + f.name, canal: CANAL_ENVOI, pj: f.name, taille: kb, img: estImg, url: estImg ? URL.createObjectURL(f) : null }); }
-    catch (e) { c.fil.push({ qui: "agent", de: MOI, t: h, txt: (estImg ? "🖼 " : "📎 ") + f.name, canal: CANAL_ENVOI, pj: f.name, taille: kb }); }
+    try { c.fil.push({ qui: "agent", de: MOI, t: h, txt: estImg ? "🖼 " + f.name : "📎 " + f.name, canal: CANAL_ENVOI, pj: f.name, taille: kb, img: estImg, url: estImg ? URL.createObjectURL(f) : null, ts: new Date().toISOString() }); }
+    catch (e) { c.fil.push({ qui: "agent", de: MOI, t: h, txt: (estImg ? "🖼 " : "📎 ") + f.name, canal: CANAL_ENVOI, pj: f.name, taille: kb, ts: new Date().toISOString() }); }
     c.extrait = (estImg ? "🖼 " : "📎 ") + f.name; c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
     inp.value = "";
@@ -3421,7 +3421,7 @@ function envoyerMessage() {
     pushNotif("⚠️ Aucune adresse email connue pour ce contact — message ajouté au fil sans envoi réel.");
   }
   var h = new Date().toTimeString().slice(0, 5);
-  c.fil.push({ qui: "agent", de: MOI, t: h, txt: v, canal: CANAL_ENVOI, st: "envoye" });
+  c.fil.push({ qui: "agent", de: MOI, t: h, txt: v, canal: CANAL_ENVOI, st: "envoye", ts: new Date().toISOString() });   /* v121: ts → la conversation remonte en haut de la liste */
   c.extrait = v; c.lu = true; c.heure = h; c.delai = "à l'instant";
   c.dateLbl = dateLblDe(c, 0);
   if (inp) inp.value = ""; majHauteurSaisie();
@@ -3457,7 +3457,7 @@ function envoyerMessageWaReel(c, inp, v) {
       finEnvoi();
       return;  // le message n'est PAS ajouté au fil, le champ est conservé
     }
-    c.fil.push({ qui: "agent", de: MOI, t: h, txt: v, canal: "WhatsApp", wa: true, st: "envoye", wamid: (rep.j.wamid || "") });   /* v106: wamid pour dédup + maj statut */
+    c.fil.push({ qui: "agent", de: MOI, t: h, txt: v, canal: "WhatsApp", wa: true, st: "envoye", wamid: (rep.j.wamid || ""), ts: new Date().toISOString() });   /* v106: wamid pour dédup + maj statut · v121: ts → remonte en haut */
     c.extrait = v; c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
     if (inp) inp.value = ""; majHauteurSaisie();
@@ -3511,7 +3511,7 @@ function envoyerModeleWa(nomModele) {
       }
       return;
     }
-    c.fil.push({ qui: "agent", de: MOI, t: h, txt: txtAff, canal: "WhatsApp", wa: true, st: "envoye", tpl: mo.nom, wamid: (rep.j.wamid || "") });   /* v106 */
+    c.fil.push({ qui: "agent", de: MOI, t: h, txt: txtAff, canal: "WhatsApp", wa: true, st: "envoye", tpl: mo.nom, wamid: (rep.j.wamid || ""), ts: new Date().toISOString() });   /* v106 · v121: ts → remonte en haut */
     c.extrait = txtAff; c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
     renduFil(); renduListe(); rafraichirFiche(); majBadgeNouveaux();
@@ -3560,7 +3560,7 @@ function envoyerModeleWa(nomModele) {
       finEnvoi();
       return;  // le message n'est PAS ajouté au fil, le champ est conservé
     }
-    c.fil.push(Object.assign({ qui: "agent", de: MOI, t: h, txt: texteFinal, suj: sujet, canal: "Email", st: "envoye", mid: (rep.j.message_id || "") }, htmlFinal ? { html: htmlFinal } : {}));   /* v106: mid pour dédup */
+    c.fil.push(Object.assign({ qui: "agent", de: MOI, t: h, txt: texteFinal, suj: sujet, canal: "Email", st: "envoye", mid: (rep.j.message_id || ""), ts: new Date().toISOString() }, htmlFinal ? { html: htmlFinal } : {}));   /* v106: mid pour dédup · v121: ts → remonte en haut */
     c.extrait = v; c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
     if (inp) inp.value = ""; majHauteurSaisie();
@@ -6505,7 +6505,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v120 · Bandeau 24 h WhatsApp en alerte rouge, recalculé au refresh auto';
+var VER_FRONT = 'v121 · Un message envoyé (par toi ou un collègue) remonte la conversation en haut de la liste';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
