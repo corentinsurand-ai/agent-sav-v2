@@ -1,4 +1,3 @@
-/home/user/work/mails.js
 // ============================================================================
 // Agent SAV U'mob v2 — C5.2 : /api/emails — Email entrant + lecture, UNE route
 //
