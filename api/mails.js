@@ -396,6 +396,40 @@ module.exports = async function (req, res) {
       } catch (eLst) { return repondre(res, 502, { ok: false, erreur: String(eLst && eLst.message || eLst).substring(0, 300) }); }
     }
 
+    // ---- MODE DEBUG v55 : scanner TOUS les dossiers, chercher les messages récents (SINCE)
+    if (u.searchParams.get('scanall') === '1') {
+      var hA = process.env.SMTP_HOST, uA = process.env.SMTP_USER, pA = process.env.SMTP_PASS;
+      if (!hA || !uA || !pA) return repondre(res, 500, { ok: false, erreur: 'config SMTP absente' });
+      var since = u.searchParams.get('since') || '16-Nov-2026';
+      try {
+        var imapA = require('../lib/imap');
+        var boiteA = await imapA.ouvrirBoite({ host: hA, user: uA, pass: pA });
+        var outA = { ok: true, user: uA, since: since, dossiers: [] };
+        try {
+          var rList = await boiteA.api.command('LIST "" "*"');
+          var nomsA = [];
+          rList.split(/\r?\n/).forEach(function (l) {
+            if (l.indexOf('* LIST') !== 0) return;
+            var lit = /<LIT>([^<]*)<\/LIT>/.exec(l);
+            var cites = l.match(/"[^"]*"/g) || [];
+            var nom = lit ? lit[1] : (cites[cites.length - 1] || '').replace(/^"|"$/g, '');
+            if (nom) nomsA.push(nom);
+          });
+          for (var iA = 0; iA < nomsA.length; iA++) {
+            var nd = '"' + nomsA[iA].replace(/(["\\])/g, '\\$1') + '"';
+            try {
+              await boiteA.api.command('SELECT ' + nd);
+              var rS = await boiteA.api.command('UID SEARCH SINCE ' + since);
+              var uidsA = (rS.match(/\d+/g) || []).map(Number).filter(function (n) { return n > 100; });
+              if (uidsA.length) outA.dossiers.push({ dossier: nomsA[iA], nb: uidsA.length, max: Math.max.apply(null, uidsA) });
+            } catch (eA) {}
+          }
+          await boiteA.api.command('SELECT INBOX');
+        } finally { try { if (boiteA.api.detruire) boiteA.api.detruire(); } catch (eA2) {} }
+        return repondre(res, 200, outA);
+      } catch (eAt) { return repondre(res, 502, { ok: false, erreur: String(eAt && eAt.message || eAt).substring(0, 300) }); }
+    }
+
     // ---- MODE DEBUG v53 : STATUS d'un dossier quelconque + UID SEARCH ALL
     if (u.searchParams.get('folderstatus')) {
       var hF = process.env.SMTP_HOST, uF = process.env.SMTP_USER, pF = process.env.SMTP_PASS;
