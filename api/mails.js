@@ -415,7 +415,9 @@ module.exports = async function (req, res) {
             var nom = lit ? lit[1] : (cites[cites.length - 1] || '').replace(/^"|"$/g, '');
             if (nom) nomsA.push(nom);
           });
-          for (var iA = 0; iA < nomsA.length; iA++) {
+          var prefix = u.searchParams.get('prefix') || '';
+          if (prefix) nomsA = nomsA.filter(function (n) { return n === prefix.replace(/\/$/, '') || n.indexOf(prefix) === 0; });
+          for (var iA = 0; iA < nomsA.length && iA < 60; iA++) {
             var nd = '"' + nomsA[iA].replace(/(["\\])/g, '\\$1') + '"';
             try {
               await boiteA.api.command('SELECT ' + nd);
