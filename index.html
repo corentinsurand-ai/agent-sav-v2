@@ -1163,8 +1163,8 @@
     </div>
     <div style="padding:8px 14px;border-bottom:1px solid #eef1f5;">
       <div class="toggle">
-        <button class="on" id="tg-ent" onclick="basculeVue('entreprise')">🏢 Par entreprise</button>
-        <button id="tg-ctc" onclick="basculeVue('contact')">👤 Par contact</button>
+        <button id="tg-ent" onclick="basculeVue('entreprise')">🏢 Par entreprise</button>
+        <button class="on" id="tg-ctc" onclick="basculeVue('contact')">👤 Par contact</button>
       </div>
     </div>
     <div class="convs" id="convs"></div>
@@ -4036,7 +4036,7 @@ function surligner(txt, q) {
 }
 var SELID = 1;
 var SELSENT = null;
-var VUE = "entreprise";
+var VUE = "contact";   /* v110: vue par défaut = liste plate triée par date du dernier message */
 var GRP_OUVERTS = {}; /* état ▸/▾ par entreprise (triangle dans la liste) */
 var FICHE = false;
 
@@ -4215,34 +4215,34 @@ function renduListe() {
   if (rn) rn.textContent = RECH_TXT ? (n + " résultat" + (n > 1 ? "s" : "")) : "";
   if (VUE === "entreprise") {
     var groupes = {};
-    /* v109: les conversations SANS entreprise (hors carnet) ne sont plus
-       rendues en vrac dans le flux chrono (elles apparaissaient visuellement
-       sous le bandeau de la société juste au-dessus) → pseudo-groupe dédié. */
-    var HORS = "\u0000hors-carnet";
     liste.forEach(function(c){
-      var e = c.entreprise || HORS;
+      var e = c.entreprise || "";
+      if (!e) return;                                  /* v43: sans entreprise → pas de groupe, rendu dans le flux chrono */
       (groupes[e] = groupes[e] || []).push(c);
     });
+    /* v43: on fusionne bandeaux d'entreprises et conversations sans entreprise,
+       le tout trié par date du dernier message (descendant) */
     var items = Object.keys(groupes).map(function(e){
       return { type: "grp", e: e, at: dernierTs(groupes[e][0]) };
     });
+    liste.forEach(function(c){ if (!c.entreprise) items.push({ type: "conv", c: c, at: dernierTs(c) }); });
     items.sort(function(a, b){ return b.at - a.at; });
     items.forEach(function(it){
+      if (it.type === "conv") { dessinerConv(it.c, el); return; }
       var e = it.e;
-      var horsCarnet = (e === HORS);
       var g = groupes[e];
       var h = document.createElement("div");
       h.className = "grp" + (SELSENT===e ? " on" : "");
       var ouvert = GRP_OUVERTS[e] !== false;
-      h.innerHTML = '<span class="tri" title="' + (ouvert ? "Masquer" : "Afficher") + ' les contacts de ce groupe"> ' + (ouvert ? "▾" : "▸") + '</span> ' + (horsCarnet ? "🚫 Sans société (hors carnet)" : "🏢 " + e) +
+      h.innerHTML = '<span class="tri" title="' + (ouvert ? "Masquer" : "Afficher") + ' les contacts de cette entreprise"> ' + (ouvert ? "▾" : "▸") + '</span> ' + "🏢 " + e +
         ' <span class="n">' + g.length + (g.length > 1 ? " contacts" : " contact") + '</span>' +
         '<span class="n" title="Heure du dernier message de l\'enseigne" style="margin-left:6px;opacity:.8;">🕓 ' + heureDernierMsg(g[0]) + '</span>' +
-        '<span class="ind">' + (!horsCarnet && g.length > 1 ? "▶ clic : fil fusionné" : "") + '</span>';
+        '<span class="ind">' + (g.length > 1 ? "▶ clic : fil fusionné" : "") + '</span>';
       h.onclick = function(ev){
         if (ev && ev.target && ev.target.className === "tri") {
           GRP_OUVERTS[e] = !ouvert; renduListe(); return;
         }
-        if (!horsCarnet) { SELSENT = e; SELID = null; renduListe(); renduFil(); }
+        SELSENT = e; SELID = null; renduListe(); renduFil();
       };
       el.appendChild(h);
       if (ouvert) {
