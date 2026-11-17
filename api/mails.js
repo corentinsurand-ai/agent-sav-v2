@@ -117,23 +117,39 @@ async function poller(user, pass, host) {
 
   // ---- 2. Lecture boite IMAP --------------------------------------------
   var boite = await imap.ouvrirBoite({ host: host, user: user, pass: pass });
-  var resultat = { dernier_uid_avant: dernierUid, uids: [], importes: 0, doublons: 0, ignores: 0, echecs: 0, colonne_uid: colonneUid, colonne_html: colonneHtml };
+  var resultat = { dernier_uid_avant: dernierUid, uids: [], importes: 0, doublons: 0, ignores: 0, echecs: 0, colonne_uid: colonneUid, colonne_html: colonneHtml, dossiers: [] };
   try {
-    var uids;
-    if (dernierUid === 0) {
-      // v47: aucun uid_imap en base (imports respond.io sans uid) -> point de
-      // reprise via UID SEARCH ALL (commande eprouvee) : on recule de
-      // MAX_PAR_RUN pour importer les derniers messages de la boite.
+    // v56: plusieurs dossiers — respond.io deplace les mails dans INBOX/1. RESPOND etc.
+    var DOSSIERS = (process.env.DOSSIERS_IMAP || 'INBOX,INBOX/1. RESPOND,INBOX/1. EN ATTENTE DE REPONSE').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+    for (var di = 0; di < DOSSIERS.length; di++) {
+      var dossier = DOSSIERS[di];
+      // reprise PAR DOSSIER : max uid_imap des lignes dont brut.folder = dossier
+      var dernierUidD = 0;
       try {
-        var rAll = await boite.api.command('UID SEARCH ALL');
-        var nums = (String(rAll).match(/\d+/g) || []).map(Number).filter(function (n) { return n > 100; });
-        var maxUid = nums.length ? Math.max.apply(null, nums) : 0;
-        resultat.debug_uidmax = maxUid;
-        if (maxUid > 0) dernierUid = Math.max(0, maxUid - MAX_PAR_RUN);
-      } catch (eS) { resultat.debug_uidmax = 'ERR:' + String(eS && eS.message || eS).substring(0, 120); }
-    }
-    uids = await boite.chercherNouveaux(dernierUid, MAX_PAR_RUN);
-    resultat.uids = uids;
+        var rF = await fetch(urlSupabase('emails?select=uid_imap,brut&order=uid_imap.desc.nullslast&limit=200'), { headers: teteSupa() });
+        if (rF.ok) {
+          var lm = await rF.json();
+          if (Array.isArray(lm)) lm.forEach(function (l) {
+            var fd = (l && l.brut && l.brut.folder) || 'INBOX';
+            var u = (l && l.brut && l.brut.uid_imap) || (l && l.uid_imap);
+            if (u && fd === dossier && Number(u) > dernierUidD) dernierUidD = Number(u);
+          });
+        }
+      } catch (eF) {}
+      await boite.api.command('SELECT "' + dossier.replace(/(["\\])/g, '\\$1') + '"');
+      var uids;
+      if (dernierUidD === 0) {
+        // v47 fallback par dossier : UID SEARCH ALL -> max - MAX_PAR_RUN
+        try {
+          var rAll = await boite.api.command('UID SEARCH ALL');
+          var nums = (String(rAll).match(/\d+/g) || []).map(Number).filter(function (n) { return n > 100; });
+          var maxUid = nums.length ? Math.max.apply(null, nums) : 0;
+          if (maxUid > 0) dernierUidD = Math.max(0, maxUid - MAX_PAR_RUN);
+        } catch (eS) {}
+      }
+      uids = await boite.chercherNouveaux(dernierUidD, MAX_PAR_RUN);
+      resultat.dossiers.push({ dossier: dossier, dernier_uid: dernierUidD, uids: uids });
+      resultat.uids = resultat.uids.concat(uids);
 
     for (var i = 0; i < uids.length; i++) {
       var uid = uids[i];
@@ -145,7 +161,7 @@ async function poller(user, pass, host) {
         // Nos propres envois (SMTP sortant) ne sont pas des demandes clients
         if ((m.from_addr || '').toLowerCase() === String(user).toLowerCase()) { resultat.ignores++; continue; }
 
-        var messageId = (m.message_id && m.message_id !== 'null') ? m.message_id : ('imap-uid-' + uid + '@agent-sav');
+        var messageId = (m.message_id && m.message_id !== 'null') ? m.message_id : ('imap-uid-' + dossier + '-' + uid + '@agent-sav');
         if (await dejaEnBase(messageId)) { resultat.doublons++; continue; }
 
         var d = m.date ? new Date(m.date) : null;
@@ -159,7 +175,7 @@ async function poller(user, pass, host) {
           to_addr: user,
           sujet: nettoyer(m.sujet),
           texte: nettoyer(m.texte),
-          brut: { uid_imap: uid, source: 'imap' },
+          brut: { uid_imap: uid, folder: dossier, source: 'imap' },
           recu_a: recuIso,
           lu: false
         };
@@ -202,6 +218,7 @@ async function poller(user, pass, host) {
           }
         }
       } catch (eUn) { resultat.echecs++; }
+    }
     }
   } finally {
     try { await boite.finir(); } catch (e) {}
