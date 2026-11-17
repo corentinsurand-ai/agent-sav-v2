@@ -2045,6 +2045,9 @@ function chargerVraisClients() {
         chargerMessagesWhatsApp(base, s.jeton, function() {
           chargerEmails(base, s.jeton, function() {
             chargerActions(base, s.jeton);
+            /* v116 : restaure la sélection persistée (conversation/groupe + vue) */
+            try { var v0 = localStorage.getItem("umob_vue"); if (v0 === "entreprise" || v0 === "contact") { VUE = v0; document.getElementById("tg-ent").classList.toggle("on", VUE === "entreprise"); document.getElementById("tg-ctc").classList.toggle("on", VUE === "contact"); renduListe(); } } catch (e) {}
+            restaurerSelection();
             AUTO_DERNIERE = Date.now(); majBadgeAuto(); demarrerAuto();
           });
         });
@@ -4113,6 +4116,7 @@ function filtreMesCycle(cy) {
 
 function basculeVue(v) {
   VUE = v;
+  try { localStorage.setItem("umob_vue", v); } catch (e) {}   /* v116: vue persistée */
   document.getElementById("tg-ent").classList.toggle("on", v === "entreprise");
   document.getElementById("tg-ctc").classList.toggle("on", v === "contact");
   renduListe();
@@ -4244,7 +4248,7 @@ function renduListe() {
         if (ev && ev.target && ev.target.className === "tri") {
           GRP_OUVERTS[e] = !ouvert; renduListe(); return;
         }
-        SELSENT = e; SELID = null; renduListe(); renduFil();
+        SELSENT = e; SELID = null; saverSel({ ent: e }); renduListe(); renduFil();
       };
       el.appendChild(h);
       if (ouvert) {
@@ -4613,8 +4617,22 @@ function rafraichirFiche() {
 function voirConv(id) {
   marquerLecture(convParId(id));
   marquerVu(convParId(id));               /* C17-VU : accusé de vue persisté */
-  SELID = id; SELSENT = null; renduListe(); renduFil(); majSaisieC2();   /* v44: rafraîchit l'avertissement fenêtre 24 h */
+  SELID = id; SELSENT = null; saverSel({ id: id, key: (convParId(id) && (convParId(id).contact.tel || convParId(id).contact.email)) || "" }); renduListe(); renduFil(); majSaisieC2();   /* v44: rafraîchit l'avertissement fenêtre 24 h */
   if (estMobile()) basculerVueMobile("volet-fil");   /* C14-MOBILE : ouvrir une conversation = vue fil plein écran */
+}
+/* v116 : sélection persistée — au rechargement, on retrouve la conversation
+   (ou le groupe entreprise) ouvert avant le F5. */
+function saverSel(o) { try { localStorage.setItem("umob_sel", JSON.stringify(o)); } catch (e) {} }
+function restaurerSelection() {
+  var o = null;
+  try { o = JSON.parse(localStorage.getItem("umob_sel") || "null"); } catch (e) {}
+  if (!o) return;
+  if (o.ent) { SELSENT = o.ent; SELID = null; renduListe(); renduFil(); return; }
+  if (o.id && convParId(o.id)) { SELID = o.id; SELSENT = null; renduListe(); renduFil(); return; }
+  if (o.key) {
+    var c = CONVS.filter(function(x){ return (x.contact.tel || x.contact.email || "") === o.key; })[0];
+    if (c) { SELID = c.id; SELSENT = null; renduListe(); renduFil(); }
+  }
 }
 /* ===== C14-MOBILE : navigation un volet à la fois (≤ 860 px) ============
    estMobile() : vrai sur petit écran ; basculerVueMobile affiche UN volet
