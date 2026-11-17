@@ -1230,6 +1230,7 @@
       <b>📇 Carnet d'adresses</b>
       <input class="carnet-recherche" id="carnet-q" placeholder="Rechercher une société, un contact, un numéro, une plaque…" oninput="renduCarnet()" />
       <span class="carnet-nb" id="carnet-nb"></span>
+      <button class="btn" style="padding:5px 12px;font-size:12px;font-weight:700;" onclick="ouvrirFormSociete()" title="Créer une fiche entreprise avant d'engager une conversation">➕ Nouvelle fiche entreprise</button>
       <button class="btn-fermer" onclick="fermerCarnet()">✕ Fermer</button>
     </div>
     <div class="carnet-corps">
@@ -4809,6 +4810,87 @@ function carnetCorps(ent, k, html, repli) {
   return repli ? '<div class="fs-repli">▶ ' + repli + ' — clique pour dérouler</div>' : "";
 }
 
+/* ===== v115 : création d'une fiche entreprise AVANT conversation =====
+   Bouton « ➕ Nouvelle fiche entreprise » dans le carnet. À la validation :
+   VÉRIFICATION D'EXISTENCE — l'enseigne (normalisée : casse/accents/espaces)
+   ne doit pas déjà exister dans SOCIETES, et le téléphone (9 derniers
+   chiffres) ni l'email ne doivent déjà appartenir à un contact existant.
+   Si doublon → message + ouverture de la fiche existante, RIEN n'est créé. */
+function normTxt(s) {
+  return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+function societeExiste(enseigne, tel, email) {
+  var nE = normTxt(enseigne), d = String(tel || "").replace(/\D/g, ""), m = String(email || "").trim().toLowerCase();
+  var hitEnt = null, hitTel = null, hitMel = null;
+  SOCIETES.forEach(function(s) {
+    if (!hitEnt && normTxt(s.ent) === nE) hitEnt = s;
+    (s.vraisContacts || []).forEach(function(v) {
+      var dv = String(v.tel || "").replace(/\D/g, "");
+      if (d && dv && dv.slice(-9) === d.slice(-9)) hitTel = { s: s, v: v };
+      if (m && String(v.email || "").toLowerCase() === m) hitMel = { s: s, v: v };
+    });
+  });
+  return { ent: hitEnt, tel: hitTel, mel: hitMel };
+}
+function ouvrirFormSociete() {
+  CARNET_SEL = null;
+  var page = document.getElementById("carnet-page");
+  page.innerHTML =
+    '<div class="cp-tete"><span class="avatar" style="background:#1273d1">➕</span>' +
+    '<div><h2>Nouvelle fiche entreprise</h2>' +
+    '<div class="sous">Créée avant d\'engager la conversation — le bouton 💬 Lancer apparaîtra sur la fiche.</div></div></div>' +
+    '<div class="cp-section"><h3>🏢 Société</h3>' +
+    '<div class="cp-ligne"><span class="lab">Enseigne *</span><span class="val"><input id="fs-enseigne" style="width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;" placeholder="Ex. SOJOSHI (SUSHIJ TOULON)" /></span></div>' +
+    '<div class="cp-ligne"><span class="lab">Adresse</span><span class="val"><input id="fs-adresse" style="width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;" placeholder="Adresse du siège / livraison" /></span></div>' +
+    '<div class="cp-ligne"><span class="lab">SIREN</span><span class="val"><input id="fs-siren" style="width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;" placeholder="9 chiffres" /></span></div>' +
+    '</div>' +
+    '<div class="cp-section"><h3>👤 Contact</h3>' +
+    '<div class="cp-ligne"><span class="lab">Nom</span><span class="val"><input id="fs-nom" style="width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;" placeholder="Prénom Nom (fonction)" /></span></div>' +
+    '<div class="cp-ligne"><span class="lab">Téléphone</span><span class="val"><input id="fs-tel" style="width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;" placeholder="06 …" /></span></div>' +
+    '<div class="cp-ligne"><span class="lab">Email</span><span class="val"><input id="fs-email" style="width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;" placeholder="contact@…" /></span></div>' +
+    '<div class="cp-ligne"><span class="lab">Plaque</span><span class="val"><input id="fs-plaque" style="width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;" placeholder="AA-123-BB" /></span></div>' +
+    '</div>' +
+    '<div class="cp-actions">' +
+    '<button class="cp-btn envoyer" onclick="creerFicheSociete()">💾 Créer la fiche</button>' +
+    '<button class="cp-btn ouvrir" onclick="renduPageCarnet()">Annuler</button>' +
+    '</div>' +
+    '<div id="fs-erreur" style="color:#b91c1c;font-size:12px;margin-top:8px;"></div>';
+  var i0 = document.getElementById("fs-enseigne"); if (i0) i0.focus();
+}
+function creerFicheSociete() {
+  var enseigne = (document.getElementById("fs-enseigne").value || "").trim();
+  var nom = (document.getElementById("fs-nom").value || "").trim();
+  var tel = (document.getElementById("fs-tel").value || "").trim();
+  var email = (document.getElementById("fs-email").value || "").trim();
+  var plaque = (document.getElementById("fs-plaque").value || "").trim();
+  var adresse = (document.getElementById("fs-adresse").value || "").trim();
+  var siren = (document.getElementById("fs-siren").value || "").replace(/\D/g, "");
+  var err = document.getElementById("fs-erreur");
+  if (!enseigne) { err.textContent = "⚠️ L'enseigne est obligatoire."; return; }
+  /* --- contrôle d'existence AVANT création --- */
+  var ex = societeExiste(enseigne, tel, email);
+  if (ex.ent || ex.tel || ex.mel) {
+    var s = ex.ent || (ex.tel && ex.tel.s) || (ex.mel && ex.mel.s);
+    err.textContent = "⚠️ Existe déjà dans le carnet : « " + s.ent + " »" +
+      (ex.tel ? " (téléphone déjà connu)" : "") + (ex.mel ? " (email déjà connu)" : "") + " — fiche existante ouverte, rien n'a été créé.";
+    ouvrirPageSociete(s.ent);
+    return;
+  }
+  var sNew = {
+    ent: enseigne, siren: siren, siege: adresse || "—", livraison: adresse ? "Même adresse" : "—",
+    contact_sc: (nom ? nom + " — " : "") + (tel ? telE164(tel) : ""),
+    risque: "RAS", classeR: "ok",
+    scooters: plaque ? [{ plaque: plaque, produit: "", contrat: "" }] : [],
+    convs: [], maintenances: [],
+    vraisContacts: [{ nom: nom || enseigne, tel: telE164(tel), plaque: plaque, email: email }]
+  };
+  SOCIETES.push(sNew);
+  renduCarnet();
+  ouvrirPageSociete(enseigne);
+  pushLog("🏢 Fiche entreprise créée : " + enseigne + " (aucune conversation lancée — bouton 💬 Lancer sur la fiche).");
+  pushNotif("🏢 Fiche « " + enseigne + " » créée dans le carnet.");
+}
 function renduPageCarnet() {
   var page = document.getElementById("carnet-page");
 
