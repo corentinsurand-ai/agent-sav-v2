@@ -2205,9 +2205,8 @@ function chargerCyclesRio(base, jeton, cb) {
         }
         var cy = String(c.cycle_vie || "").trim();
         if (!cy) return;
-        /* Fusion des cycles équivalents (décision Corentin 06/11 :
-           « Attente interne » = « Attente client » → un seul cycle) */
-        if (cy === "Attente interne") cy = "Attente client";
+        /* v111 : « Attente interne » est de nouveau un cycle DISTINCT
+           (décision Corentin 17/11 — on ne fusionne plus avec « Attente client ») */
         if (d) RIO_CYCLES_TEL[d] = cy;
         if (m) RIO_CYCLES_MEL[m] = cy;
       });
@@ -2255,7 +2254,7 @@ function creerConvsProspects(parWa) {
       return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
     });
     var dernier = fil[fil.length - 1];
-    var cy = p.cycle === "Attente interne" ? "Attente client" : p.cycle;
+    var cy = p.cycle;   /* v111 : « Attente interne » conservé tel quel (cycle distinct) */
     if (CYCLES_LISTE.indexOf(cy) < 0) cy = "";
     /* une entrée PAR prospect : fiche entreprise = le nom du prospect */
     var ent = String(p.nom || p.tel).trim() || p.tel;
@@ -4067,11 +4066,12 @@ function basculeFiltreSec(id) {
 }
 
 /* ===== « Mes conversations par cycle » : uniquement les convs assignées à MOI ===== */
-var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Attente client","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
+var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Attente client","Attente interne","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
 var MESCY_ON = null;
 var CLASSE_CYCLE = {
   "Nouvelle Demande": "nouvelle", "A qualifier": "qualifier", "A créer dans Praxedo": "praxedo",
   "En cours de réalisation": "encours", "Traitée": "traitee", "Attente client": "attente",
+  "Attente interne": "attente",
   "Annulée sans réponse": "annulee", "Annulée par le client": "annulee",
   "DE Commerciales": "qualifier", "Bloquée Impayé": "impaye", "Attente Paiement ou pré-auto CB": "attente"
 };
