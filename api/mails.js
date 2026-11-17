@@ -246,9 +246,13 @@ async function lireEmails(u) {
     return 'emails?select=' + sel + '&order=id.desc&limit=' + limite;
   }
 
-  // C5.3 : corps_html en premier ; si la colonne manque (PGRST204) -> sans
-  var r = await fetch(urlSupabase(cheminAvec(selBase + ',corps_html')), { headers: teteSupa() });
-  if (!r.ok) {
+  // C5.3 : corps_html en premier ; si la colonne manque (PGRST204) -> sans.
+  // v112 (Disk IO) : corps_html UNIQUEMENT pour le fil d'une conversation
+  // (?email=…) — jamais dans la liste globale, sinon chaque appel lit le corps
+  // HTML complet de toutes les lignes (gros volumes TOAST = budget Disk IO).
+  var sel = email ? selBase + ',corps_html' : selBase;
+  var r = await fetch(urlSupabase(cheminAvec(sel)), { headers: teteSupa() });
+  if (!r.ok && email) {
     r = await fetch(urlSupabase(cheminAvec(selBase)), { headers: teteSupa() });
   }
   if (!r.ok) return { code: 502, corps: { ok: false, erreur: 'Supabase ' + r.status } };

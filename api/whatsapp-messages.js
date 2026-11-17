@@ -325,8 +325,10 @@ module.exports = async function handler(req, res) {
     if (limite > 5000) limite = 5000;
     try {
       // fenêtre des N plus récents, renvoyés en ordre chronologique croissant
+      // v112 (Disk IO) : order=id.desc (PK indexée) au lieu de recu_a.desc
+      // (pas d'index sur recu_a seul → seq scan + sort à chaque appel)
       var derniers = await supabaseGetAvecC2(
-        'select=SELECT&order=recu_a.desc&limit=' + limite);
+        'select=SELECT&order=id.desc&limit=' + limite);
       derniers.reverse();
       var parTel = {};
       derniers.forEach(function(m) { parTel[m.wa_id] = (parTel[m.wa_id] || 0) + 1; });

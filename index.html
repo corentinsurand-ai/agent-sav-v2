@@ -2844,7 +2844,7 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
    nouveaux messages dans les conversations existantes (les chargeurs sont
    idempotents par design : conversation par contact, jamais dupliquée).
    Bascule manuelle mémorisée dans localStorage "umob_auto" (défaut : ON). */
-var AUTO_MS = 60000, AUTO_TIMER = null, AUTO_DERNIERE = null;
+var AUTO_MS = 120000, AUTO_TIMER = null, AUTO_DERNIERE = null;   /* v112: 60s -> 120s (budget Disk IO Supabase) */
 function autoActif() { return (localStorage.getItem("umob_auto") || "1") === "1"; }
 function majBadgeAuto() {
   var b = document.getElementById("btn-auto");

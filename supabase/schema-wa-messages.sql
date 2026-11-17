@@ -26,6 +26,8 @@ alter table agent_sav.wa_messages add column if not exists sens text not null de
 alter table agent_sav.wa_messages add column if not exists statut_reception text;
 
 create index if not exists idx_wa_messages_wa_id on agent_sav.wa_messages (wa_id, recu_a);
+-- v112 (Disk IO) : index dédié pour les requêtes order=recu_a (liste globale)
+create index if not exists idx_wa_messages_recu_a on agent_sav.wa_messages (recu_a desc);
 alter table agent_sav.wa_messages enable row level security;
 grant all on agent_sav.wa_messages to service_role;
 grant usage, select on all sequences in schema agent_sav to service_role;
