@@ -749,6 +749,7 @@
   .conv { display: flex; align-items: flex-start; gap: 11px; padding: 12px 14px 12px 12px; margin: 0 6px; border-radius: 12px; transition: background .13s, box-shadow .13s; }
   .conv + .conv { border-top: none; }
   .conv:hover { background: #F1F6FC; box-shadow: 0 1px 4px rgba(15,35,70,.05); }
+
   .conv.on { background: #E8F1FB; box-shadow: inset 3px 0 0 var(--lime), 0 1px 4px rgba(15,35,70,.05); }
   .conv .conv-c { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
   .conv .conv-l1 { display: flex; align-items: baseline; gap: 8px; }
@@ -1568,6 +1569,7 @@ var SOCIETES = [
       {"plaque": "HJ-447-AN", "produit": "DAILY PRO CHASSIS BLANC", "contrat": "Modèle Confort + 50 — CO02139, 05/02/2026 → 04/04/2030"},
       {"plaque": "HJ-480-AN", "produit": "DAILY PRO CHASSIS BLANC", "contrat": "Modèle Confort + 50 — CO02139, 05/02/2026 → 04/04/2030"}
     ], "convs": [5, 6]},
+
     {"ent": "SBN (SUSHI BY NAM)", "siren": "522185636", "siege": "74 Boulevard de la Republique, 06400 Cannes", "livraison": "Même adresse", "contact_sc": "Van Nam SBN (SUSHI BY NAM) (Gérant) — 06 52 95 76 75", "risque": "Impayé", "classeR": "impaye", "scooters": [
       {"plaque": "FT-081-XY", "produit": "S5 Delivery Châssis Noir", "contrat": "Modèle Confort 48 — CO00583, 05/11/2020 → 10/11/2025"},
       {"plaque": "FV-768-DZ", "produit": "S5 DELIVERY CHASSIS NOIR", "contrat": "Modèle Confort 48 — CO01424, 20/11/2020 → 19/11/2024"},
@@ -2587,6 +2589,7 @@ function fusionnerFil(c, fil) {
      aussi — c'est elle qui rend la conv lue sur tous les postes. */
   var luStocke = lectureStockeeDe(c);
   var luPartage = ((ACT_BAS[cleConv(c)] || {}).lu_a) || 0;
+
   var luMax = Math.max(luStocke, luPartage);
   /* C37-TOUT-NON-LU : une lecture antérieure au « tout non lu » ne compte plus. */
   var tnlF = toutNonLuTs();
@@ -2776,7 +2779,12 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
       var nid = CONVS.length ? Math.max.apply(null, CONVS.map(function(c) { return c.id; })) : 0;
       Object.keys(parAddr).forEach(function(addr) {
         var trouve = resoudreContact(addr);
-        if (!trouve) { inconnus++; return; }                     // adresse hors carnet → ignorée
+        var inconnu = !trouve;                                     // v54: adresse hors carnet → conversation créée quand même, sans fiche entreprise
+        if (inconnu) {
+          var dm0 = parAddr[addr][parAddr[addr].length - 1];
+          var nomX = (dm0 && dm0.from_nom) ? dm0.from_nom : addr;
+          trouve = { s: null, v: { nom: nomX, tel: "", plaque: "", email: addr }, nom: nomX };
+        }
         var msgs = parAddr[addr];
         var dernier = msgs[msgs.length - 1];
         var fil = msgs.map(function(m) {
@@ -2806,13 +2814,13 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
         var asRio = assignRioMel(addr);             /* C12-ASSIGN : assignation respond.io */
         nid++;
         CONVS.push({
-          id: nid, nom: v.nom, entreprise: s.ent, canal: "Email",
+          id: nid, nom: v.nom, entreprise: s ? s.ent : "", canal: "Email",
           cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
           lu: false, extrait: nettoyerMailTxt(dernier.texte),
           assigne: asRio || null,
           contact: { tel: v.tel, plaque: v.plaque, email: addr }, fil: fil, comms: []
         });
-        s.convs.push(nid);
+        if (s) s.convs.push(nid);
         creees++;
       });
       var ignores = Object.keys(parAddr).filter(function(a) { return !parMel[a] && !TEST_MEL[a]; });
@@ -3683,6 +3691,7 @@ function envoyerProposition(idx, canal) {
   if (!secret) { afficherPorte(); return; }
   var estWa = canal === "wa";
   var dest = estWa ? ((contact.tel || "").replace(/\D/g, "")) : (contact.email || "");
+
   if (!dest) { pushNotif("⚠️ Destinataire manquant."); return; }
   var corps = null;
   if (estWa) {
@@ -4834,6 +4843,7 @@ function renduPageCarnet() {
         '<div class="cp-ligne"><span class="lab">Téléphone</span><span class="val"><b>' + c.contact.tel + '</b> · canal ' + c.canal + '</span></div>' +
         '<div class="cp-ligne"><span class="lab">Email</span><span class="val">' + (c.contact.email ? '<b><a href="mailto:'+c.contact.email+'" style="color:inherit;">'+c.contact.email+'</a></b>' : '<span style="color:#9aa4b2;">non renseigné</span>') + '</span></div>' +
         '<div class="cp-ligne"><span class="lab">Scooters liés</span><span class="val">' + c.contact.plaque + '</span></div>' +
+
         '<div class="cp-ligne"><span class="lab">Cycle actuel</span><span class="val"><span class="cy ' + c.classe + '">' + c.cycle + '</span></span></div>' +
       '</div>' +
       (s ?
@@ -6001,6 +6011,7 @@ function creerCompte() {
   var role = document.getElementById("cpt-role").value || "collaborateur";
   var mdp = document.getElementById("cpt-mdp").value;
   var msg = document.getElementById("cpt-msg");
+
   if (!nom || !email || !mdp) { msg.textContent = "Nom, email et mot de passe requis."; return; }
   if (mdp.length < 8) { msg.textContent = "Mot de passe : 8 caractères minimum."; return; }
   var b = baseEtJeton();
