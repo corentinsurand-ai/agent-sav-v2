@@ -2878,7 +2878,7 @@ function rafraichirAuto() {
     /* C18-RT : le refresh auto rejoue AUSSI les actions équipe (commentaires,
        vus, cycles…) → nouveau commentaire d'un collègue = apparaît dans le
        fil sans recharger ; « vu » d'un collègue = 👁️ mis à jour tout seul. */
-    chargerEmails(base, secret, function() { chargerActions(base, secret, null, "auto"); });
+    chargerEmails(base, secret, function() { chargerActions(base, secret, null, "auto"); majSaisieC2(); /* v120: bandeau 24 h recalculé */ });
   });
   AUTO_DERNIERE = Date.now();
 
@@ -3291,8 +3291,8 @@ function majSaisieC2() {
   var c = convParId(SELID);
   if (note && ACTIF && CANAL_ENVOI === "WhatsApp" && VRAIES_DONNEES && c && fenetre24hExpiree(c)) {
     var t = dernierMsgClientTs(c);
-    note.innerHTML = "⚠️ <b>Fenêtre de 24 h expirée</b>" + (t ? " — dernier message du client il y a <b>" + delaiDepuisMs(Date.now() - t) + "</b>" : " — le client n'a jamais écrit") +
-      " : un texte libre sera <b>rejeté par WhatsApp</b> (statut « failed »). Utilise un <b>modèle approuvé</b> (volet Outils → Modèles WA, clic direct sur le modèle) pour écrire hors fenêtre.";
+    note.innerHTML = '<div style="background:#fee2e2;border:1.5px solid #ef4444;color:#991b1b;border-radius:10px;padding:8px 12px;text-align:left;font-weight:600;line-height:1.5;">⚠️ <b>Fenêtre de 24 h expirée</b>' + (t ? ' — dernier message du client il y a <b>' + delaiDepuisMs(Date.now() - t) + '</b>' : " — le client n'a jamais écrit sur WhatsApp") +
+      ' : un texte libre sera <b>rejeté par WhatsApp</b> (statut « failed »). Utilise un <b>modèle approuvé</b> (bouton « 📋 Modèles WA », clic direct sur le modèle) pour écrire hors fenêtre.</div>';
   }
 }
 var CANAL_ENVOI = "WhatsApp";
@@ -6505,7 +6505,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v119 · Rattacher à une entreprise · fix fenêtre 24 h WhatsApp';
+var VER_FRONT = 'v120 · Bandeau 24 h WhatsApp en alerte rouge, recalculé au refresh auto';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
