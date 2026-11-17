@@ -2049,6 +2049,7 @@ function chargerVraisClients() {
             try { var v0 = localStorage.getItem("umob_vue"); if (v0 === "entreprise" || v0 === "contact") { VUE = v0; document.getElementById("tg-ent").classList.toggle("on", VUE === "entreprise"); document.getElementById("tg-ctc").classList.toggle("on", VUE === "contact"); renduListe(); } } catch (e) {}
             restaurerFiltres();
             restaurerSelection();
+            majSaisieC2();   /* v118: avertissement 24 h aussi après restauration */
             AUTO_DERNIERE = Date.now(); majBadgeAuto(); demarrerAuto();
           });
         });
@@ -4636,7 +4637,13 @@ function rafraichirFiche() {
 function voirConv(id) {
   marquerLecture(convParId(id));
   marquerVu(convParId(id));               /* C17-VU : accusé de vue persisté */
-  SELID = id; SELSENT = null; saverSel({ id: id, key: (convParId(id) && (convParId(id).contact.tel || convParId(id).contact.email)) || "" }); renduListe(); renduFil(); majSaisieC2();   /* v44: rafraîchit l'avertissement fenêtre 24 h */
+  SELID = id; SELSENT = null; saverSel({ id: id, key: (convParId(id) && (convParId(id).contact.tel || convParId(id).contact.email)) || "" });
+  /* v118: le canal d'envoi suit la conversation ouverte — sinon CANAL_ENVOI
+     reste bloqué sur le dernier canal utilisé et l'avertissement 24 h
+     (WhatsApp uniquement) ne s'affiche jamais. */
+  var cc = convParId(id);
+  if (cc) setCanalEnvoi(cc.canal === "Email" ? "Email" : "WhatsApp");
+  renduListe(); renduFil(); majSaisieC2();   /* v44: rafraîchit l'avertissement fenêtre 24 h */
   if (estMobile()) basculerVueMobile("volet-fil");   /* C14-MOBILE : ouvrir une conversation = vue fil plein écran */
 }
 /* v116 : sélection persistée — au rechargement, on retrouve la conversation
@@ -4646,11 +4653,11 @@ function restaurerSelection() {
   var o = null;
   try { o = JSON.parse(localStorage.getItem("umob_sel") || "null"); } catch (e) {}
   if (!o) return;
-  if (o.ent) { SELSENT = o.ent; SELID = null; renduListe(); renduFil(); return; }
-  if (o.id && convParId(o.id)) { SELID = o.id; SELSENT = null; renduListe(); renduFil(); return; }
+  if (o.ent) { SELSENT = o.ent; SELID = null; renduListe(); renduFil(); majSaisieC2(); return; }
+  if (o.id && convParId(o.id)) { SELID = o.id; SELSENT = null; renduListe(); renduFil(); majSaisieC2(); return; }
   if (o.key) {
     var c = CONVS.filter(function(x){ return (x.contact.tel || x.contact.email || "") === o.key; })[0];
-    if (c) { SELID = c.id; SELSENT = null; renduListe(); renduFil(); }
+    if (c) { SELID = c.id; SELSENT = null; renduListe(); renduFil(); majSaisieC2(); }
   }
 }
 /* ===== C14-MOBILE : navigation un volet à la fois (≤ 860 px) ============
