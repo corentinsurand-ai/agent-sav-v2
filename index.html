@@ -5891,16 +5891,30 @@ function majBadgeAuth() {
    Clé STABLE de conversation = 9 derniers chiffres du téléphone, sinon
    email normalisé (les ids internes CONVS changent à chaque chargement). */
 var ACT_BAS = {};   /* cle stable -> {commentaires:[], cycle, cycle_a, assigne, assigne_a, rattache, rattache_a} */
+/* v132 : TOUTES les clés d'identité stables d'une conversation (tél ET email
+   quand elle a les deux) — l'action peut avoir été enregistrée sous l'une ou
+   l'autre selon l'état de la fiche carnet au moment du changement. */
+function clesDe(c) {
+  var ct = (c && c.contact) || {}, out = [];
+  var d = String(ct.tel || "").replace(/\D/g, "");
+  var m = normMel(ct.email || "");
+  if (d) out.push("T" + d.slice(-9));
+  if (m) out.push("M" + m);
+  if (!d && !m) out.push("N" + String((c && c.nom) || ""));
+  return out;
+}
 function cleConv(c) {
-  var d = String((c && c.contact && c.contact.tel) || "").replace(/\D/g, "");
-  if (d) return "T" + d.slice(-9);
-  var m = normMel((c && c.contact && c.contact.email) || "");
-  if (m) return "M" + m;
-  return "N" + String((c && c.nom) || "");
+  var ks = clesDe(c);
+  return ks[0] || ("N" + String((c && c.nom) || ""));
 }
 function convParCle(cle) {
   var t = null;
   CONVS.forEach(function(c) { if (cleConv(c) === cle) t = c; });
+  if (t) return t;
+  /* v132 : repli par identité alternative (tél ↔ email) — une action enregistrée
+     sous l'ancienne clé de la conversation doit encore la retrouver, sinon le
+     cycle choisi sur la plateforme était perdu au rechargement/refresh auto. */
+  CONVS.forEach(function(c) { if (clesDe(c).indexOf(cle) >= 0) t = c; });
   return t;
 }
 function actIndex(cle) { return (ACT_BAS[cle] = ACT_BAS[cle] || { commentaires: [] }); }
@@ -6143,7 +6157,22 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
 }
 /* garde-fou : les données respond.io ne JAMAIS écraser un choix manuel
    restauré/rejoué par C15-ACT (lors des fusions du refresh auto). */
-function actManuelle(c) { return ACT_BAS[cleConv(c)] || null; }
+function actManuelle(c) {
+  /* v132 : l'action a pu être enregistrée sous l'ancienne identité de la conv
+     (tél ↔ email) — on consulte TOUTES les clés et on fusionne les champs
+     manuels trouvés (cycle, assigne, archive…) pour ne rien manquer. */
+  var t = null;
+  clesDe(c).forEach(function(k) {
+    var ix = ACT_BAS[k];
+    if (!ix) return;
+    if (!t) { t = ix; return; }
+    ["cycle","cycle_a","assigne","assigne_a","archive","archive_a","supprime","supprime_a","rattache","rattache_a","entreprise","lu_a"].forEach(function(p) {
+      if (t[p] === undefined && ix[p] !== undefined) t[p] = ix[p];
+    });
+    if (ix.vu) { t.vu = t.vu || {}; for (var q in ix.vu) { t.vu[q] = ix.vu[q]; } }
+  });
+  return t;
+}
 /* v125 : cycle modifié SUR LA PLATEFORME (action "cycle" du journal) pour un
    contact — prioritaire sur le cycle respond.io (respond n'est plus utilisé,
    ses cycles sont obsolètes et ne doivent jamais écraser un choix manuel). */
@@ -6749,7 +6778,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v131 · Archivage persisté (fonctionne aussi sans entreprise) + 🗑️ Supprimer définitivement en clic droit sur la conversation';
+var VER_FRONT = 'v132 · Fix cycles perdus au rechargement : une action enregistrée sous l ancienne identité (tél ↔ email) de la conversation est retrouvée par la clé alternative';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
