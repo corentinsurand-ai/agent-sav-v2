@@ -750,154 +750,7 @@
   .conv + .conv { border-top: none; }
   .conv:hover { background: #F1F6FC; box-shadow: 0 1px 4px rgba(15,35,70,.05); }
 
-  .conv.on { background: #E8F1FB; box-shadow: inset 3px 0 0 var(--lime), 0 1px 4px rgba(15,35,70,.05); }
-  .conv .conv-c { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-  .conv .conv-l1 { display: flex; align-items: baseline; gap: 8px; }
-  .conv .conv-l1 .nom { flex: 1; min-width: 0; font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .conv .heure { grid-column: auto; grid-row: auto; font-size: 11px; color: var(--mut); flex: none; }
-  .conv .extrait, .conv .sousnom { grid-column: auto; }
-  .grp-bloc .conv { margin: 0 2px; }
-  .grp-bloc { margin: 0 8px; border-radius: 0 0 12px 12px; }
-  .convs { padding: 6px 0 10px; }
-  .liste-head { padding: 14px 16px; }
 
-  /* --- fil : en-tête avec avatar, texture discrète, bulles aérées --- */
-  .fil-head { padding: 14px 20px; }
-  .fil-head .l1 { gap: 12px; }
-  .fil-head .l1 b { font-size: 16px; font-weight: 800; letter-spacing: .1px; }
-  .fil-head .l2 { gap: 7px; row-gap: 5px; padding-top: 8px; margin-top: 8px; border-top: 1px solid #EDF2F8; }
-  .fil-head .l2 .tag { background: #F0F5FA; color: #4a5a6e; border-radius: 999px; padding: 3px 10px; }
-  .messages { background-image: radial-gradient(rgba(14,90,167,.05) 1px, transparent 1px); background-size: 20px 20px; padding: 18px 22px; gap: 13px; }
-  .bulle { font-size: 13.5px; line-height: 1.5; padding: 10px 14px; }
-  .bulle .h { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; }
-  .tag { background: #F0F5FA; }
-  .rech-fil { padding: 9px 20px; }
-
-  /* --- saisie : carte blanche avec zone d'outils --- */
-  .saisie { padding: 12px 16px 14px; background: #fff; }
-  .saisie .barre { border-radius: 999px; padding: 7px 7px 7px 18px; }
-  #btn-env { border-radius: 999px; font-weight: 700; letter-spacing: .2px; }
-  .outil-btn { border-radius: 999px; padding: 2px 9px 2px 2px; font-size: 11px; }
-
-  /* --- chips cycles : version pastille pleine, lisible --- */
-  .cy { padding: 3px 10px; font-weight: 700; letter-spacing: .1px; border-radius: 999px; }
-
-  /* --- filtres : sections aérées, chips pills --- */
-  .filters-corps { padding: 16px 14px; }
-  aside.filters h3 { font-size: 11px; letter-spacing: .8px; }
-  .chip { border-radius: 999px; padding: 7px 12px; margin-bottom: 2px; }
-  .f-sec h3 { padding: 8px 2px 7px; border-bottom: 2px solid #cfe0f2; }
-  .toggle button.on { border-radius: 999px; }
-
-  /* --- topbar : plus affirmée --- */
-  header.topbar { padding: 10px 20px; box-shadow: 0 3px 14px rgba(10,40,80,.3), inset 0 1px 0 rgba(255,255,255,.15); }
-  header.topbar .crumb { border: 1px solid rgba(255,255,255,.25); }
-  /* C8-THEME-3 : anti-compression — les boutons gardent leur taille, la topbar
-     passe sur 2 lignes proprement si la fenêtre est étroite (plus de collage) */
-  header.topbar { flex-wrap: wrap; row-gap: 8px; }
-  header.topbar .logo, header.topbar .crumb, header.topbar .btn-nouv,
-  header.topbar .badge-ver, header.topbar select { flex: 0 0 auto; white-space: nowrap; }
-
-  /* --- volet fil : pas de double bord --- */
-  section.fil { background: transparent; }
-  #volet-fil { background: #fff; }
-  .volet-corps { min-height: 0; }
-  .commentaires { border-top: 1px solid #EDF2F8; }
-
-  /* ============================================================
-     C8-DESIGN-3 : bulles sortantes bleu plein, états vides, glass,
-     focus accessibles, barre de recherche du fil.
-     ============================================================ */
-
-  /* --- bulles sortantes : dégradé bleu plein, texte blanc (look messagerie) --- */
-  .bulle.agent { background: linear-gradient(135deg, #1273d1 0%, #0e5aa7 60%, #0a3f77 100%); border: none; border-top-right-radius: 4px; color: #fff; box-shadow: 0 3px 10px rgba(14,90,167,.3); }
-  .bulle.agent .h { color: #cfe3f8; }
-  .bulle.agent .mail-obj { background: rgba(255,255,255,.16); border-left-color: rgba(255,255,255,.7); color: #fff; }
-  .bulle.agent .exp-lib { color: #bcd8f2; border-top-color: rgba(255,255,255,.25); }
-  .bulle.agent .pj { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.25); color: #eaf3fd; }
-  .bulle.agent .mini { background: rgba(255,255,255,.18); color: #eaf3fd; }
-  .bulle.agent .mail-frame { border-color: rgba(255,255,255,.3); }
-  .bulle.agent .mail-cite summary { color: #bcd8f2; }
-  .bulle.agent .mail-cite > *:not(summary) { color: #d7e8fa; border-left-color: rgba(255,255,255,.35); }
-  .bulle.agent mark { background: rgba(255,255,255,.35); color: #0a3f77; }
-  .bulle.agent a { color: #d7ecff; }
-
-  /* --- bulles entrantes : carte blanche franche --- */
-  .bulle.entrant { box-shadow: 0 1px 4px rgba(15,35,70,.08); }
-
-  /* --- états vides illustrés --- */
-  .vide-etat { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 42px 24px; text-align: center; color: var(--mut); }
-  .vide-etat .ve-tit { font-weight: 700; color: #3a4a60; font-size: 14px; }
-  .vide-etat .ve-txt { font-size: 12.5px; line-height: 1.55; max-width: 340px; }
-  .vide-etat svg { opacity: .8; }
-
-  /* --- menu de cycle : carte verre dépoli --- */
-  .ctx { backdrop-filter: blur(8px); background: rgba(255,255,255,.92); border: 1px solid rgba(255,255,255,.8); padding: 6px; }
-
-  /* --- barre de recherche du fil : capsule avec loupe --- */
-  .rech-fil { position: relative; }
-  .rech-fil::before { content: "🔍"; position: absolute; left: 32px; top: 50%; transform: translateY(-50%); font-size: 12px; opacity: .6; pointer-events: none; }
-  .rech-fil input { border-radius: 999px; padding: 7px 14px 7px 34px; border: 1.5px solid var(--bord2); background: #FAFCFE; }
-  .rech-fil input:focus { background: #fff; }
-
-  /* --- focus clavier visible et élégant partout --- */
-  button:focus-visible, .chip:focus-visible, .conv:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
-    outline: 2px solid #1273d1; outline-offset: 2px; }
-
-  /* --- badge nouveaux messages : pastille vive --- */
-  .badge-new { background: #1273d1; box-shadow: 0 1px 4px rgba(14,90,167,.4); }
-  .btn-nouv .n { background: #ffd166; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
-
-  /* --- compteur non-lus du volet liste --- */
-  .liste-head b { font-weight: 800; letter-spacing: .2px; }
-
-  /* --- commentaires internes : cadre plus doux --- */
-  .commentaires h4 { color: #a08430; letter-spacing: .7px; }
-  .comm-saisie input { border-radius: 999px; }
-
-  /* ============================================================
-     C8-VOLET-1 : bouton réduire/agrandir les volets Filtres et
-     Conversations (état mémorisé par navigateur, comme les largeurs).
-     ============================================================ */
-  .volet-pli { border: none; background: #EEF4FB; color: #3a4a60; width: 20px; height: 20px; border-radius: 6px; cursor: pointer; font-size: 13px; line-height: 1; display: flex; align-items: center; justify-content: center; flex: none; transition: background .15s, transform .2s; }
-  .volet-pli:hover { background: #DDEBF9; }
-  .volet.replie { flex: 0 0 46px !important; width: 46px !important; min-width: 46px !important; }
-  .volet.replie .volet-corps, .volet.replie .rz, .volet.replie .vt, .volet.replie .aide { display: none; }
-  .volet.replie .volet-bar { flex-direction: column; padding: 10px 0; justify-content: flex-start; gap: 0; cursor: default; }
-  .volet.replie .volet-pli { transform: rotate(180deg); width: 26px; height: 26px; font-size: 15px; }
-  .volet.replie .volet-bar::before { content: ""; margin-right: 0; }
-  .volet.replie aside.filters, .volet.replie section.liste { border-right: none; }
-  .volet-pli:focus-visible { outline: 2px solid #1273d1; outline-offset: 1px; }
-  /* C23-MOB-3 : bouton retour du volet fil — MÊME style que .volet-pli (sinon
-     chrome par défaut du navigateur en desktop = « bordure bizarre ») */
-  .btn-ret { border: none; background: #EEF4FB; color: #3a4a60; width: 20px; height: 20px; border-radius: 6px; cursor: pointer; font-size: 13px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; flex: none; }
-  .btn-ret:hover { background: #DDEBF9; }
-
-  /* C8-VOLET-2 : bouton plier les infos client (l2) */
-  .l2-pli { width: 30px; padding: 4px 0 !important; text-align: center; font-size: 12px; flex: none; }
-
-  /* ============================================================
-     C8-VOLET-3 : rail d'icônes du volet Filtres réduit — chaque
-     icône rouvre le volet sur sa section (scroll + flash).
-     ============================================================ */
-  .volet-rail { display: none; }
-  .volet.replie .volet-rail { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 0 16px; flex: 1; }
-  .rail-btn { width: 32px; height: 32px; border: none; background: #F1F6FC; border-radius: 10px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .15s, box-shadow .15s; }
-  .rail-btn:hover { background: #DDEBF9; transform: scale(1.08); box-shadow: 0 2px 6px rgba(14,90,167,.18); }
-  .rail-btn:focus-visible { outline: 2px solid #1273d1; outline-offset: 1px; }
-  .f-sec.flash-sec { animation: flashSec 1.4s ease-out; border-radius: 10px; }
-  @keyframes flashSec { 0% { background: #DDEBF9; box-shadow: 0 0 0 3px #cfe3f8; } 100% { background: transparent; box-shadow: none; } }
-
-  /* ============================================================
-     C8-THEME-1 : THÈME U.MOB V55 : vert émeraude #10B981 (remplace le lime #BCCF00 jugé trop jaune) + anthracite
-     #1b2430) — activé par body.umob via le bouton 🎨 topbar, état
-     mémorisé (localStorage umob_theme). LEÇON du 29/10 : vert en
-     accents lisibles (texte SOMBRE sur vert, jamais l'inverse), pas
-     de tints olive étalés, anthracite pour les textes.
-     ============================================================ */
-  body.umob {
-    --lime: #10B981; --lime-hov: #0d9268; --lime-soft: #E6F7F0; --lime-bord: #BFE8D6;
-    --grad-bleu: linear-gradient(135deg, #3ddc97 0%, #10B981 55%, #06865b 100%);
     --bg: #F1F6F3; --bord: #DCE8E1; --bord2: #C3D5CC;
   }
   body.umob header.topbar { background: linear-gradient(135deg, #3ddc97 0%, #10B981 55%, #06865b 100%); color: #1b2430; box-shadow: 0 3px 14px rgba(13,120,88,.35), inset 0 1px 0 rgba(255,255,255,.35); }
@@ -1659,145 +1512,7 @@ var MAINTENANCES = {
   "TAINAM (DOMINO'S PIZZA)": [
     { d:"21/09/2026", plaque:"GX-934-EN", type:"Plaquettes avant + arrière", tech:"Secteur Île-de-France Ouest" },
     { d:"30/04/2026", plaque:"GX-982-EN", type:"Révision 10 000 km", tech:"Secteur Île-de-France Ouest" },
-    { d:"11/11/2025", plaque:"GE-383-BK", type:"Remplacement chargeur + contrôle batterie", tech:"Secteur Île-de-France Ouest" } ],
-  "STYLE BURGER (DELIM S BURGER)": [
-    { d:"29/10/2026", plaque:"FZ-440-WL", type:"Contrôle démarrage (panne signalée ce jour)", tech:"Secteur Seine-Saint-Denis" },
-    { d:"05/07/2026", plaque:"GQ-416-AJ", type:"Révision 15 000 km", tech:"Secteur Seine-Saint-Denis" },
-    { d:"18/03/2026", plaque:"GQ-485-AJ", type:"Pneus avant", tech:"Secteur Seine-Saint-Denis" } ],
-  "MASSUSHI (MAS SUSHI)": [
-    { d:"14/10/2026", plaque:"GX-722-SG", type:"Révision 5 000 km", tech:"Secteur Côte d'Azur" },
-    { d:"26/05/2026", plaque:"HH-477-JM", type:"Béquille + rétroviseur", tech:"Secteur Côte d'Azur" },
-    { d:"09/02/2026", plaque:"HH-440-JM", type:"Plaquettes arrière", tech:"Secteur Côte d'Azur" } ],
-  "DORONZO (PULCINELLA)": [
-    { d:"19/10/2026", plaque:"GH-330-XY", type:"Remplacement rétroviseur (signalé ce jour)", tech:"Secteur Côte d'Azur" },
-    { d:"01/08/2026", plaque:"GR-995-EA", type:"Révision 10 000 km", tech:"Secteur Côte d'Azur" },
-    { d:"12/04/2026", plaque:"HB-630-RK", type:"Pneus avant + arrière", tech:"Secteur Côte d'Azur" } ],
-  "DEMOZ (DOMINO'S PIZZA POISSY)": [
-    { d:"16/10/2026", plaque:"GW-288-GA", type:"Parallélisme + pneu avant (tire à droite)", tech:"Secteur Yvelines" },
-    { d:"23/06/2026", plaque:"GW-293-GA", type:"Révision 5 000 km", tech:"Secteur Yvelines" },
-    { d:"07/02/2026", plaque:"GW-325-GA", type:"Remplacement batterie", tech:"Secteur Yvelines" } ]
-};
 
-function maintsHtml(ent) {
-  var m = MAINTENANCES[ent] || [];
-  if (!m.length) return "";
-  return m.map(function(x) {
-    return '<div class="ligne-ctc" style="flex-direction:column;align-items:flex-start;gap:2px;">' +
-      '<span><b style="color:#0e5aa7;">🔧 ' + x.d + '</b> <span class="petit">· 🛵 ' + x.plaque + ' · ' + x.tech + '</span></span>' +
-      '<span class="petit">' + x.type + '</span></div>';
-  }).join("");
-}
-
-/* ===== C7-MAINT : vraies données de maintenances (comptage précalculé) =====
-   Arrivent avec l'import 🔌 Vrais clients : chaque client du miroir porte
-   un champ maintenances [{code_client, nom, donnees:{sans_contrat,
-   sites:[{cp,ville,adresse,pack,droits,consommes,restants,contrat_debut,
-   contrat_fin,derniere,reparations_recentes,conclusion}], connecteurs:
-   {nb,conclusion,dernier}}}] — comptage déterministe du cahier des charges
-   (§3-4), importé par POST /api/clients-import {maintenances}. */
-function escTxt(t) {
-  return String(t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-/* ISO (2026-10-14) → 14/10/2026 */
-function dateFr(iso) {
-  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ""));
-  return m ? m[3] + "/" + m[2] + "/" + m[1] : String(iso || "");
-}
-function coulConclusion(c) {
-  var t = String(c || "");
-  if (/facturer/i.test(t)) return "#c0392b";       // rouge : à facturer
-  if (/ALERTE/i.test(t)) return "#e67e22";         // orange : packs différents
-  return "#1c7ed6";                                // bleu : info
-}
-function maintsHtmlReelles(s) {
-  var ms = s.maintenances || [];
-  if (!ms.length) return "";
-  var out = ms.map(function(m) {
-    var d = (m && m.donnees) || {};
-    var sites = Array.isArray(d.sites) ? d.sites : [];
-    var html = sites.map(function(st) {
-      var l = '<div class="ligne-ctc" style="flex-direction:column;align-items:flex-start;gap:2px;">' +
-        '<span><b style="color:#0e5aa7;">📍 ' + escTxt(st.ville) + ' (' + escTxt(st.cp) + ')</b>' +
-        ' <span class="petit">· ' + escTxt(st.adresse) + '</span></span>';
-      if (st.pack) {
-        l += '<span class="petit">📦 Pack <b>' + escTxt(st.pack) + '</b>';
-        if (st.droits !== undefined && st.droits !== null) {
-          l += ' — <b>' + st.consommes + '</b> consommé(s) sur <b>' + st.droits + '</b>' +
-                ' · <b style="color:' + (st.restants > 0 ? "#1c7ed6" : "#c0392b") + ';">reste ' + st.restants + '</b>';
-          if (st.periode_courante) {
-            l += ' <span style="color:#8a93a3;">(contrat en cours du ' + escTxt(dateFr(st.periode_courante.debut)) +
-                 ' au ' + escTxt(dateFr(st.periode_courante.fin)) + ')</span>';
-          }
-        }
-        l += '</span>';
-      }
-      /* Détail par année contractuelle (anniversaires), de la plus récente à
-         la plus ancienne ; le contrat en cours est en gras avec fond bleu pâle. */
-      if (Array.isArray(st.par_annee) && st.par_annee.length) {
-        l += '<span class="petit" style="display:flex;flex-wrap:wrap;gap:3px;">' +
-          st.par_annee.map(function(a) {
-            var enc = a.en_cours === true;
-            return '<span style="display:inline-block;border-radius:9px;padding:1px 7px;font-weight:' +
-              (enc ? '700' : '400') + ';background:' + (enc ? '#e2f0fc;color:#0e5aa7;' : '#f1f4f8;color:#697180;') +
-              '">' + (enc ? '📌 ' : '📅 ') + escTxt(dateFr(a.debut)) + ' → ' + escTxt(dateFr(a.fin)) +
-              ' : <b>' + a.consommes + '</b>/' + a.droits +
-              (a.restants <= 0 ? ' <span style="color:#c0392b;">(épuisé)</span>' : '') + '</span>';
-          }).join("") + '</span>';
-      }
-      /* C38-HORS-QUOTA : seules les dates de passages du contrat en cours
-         sont affichées (ce sont elles qui consomment le quota) — les
-         passages antérieurs au début du contrat ne sont plus listés. */
-      var dates = Array.isArray(st.dates_passages) ? st.dates_passages : (st.derniere ? [st.derniere] : []);
-      var debC = (st.periode_courante && st.periode_courante.debut) || st.contrat_debut || "";
-      var datesContrat = dates.filter(function(dd) { return !(debC && dd < debC); });
-      if (datesContrat.length) {
-        l += '<span class="petit" style="line-height:1.9;">🔧 Passages réalisés (contrat en cours) : ' +
-          datesContrat.map(function(dd) {
-            return '<span title="comptabilisé dans le quota du contrat en cours" style="display:inline-block;background:#e2f0fc;color:#0e5aa7;' +
-              'border-radius:9px;padding:1px 7px;margin:1px 3px 1px 0;font-weight:600;">' + escTxt(dateFr(dd)) + '</span>';
-          }).join("") + '</span>';
-      }
-      /* Réparations non comptées (hors forfait / pas de MO sous contrat) */
-      if (Array.isArray(st.dates_non_comptes) && st.dates_non_comptes.length) {
-        l += '<span class="petit" style="color:#8a93a3;">🔧 Réparations non comptées (hors forfait) : ' +
-          st.dates_non_comptes.map(function(dd) { return escTxt(dateFr(dd)); }).join(" · ") + '</span>';
-      }
-      if (st.conclusion) l += '<span class="petit" style="color:' + coulConclusion(st.conclusion) + ';font-weight:600;">→ ' + escTxt(st.conclusion) + '</span>';
-      l += '</div>';
-      return l;
-    }).join("");
-    if (d.sans_contrat) {
-      html += '<div class="petit" style="color:#c0392b;font-weight:600;margin-top:3px;">→ Aucun contrat en cours — déplacement à facturer</div>';
-    }
-    var cn = d.connecteurs || {};
-    if (cn.nb) {
-      html += '<div class="petit" style="margin-top:3px;">🔌 Connecteur batterie : <b>' + cn.nb + '</b> remplacement(s) déjà réalisé(s)' +
-        (cn.dernier ? ' (dernier : ' + escTxt(dateFr(cn.dernier)) + ')' : '') +
-        ' <span style="color:#c0392b;font-weight:600;">→ le prochain est à FACTURER (le geste commercial a déjà été utilisé)</span></div>';
-    } else {
-      html += '<div class="petit" style="margin-top:3px;color:#1c7ed6;">🔌 Connecteur batterie : aucun remplacement à ce jour → <b>1er remplacement OFFERT</b> (geste commercial possible, première fois)</div>' +
-        '<div class="petit" style="color:#e67e22;">⚠️ Sécurité technicien : disjoncter le scooter avant de brancher la batterie</div>';
-    }
-    if (!html) return "";
-    return '<div class="ligne-ctc" style="flex-direction:column;align-items:flex-start;gap:2px;' +
-      (ms.length > 1 ? 'border-top:1px dashed #dfe7f0;padding-top:4px;' : '') + '">' +
-      (ms.length > 1 ? '<span class="petit" style="font-weight:600;">🧾 ' + escTxt(m.nom || m.code_client) + ' (' + escTxt(m.code_client) + ')</span>' : '') +
-      html + '</div>';
-  }).join("");
-  return out;
-}
-/* Affichage final : vraies données si présentes, repli démo sinon. */
-function maintsAffiches(s) {
-  var reelles = maintsHtmlReelles(s);
-  if (reelles) return { html: reelles, demo: false };
-  return { html: maintsHtml(s.ent), demo: true };
-}
-/* Bandeau d'avertissement (uniquement quand les données sont de démo). */
-function maintsAvertissement(demo) {
-  return demo ? '<div class="petit" style="margin-top:6px;color:#9aa4b1;font-size:10.5px;">⚠️ Exemples de démonstration — importe les vrais clients (🔌) pour le comptage réel des maintenances.</div>' : '';
-}
-/* Bloc complet : données + bandeau d'avertissement si démo. videCls = classe
-   du texte « aucune maintenance » (fiche ou carnet). */
 function maintsBloc(s, videCls) {
   var af = maintsAffiches(s);
   var html = af.html || '<div class="' + (videCls || "petit") + '" style="color:#8a93a3;">Aucune maintenance enregistrée.</div>';
@@ -2698,6 +2413,7 @@ function escapeAttr(x) {
 }
 /* C40-PHOTOS : média WhatsApp reçu — l'API renvoie brut->_media = {kind,id,mime,caption,url}
    (rempli par /api/whatsapp-webhook, média téléchargé dans le bucket public wa-media). */
+
 function waPhotoDe(m) {
   var md = m && m._media;
   if (typeof md === "string") { try { md = JSON.parse(md); } catch (e) { md = null; } }
@@ -3598,6 +3314,7 @@ function corpsPropositionEmail(s, dm) {
   if (dm.restants !== undefined && dm.restants !== null) {
     l.push("");
     if (dm.periode_courante) {
+
       l.push("Sur le contrat en cours (du " + dateFr(dm.periode_courante.debut) +
         " au " + dateFr(dm.periode_courante.fin) + "), il vous reste " + dm.restants +
         " passage(s) de maintenance inclus dans votre contrat.");
@@ -4498,6 +4215,7 @@ function renduFilEntreprise(e) {
   var nbTrouves = 0;
   var dernierJour = null;
   msgs.forEach(function(it){
+
     if (it.jour !== dernierJour) {
       dernierJour = it.jour;
       var sep = document.createElement("div");
@@ -4761,6 +4479,15 @@ function ouvrirCarnet() {
 function fermerCarnet() {
   document.getElementById("carnet").classList.remove("ouvert");
 }
+/* v124 : re-rendu du carnet SI ouvert (et pas de formulaire ➕ en cours) —
+   sinon une fiche créée/supprimée par un collègue n'apparaissait dans la
+   liste qu'après un rafraîchissement manuel de la page. */
+function majCarnetSiOuvert() {
+  var cn = document.getElementById("carnet");
+  if (!cn || !cn.classList.contains("ouvert")) return;
+  if (document.getElementById("fs-enseigne")) return;   /* formulaire de création ouvert : on ne touche à rien */
+  renduCarnet();
+}
 function voirConvCarnet(id) {
   fermerCarnet();
   marquerLecture(convParId(id));
@@ -4943,9 +4670,30 @@ function creerFicheSociete() {
   persisterAction("societe", "SOC:" + normTxt(enseigne), JSON.stringify(sNew), null);
   actIndex("SOC:" + normTxt(enseigne)).societe = true;
   renduCarnet();
+  renduListe();   /* v124 : la liste principale aussi se re-rend tout de suite */
   ouvrirPageSociete(enseigne);
   pushLog("🏢 Fiche entreprise créée : " + enseigne + " (aucune conversation lancée — bouton 💬 Lancer sur la fiche).");
   pushNotif("🏢 Fiche « " + enseigne + " » créée dans le carnet.");
+}
+/* v124 : suppression d'une fiche entreprise (bouton 🗑️ sur la page société).
+   Persistée (action "societe_supprime", clé SOC:<enseigne normalisée>) →
+   rejouée sur tous les postes. Les conversations rattachées à l'enseigne
+   restent dans la liste (elles perdent juste leur fiche société). */
+function supprimerSociete(ent) {
+  var s = socParEnt(ent);
+  if (!s) { pushNotif("⚠️ Fiche introuvable : " + ent); return; }
+  var nbSuj = CONVS.filter(function(c){ return c.entreprise === s.ent && !c.archive && !RATTACHE[c.id]; }).length;
+  var msg = "🗑️ Supprimer la fiche entreprise « " + s.ent + " » ?\n\n" +
+    (nbSuj ? "⚠️ " + nbSuj + " conversation(s) active(s) y sont rattachée(s) — elles resteront dans la liste mais perdront leur fiche société.\n\n" : "") +
+    "La suppression est partagée avec toute l'équipe (tous les postes).";
+  if (!confirm(msg)) return;
+  SOCIETES = SOCIETES.filter(function(x){ return x.ent !== s.ent; });
+  persisterAction("societe_supprime", "SOC:" + normTxt(s.ent), s.ent, null);
+  actIndex("SOC:" + normTxt(s.ent)).societe_supprimee = true;
+  if (CARNET_SEL && CARNET_SEL.type === "societe" && CARNET_SEL.ent === s.ent) CARNET_SEL = null;
+  renduCarnet(); renduListe(); renduFil(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
+  pushLog("🗑️ Fiche entreprise supprimée : " + s.ent);
+  pushNotif("🗑️ Fiche « " + s.ent + " » supprimée du carnet.");
 }
 function renduPageCarnet() {
   var page = document.getElementById("carnet-page");
@@ -5014,6 +4762,11 @@ function renduPageCarnet() {
         (s2.classeR === "impaye" ? '<span style="background:#dc2626;color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:999px;">⚠️ NE PAS INTERVENIR AVANT RÉGULARISATION</span>' : '') +
       '</h2>' +
       '<div class="siren-ligne">🆔 SIREN : <b>' + s2.siren + '</b> · 📍 ' + s2.siege + '</div>' +
+    '</div>' +
+
+    /* v124 : bouton de suppression de la fiche entreprise (persisté, partagé) */
+    '<div class="cp-actions">' +
+      '<button class="cp-btn" style="background:#fee2e2;color:#b91c1c;font-weight:700;" onclick="supprimerSociete(\'' + s2.ent.replace(/'/g, "\\'") + '\')" title="Supprimer cette fiche du carnet (partagé avec toute l\'équipe)">🗑️ Supprimer la fiche entreprise</button>' +
     '</div>' +
 
     '<div class="fiche-sec">' +
@@ -5363,6 +5116,7 @@ function ouvrirCtx() {
   ouvrirConvLu(id);
 }
 function actionCtxArchiver() {
+
   var c = convParId(CTX_ID);
   if (!c) return;
   c.archive = !c.archive;
@@ -5902,6 +5656,16 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
               n++;
             }
           } catch (e3) {}
+        } else if (typ === "societe_supprime") {
+          /* v124 : fiche entreprise supprimée par un collègue (bouton 🗑️) →
+             retirée du carnet ici aussi (dédup par enseigne normalisée). */
+          var entSup = String(d.valeur || cle.replace(/^SOC:/, ""));
+          var avLen = SOCIETES.length;
+          SOCIETES = SOCIETES.filter(function(s){ return normTxt(s.ent) !== normTxt(entSup); });
+          if (SOCIETES.length !== avLen) {
+            if (CARNET_SEL && CARNET_SEL.type === "societe" && normTxt(CARNET_SEL.ent) === normTxt(entSup)) CARNET_SEL = null;
+            n++;
+          }
         }
       });
       /* C18-RT : re-rendu dès qu'une action équipe change (même un simple
@@ -5909,6 +5673,7 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
          n'annonce que les commentaires des autres (pas de bruit). */
       if (n || nVu) {
         renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
+        majCarnetSiOuvert();   /* v124 : fiche société créée/supprimée → carnet re-rendu en live */
         if (mode === "auto") {
           nouveaux.forEach(function(x) {
             var cN = convParCle(x.cle);
@@ -6252,6 +6017,7 @@ function creerCompte() {
   }).catch(function(e){ msg.textContent = "Réseau : " + e; });
 }
 /* C6.2 : MOI suit le compte connecté — le prénom du compte devient le
+
    profil actif (messages envoyés, commentaires, « Mes conversations »).
    Si le prénom n'existe pas encore dans PROFILS, on l'ajoute (icône/couleur
    par défaut, modifiable via 👥 Profils). */
@@ -6525,7 +6291,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v122 · Les fiches entreprise créées par un collègue apparaissent chez toute l\'équipe';
+var VER_FRONT = 'v124 · Fiche entreprise : suppression 🗑️ persistée + carnet re-rendu en live (plus besoin de rafraîchir)';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
@@ -6534,4 +6300,5 @@ renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); ma
 </script>
 </body>
 </html>
+
 
