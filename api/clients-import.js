@@ -578,8 +578,13 @@ module.exports = async function handler(req, res) {
         var limiteA = parseInt(paramDe(req, 'limite'), 10) || 2000;
         if (limiteA < 1) limiteA = 1;
         if (limiteA > 5000) limiteA = 5000;
+        // v123 : order DESC côté Supabase (les plus RÉCENTES d'abord — en ASC,
+        // le plafond max-rows 1000 excluait les actions récentes, ex. les
+        // fiches "societe" créées qui disparaissaient au refresh), puis
+        // reverse() pour renvoyer l'ordre chronologique au front (inchangé).
         var actionsLues = await supabaseGet('journal',
-          'select=horodatage,contact_id,texte,detail&etape=eq.action_plateforme&order=horodatage.asc&limit=' + limiteA);
+          'select=horodatage,contact_id,texte,detail&etape=eq.action_plateforme&order=horodatage.desc&limit=' + limiteA);
+        actionsLues.reverse();
         return res.status(200).json({
           ok: true, brique: 'C15-ACT', version: VERSION,
           limite: limiteA, trouves: actionsLues.length, actions: actionsLues
@@ -787,3 +792,4 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
   }
 };
+
