@@ -1601,6 +1601,7 @@ var SOCIETES = [
     {"ent": "SPAO (L'ANTICA)", "siren": "821651981", "siege": "48 RUE CHANZY, 51100 Reims", "livraison": "Même adresse", "contact_sc": "Anas (Gérant) — 06 27 47 29 86", "risque": "RAS", "classeR": "ok", "scooters": [
       {"plaque": "GC-784-MK", "produit": "INFINITY PRO Châssis Noir", "contrat": "Modèle Confort 48 — CO00107, 26/10/2021 → 30/11/2025"},
       {"plaque": "GP-613-DB", "produit": "INFINITY PRO CHASSIS NOIR", "contrat": "Modèle Confort + 48 — CO01094, 21/06/2023 → 30/07/2027"},
+      {"plaque": "GP-646-DB", "produit": "INFINITY PRO CHASSIS NOIR", "contrat": "Modèle Confort + 48 — CO01094, 21/06/2023 → 30/07/2027"}
 
 
     ], "convs": [10, 11]},
@@ -2001,6 +2002,7 @@ function sigApercuMaj() {
   var ap = document.getElementById("sig-apercu");
   if (ap) ap.innerHTML = corpsHtmlEmail("Voici un aperçu du message que recevra le client…", sigLireChamps());
 }
+  var s = SIGNATURE;
 function renduOngletSignature() {
 
 
@@ -2402,6 +2404,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
         var asRio = assignRioTel(d);                /* C12-ASSIGN : assignation respond.io */
         nid++;
         CONVS.push({
+          cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
           id: nid, nom: nomProfilOu(dernier.nom_profil, t.nom), entreprise: inconnu ? "" : t.ent, canal: "WhatsApp",
 
 
@@ -2804,12 +2807,13 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
           s = { ent: t.ent, siren: "", siege: "", livraison: "Même adresse", contact_sc: "",
                 risque: "RAS", classeR: "ok", scooters: [], convs: [],
                 vraisContacts: [{ nom: t.nom, tel: "", plaque: t.plaque, email: addr }] };
-
+          SOCIETES.push(s);
         }
         return { s: s, v: s.vraisContacts[0], nom: t.nom };
       }
       var nid = CONVS.length ? Math.max.apply(null, CONVS.map(function(c) { return c.id; })) : 0;
       Object.keys(parAddr).forEach(function(addr) {
+        var inconnu = !trouve;                                     // v54: adresse hors carnet → conversation créée quand même, sans fiche entreprise
         var trouve = resoudreContact(addr);
 
 
@@ -3205,13 +3209,14 @@ function joindreFichier(inp) {  try {
     var h = new Date().toTimeString().slice(0, 5);
     var kb = f.size > 1048576 ? (f.size / 1048576).toFixed(1) + " Mo" : Math.max(1, Math.round(f.size / 1024)) + " Ko";
     var estImg = /^image\//.test(f.type);
-
+    try { c.fil.push({ qui: "agent", de: MOI, t: h, txt: estImg ? "🖼 " + f.name : "📎 " + f.name, canal: CANAL_ENVOI, pj: f.name, taille: kb, img: estImg, url: estImg ? URL.createObjectURL(f) : null, ts: new Date().toISOString() }); }
     catch (e) { c.fil.push({ qui: "agent", de: MOI, t: h, txt: (estImg ? "🖼 " : "📎 ") + f.name, canal: CANAL_ENVOI, pj: f.name, taille: kb, ts: new Date().toISOString() }); }
     c.extrait = (estImg ? "🖼 " : "📎 ") + f.name; c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
     inp.value = "";
     renduFil(); renduListe(); rafraichirFiche(); majBadgeNouveaux();
   } catch (e) { alert("Pièce jointe non disponible dans cet environnement : " + e.message); }
+}
 
 
 /* auteur d'une bulle : avatar + nom, affiché en tête de chaque message */
@@ -3606,7 +3611,7 @@ function envoyerModeleWa(nomModele) {
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
   var secret = (sessionDe() || {}).jeton || "";
   if (!secret) { afficherPorte(); finEnvoi(); return; }
-
+  var h = new Date().toTimeString().slice(0, 5);
   // C5-ENV-2 : objet de réponse (RE: pré-rempli, modifiable) + signature HTML
   var sujet = sujetCourant(c);
   var sig = SIGNATURE.actif ? SIGNATURE : null;
@@ -3615,6 +3620,7 @@ function envoyerModeleWa(nomModele) {
   fetch(base + "/api/email-send", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-jeton": secret },
+    body: JSON.stringify(Object.assign(
 
       { jeton: secret, a: mail, sujet: sujet, texte: texteFinal },
       htmlFinal ? { html: htmlFinal } : {},
@@ -4017,6 +4023,7 @@ function pushLog(txt) {
   LOGS.unshift({ txt: txt, t: maintenant() });
   if (LOGS.length > 100) LOGS.length = 100;
   var p = document.getElementById("notifs");
+  if (p && p.classList.contains("ouvert")) renduNotifs();
 
 }
 /* C25-NOTIF-EQUIPE : actions "notif" déjà vues sur cet appareil (cap 500) —
@@ -4408,7 +4415,7 @@ function dessinerConv(c, conteneur) {
        état habituel (visible uniquement via la recherche globale) */
     (c.archive ? '<span class="tag" title="Conversation archivée">📦 archivée</span>' : '')+
     (RATTACHE[c.id] ? '<span class="tag" title="Rattachée à une autre conversation">📎 rattachée</span>' : '')+
-
+    '</div></div>';
   d.onclick = function(){ ouvrirConvLu(c.id); };
   d.oncontextmenu = function(ev){ menuContext(ev, c.id); };
   el.appendChild(d);
@@ -4418,6 +4425,7 @@ function dessinerConv(c, conteneur) {
 var FIL_META = (function(){ try { return localStorage.getItem("umob_fil_meta") !== "0"; } catch (e) { return true; } })();
 function basculeFilMeta() {
   FIL_META = !FIL_META;
+  try { localStorage.setItem("umob_fil_meta", FIL_META ? "1" : "0"); } catch (e) {}
 
   renduFil();
 }
@@ -4809,7 +4817,7 @@ function lancerNouvelleConv(id) {
    CARNET D'ADRESSES (menu C3) : liste à gauche, PAGE DE DÉTAIL
    à droite — clic sur un contact ou une société pour ouvrir
    sa page. Mêmes infos que la fiche société + actions
-
+   « Lancer une conversation » (C2) et « Appeler » (Ringover).
    ============================================================ */
 var CARNET_SEL = null; /* { type:"contact", id } ou { type:"societe", ent } */
 
@@ -4819,6 +4827,7 @@ function convParId(id) { return CONVS.filter(function(c) { return c.id === id; }
    « Entreprise + Contact » (une entreprise peut avoir plusieurs contacts). */
 function normNom(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9àâäéèêëîïôöùûüç]+/gi, " ").trim(); }
 function nomAff(c) {
+  var n = normNom(c.nom), e = normNom(c.entreprise);
 
   return (n && n === e) ? c.entreprise : c.nom;
 }
@@ -5210,7 +5219,7 @@ function initVolets() {
     try {
       var mem = JSON.parse(localStorage.getItem("umob_volets_replies") || "{}");
       mem[id] = replie;
-
+      localStorage.setItem("umob_volets_replies", JSON.stringify(mem));
     } catch (e) {}
   };
   /* --- C8-VOLET-3 : icônes du volet Filtres réduit → rouvrir sur la section --- */
@@ -5220,6 +5229,7 @@ function initVolets() {
     setTimeout(function() {
       var s = document.getElementById(secId);
       if (!s) return;
+      s.scrollIntoView({ behavior: "smooth", block: "start" });
 
       s.classList.remove("flash-sec");
       void s.offsetWidth;   /* relance l'animation même si déjà jouée */
@@ -5611,7 +5621,7 @@ function rattacherEntreprise(ent) {
   var avant = c.entreprise || "";
   if (avant === ent) { fermerRattacheEnt(); return; }
   if (avant) { var s0 = socParEnt(avant); if (s0) s0.convs = s0.convs.filter(function(id){ return id !== c.id; }); }
-
+  c.entreprise = ent;
   var s = socParEnt(ent);
   if (s) {
     if (s.convs.indexOf(c.id) < 0) s.convs.push(c.id);
@@ -5621,6 +5631,7 @@ function rattacherEntreprise(ent) {
       if (!existe) s.vraisContacts.push({ nom: c.nom, tel: c.contact.tel || "", plaque: c.contact.plaque || "", email: c.contact.email });
     }
   }
+  persisterAction("entreprise", cleConv(c), ent, null);
 
   actIndex(cleConv(c)).entreprise = ent;
   fermerRattacheEnt();
@@ -6012,7 +6023,7 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
             if (avE) { var sA = socParEnt(avE); if (sA) sA.convs = sA.convs.filter(function(id){ return id !== cE.id; }); }
             cE.entreprise = entV;
             var sB = socParEnt(entV);
-
+            if (sB && sB.convs.indexOf(cE.id) < 0) sB.convs.push(cE.id);
             n++;
           }
         } else if (typ === "societe") {
@@ -6022,6 +6033,7 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
              s'y retrouvent dès que leurs messages sont chargés. */
           try {
             var sN = JSON.parse(String(d.valeur || ""));
+            if (sN && sN.ent && !SOCIETES.some(function(s){ return normTxt(s.ent) === normTxt(sN.ent); })) {
 
               if (!Array.isArray(sN.convs)) sN.convs = [];
               if (!Array.isArray(sN.vraisContacts)) sN.vraisContacts = [];
@@ -6413,7 +6425,7 @@ function appliquerMoiSession(nomComplet) {
   if (!PROFILS[prenom]) {
     var utilisees = Object.keys(PROFILS).map(function(n){ return PROFILS[n].col; });
     PROFILS[prenom] = {
-
+      ic: ICONES_PROFILS[Object.keys(PROFILS).length % ICONES_PROFILS.length],
       col: COULEURS_PROFILS.filter(function(c){ return utilisees.indexOf(c) < 0; })[0] || COULEURS_PROFILS[0]
     };
     sauvegarderProfils();
@@ -6423,6 +6435,7 @@ function appliquerMoiSession(nomComplet) {
     try { majEquipe(); renduListe(); renduMesCycles(); } catch (e) {}
   }
 }
+function seConnecter() {
 
   var email = document.getElementById("auth-email").value.trim();
   var mdp = document.getElementById("auth-mdp").value;
@@ -6689,7 +6702,6 @@ renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); ma
 </script>
 </body>
 </html>
-
 
 
 
