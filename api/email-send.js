@@ -6,8 +6,12 @@
 // à parler au serveur SMTP (principe cerveau ≠ canal) : aucun LLM ici.
 //
 //   POST /api/email-send
-//   { secret, a, sujet, texte, html } (secret accepté : query, header, body ;
-//     html = corps HTML optionnel (signature) → multipart/alternative)
+//   { secret, a, sujet, texte, html, pj } (secret accepté : query, header, body ;
+//     html = corps HTML optionnel (signature) → multipart/alternative ;
+//     pj = pièces jointes optionnelles, tableau de {nom, type, donnees}
+//     où donnees = contenu du fichier en base64 → multipart/mixed (C5-ENV-4).
+//     Limites : 5 PJ max, 3 000 000 caractères base64 au total (~2,2 Mo)
+//     pour rester sous la limite de corps de 4,5 Mo de Vercel.)
 //
 // APRÈS l'envoi réussi : enregistré dans agent_sav.emails avec sens='sortant'
 // (best effort — une panne Supabase ne fait pas échouer l'envoi).
@@ -20,7 +24,7 @@
 // 500 config manquante ; 502 erreur SMTP.
 // ============================================================================
 
-var VERSION = 'C5-ENV-1';
+var VERSION = 'C5-ENV-4';
 var SCHEMA = 'agent_sav';
 var smtp = require('../lib/smtp');
 
@@ -112,6 +116,27 @@ module.exports = async function handler(req, res) {
   var texte = String((corps && corps.texte) || '').trim();
   var html = String((corps && corps.html) || '').trim();   // C5-ENV-2 : corps HTML (signature logo)
 
+  // C5-ENV-4 : pièces jointes {nom, type, donnees(base64)} → multipart/mixed
+  var pjBrut = (corps && corps.pj) || [];
+  var pj = [];
+  if (Array.isArray(pjBrut)) {
+    var totalB64 = 0;
+    for (var i = 0; i < pjBrut.length; i++) {
+      var p = pjBrut[i];
+      if (!p || typeof p !== 'object') continue;
+      var nom = String(p.nom || '').replace(/[\r\n"\\]/g, '_').trim().slice(0, 200);
+      var donnees = String(p.donnees || '').replace(/\s+/g, '');
+      if (!nom || !donnees) continue;
+      if (!/^[A-Za-z0-9+/]*={0,2}$/.test(donnees)) {
+        return res.status(400).json({ ok: false, erreur: 'pj[' + i + '].donnees doit etre du base64 valide' });
+      }
+      totalB64 += donnees.length;
+      pj.push({ nom: nom, type: String(p.type || 'application/octet-stream').slice(0, 120), donnees: donnees });
+    }
+    if (pj.length > 5) return res.status(400).json({ ok: false, erreur: 'trop de pieces jointes (max 5)' });
+    if (totalB64 > 3000000) return res.status(400).json({ ok: false, erreur: 'pieces jointes trop volumineuses (max ~2,2 Mo au total, limite corps Vercel 4,5 Mo)' });
+  }
+
   if (!a) return res.status(400).json({ ok: false, erreur: 'a requis (adresse email du client)' });
   if (!emailValide(a)) return res.status(400).json({ ok: false, erreur: 'a doit etre une adresse email valide' });
   if (!texte) return res.status(400).json({ ok: false, erreur: 'texte requis' });
@@ -133,7 +158,8 @@ module.exports = async function handler(req, res) {
     result = await smtp.envoyerSmtp({
       host: host, port: env('SMTP_PORT') || 465,
       user: user, pass: pass,
-      de: de, a: a, sujet: sujet, texte: texte, html: html || undefined
+      de: de, a: a, sujet: sujet, texte: texte, html: html || undefined,
+      pj: pj.length ? pj : undefined   // C5-ENV-4 : pièces jointes → multipart/mixed
     });
   } catch (e) {
     await journaliser('email_send ERREUR SMTP', { a: a, erreur: String((e && e.message) || e) });
@@ -200,7 +226,7 @@ module.exports = async function handler(req, res) {
         sujet: sujet,
         texte: texte,
         corps_html: html || null,
-        brut: { envoye_par: 'plateforme-c5' },
+        brut: { envoye_par: 'plateforme-c5', pj: pj.map(function (p) { return { nom: p.nom, type: p.type }; }) },
         recu_a: new Date().toISOString(),
         statut_reception: 'sent',
         lu: true
@@ -213,3 +239,4 @@ module.exports = async function handler(req, res) {
   await journaliser('email_send : email envoye a ' + a, { message_id: result.message_id, sujet: sujet.substring(0, 120) });
   return res.status(200).json({ ok: true, brique: 'C5', version: VERSION, message_id: result.message_id, statut: 'envoye', copie: etapesCopie });
 };
+

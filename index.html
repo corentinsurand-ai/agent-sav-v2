@@ -1204,10 +1204,11 @@
         <button class="outil-btn ob-vert" onclick="ouvrirBoiteOutils('wa')" title="Modèles WhatsApp Business approuvés, avec champs automatiquement remplis"><span class="ob-ico">📋</span>Modèles WA</button>
         <button class="outil-btn ob-bleu" onclick="ouvrirBoiteOutils('sig')" title="Signature des emails : logo, coordonnées, activée/désactivée à la demande"><span class="ob-ico">✉️</span>Signature</button>
 
-        <button class="outil-btn ob-orange" onclick="document.getElementById('pj-input').click()" title="Joindre un fichier (photo, PDF…) — envoyé tel quel au client"><span class="ob-ico">📎</span>Joindre</button>
+        <button class="outil-btn ob-orange" onclick="document.getElementById('pj-input').click()" title="Joindre un fichier (photo, PDF…) — en canal Email, il s'ajoute au mail en cours de rédaction"><span class="ob-ico">📎</span>Joindre</button>
         <input type="file" id="pj-input" style="display:none;" onchange="joindreFichier(this)" />
 
       </div>
+      <div id="pj-brouillon" style="display:none;flex-wrap:wrap;gap:6px;padding:2px 2px 0 2px;"></div>
       <div class="barre" id="barre-objet" style="display:none;">
         <span class="lab" style="flex:0 0 auto;white-space:nowrap;">Objet :</span>
         <input id="nv-objet" placeholder="Objet du message (pré-rempli depuis le mail du client — modifiable)" oninput="sujetEnvoiModifie()" />
@@ -1600,7 +1601,7 @@ var SOCIETES = [
     {"ent": "SPAO (L'ANTICA)", "siren": "821651981", "siege": "48 RUE CHANZY, 51100 Reims", "livraison": "Même adresse", "contact_sc": "Anas (Gérant) — 06 27 47 29 86", "risque": "RAS", "classeR": "ok", "scooters": [
       {"plaque": "GC-784-MK", "produit": "INFINITY PRO Châssis Noir", "contrat": "Modèle Confort 48 — CO00107, 26/10/2021 → 30/11/2025"},
       {"plaque": "GP-613-DB", "produit": "INFINITY PRO CHASSIS NOIR", "contrat": "Modèle Confort + 48 — CO01094, 21/06/2023 → 30/07/2027"},
-      {"plaque": "GP-646-DB", "produit": "INFINITY PRO CHASSIS NOIR", "contrat": "Modèle Confort + 48 — CO01094, 21/06/2023 → 30/07/2027"}
+
 
     ], "convs": [10, 11]},
     {"ent": "TAINAM (DOMINO'S PIZZA)", "siren": "828384750", "siege": "82 RUE EDOUARD VAILLANT, 95870 Bezons", "livraison": "Même adresse", "contact_sc": "Adel AMEZIANE (GERANT) — 06 48 78 41 23", "risque": "Impayé", "classeR": "impaye", "scooters": [
@@ -2001,7 +2002,7 @@ function sigApercuMaj() {
   if (ap) ap.innerHTML = corpsHtmlEmail("Voici un aperçu du message que recevra le client…", sigLireChamps());
 }
 function renduOngletSignature() {
-  var s = SIGNATURE;
+
 
   var corps = document.getElementById("bo-corps");
   corps.innerHTML =
@@ -2402,7 +2403,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
         nid++;
         CONVS.push({
           id: nid, nom: nomProfilOu(dernier.nom_profil, t.nom), entreprise: inconnu ? "" : t.ent, canal: "WhatsApp",
-          cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
+
 
           lu: false, wa: true, extrait: String(dernier.texte || ""),
           assigne: asRio || null,
@@ -2803,7 +2804,7 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
       var nid = CONVS.length ? Math.max.apply(null, CONVS.map(function(c) { return c.id; })) : 0;
       Object.keys(parAddr).forEach(function(addr) {
         var trouve = resoudreContact(addr);
-        var inconnu = !trouve;                                     // v54: adresse hors carnet → conversation créée quand même, sans fiche entreprise
+
 
         if (inconnu) {
           var dm0 = parAddr[addr][parAddr[addr].length - 1];
@@ -3153,11 +3154,47 @@ function dicterIA() {
   REC_IA.onerror = function(ev) { if (ev.error === "not-allowed") alert("Micro refusé — autorise l'accès au microphone dans ton navigateur."); };
   REC_IA.start();
 }
+/* v127 : pièces jointes du mail en cours de rédaction — en canal Email,
+   cliquer sur 📎 les ajoute AU BROUILLON (puces au-dessus du champ) et elles
+   partent avec l'envoi SMTP (multipart/mixed côté serveur). */
+var PJ_BROUILLON = [];
+function resetPJsBrouillon() { PJ_BROUILLON = []; renduPJsBrouillon(); }
+function retirerPjBrouillon(i) { PJ_BROUILLON.splice(i, 1); renduPJsBrouillon(); }
+function tailleFmt(n) { return n > 1048576 ? (n / 1048576).toFixed(1) + " Mo" : Math.max(1, Math.round(n / 1024)) + " Ko"; }
+function renduPJsBrouillon() {
+  var box = document.getElementById("pj-brouillon");
+  if (!box) return;
+  if (!PJ_BROUILLON.length) { box.style.display = "none"; box.innerHTML = ""; return; }
+  box.style.display = "flex";
+  box.innerHTML = PJ_BROUILLON.map(function (p, i) {
+    return '<span style="display:inline-flex;align-items:center;gap:6px;background:#FFF4E5;border:1px solid #F5C98A;color:#7A4A00;border-radius:999px;padding:3px 6px 3px 10px;font-size:11.5px;font-weight:600;">📎 ' + escTxt(p.nom) +
+      ' <span style="color:#a06a1a;font-weight:500;">(' + tailleFmt(p.taille) + ')</span>' +
+      '<button onclick="retirerPjBrouillon(' + i + ')" title="Retirer cette pièce jointe du mail" style="border:none;background:#f3d9a8;color:#7A4A00;border-radius:50%;width:17px;height:17px;line-height:1;cursor:pointer;font-size:11px;padding:0;">✕</button></span>';
+  }).join("");
+}
 function joindreFichier(inp) {  try {
     var f = inp.files && inp.files[0];
     if (!f) return;
     var c = convParId(SELID);
     if (!c || !ACTIF) { inp.value = ""; alert("Active d\\'abord le MODE ÉCRITURE (C2) et ouvre une conversation."); return; }
+    /* v127 : canal Email en vraies données → la PJ s'ajoute au mail en cours
+       de rédaction (lu en base64, envoyé avec le POST /api/email-send). */
+    if (CANAL_ENVOI === "Email" && VRAIES_DONNEES) {
+      if (PJ_BROUILLON.length >= 5) { inp.value = ""; pushNotif("⚠️ 5 pièces jointes max par email."); return; }
+      var reader = new FileReader();
+      reader.onload = function () {
+        var dataUrl = String(reader.result || "");
+        var b64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+        if (b64.length > 3000000) { inp.value = ""; pushNotif("⚠️ « " + f.name + " » trop volumineux (max ~2,2 Mo) — pièce jointe ignorée."); return; }
+        PJ_BROUILLON.push({ nom: f.name, type: f.type || "application/octet-stream", taille: f.size, donnees: b64 });
+        inp.value = "";
+        renduPJsBrouillon();
+        pushNotif("📎 « " + f.name + " » ajouté au mail en cours de rédaction.");
+      };
+      reader.onerror = function () { inp.value = ""; pushNotif("⚠️ Lecture de « " + f.name + " » impossible."); };
+      reader.readAsDataURL(f);
+      return;
+    }
     var h = new Date().toTimeString().slice(0, 5);
     var kb = f.size > 1048576 ? (f.size / 1048576).toFixed(1) + " Mo" : Math.max(1, Math.round(f.size / 1024)) + " Ko";
     var estImg = /^image\//.test(f.type);
@@ -3168,7 +3205,7 @@ function joindreFichier(inp) {  try {
     inp.value = "";
     renduFil(); renduListe(); rafraichirFiche(); majBadgeNouveaux();
   } catch (e) { alert("Pièce jointe non disponible dans cet environnement : " + e.message); }
-}
+
 
 /* auteur d'une bulle : avatar + nom, affiché en tête de chaque message */
 /* C8-IMP-2 : libellé discret sous la bulle quand un message sortant a été
@@ -3569,9 +3606,10 @@ function envoyerModeleWa(nomModele) {
   fetch(base + "/api/email-send", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-jeton": secret },
-    body: JSON.stringify(Object.assign(
+
       { jeton: secret, a: mail, sujet: sujet, texte: texteFinal },
-      htmlFinal ? { html: htmlFinal } : {}
+      htmlFinal ? { html: htmlFinal } : {},
+      PJ_BROUILLON.length ? { pj: PJ_BROUILLON.map(function (p) { return { nom: p.nom, type: p.type, donnees: p.donnees }; }) } : {}   /* v127 : PJ du brouillon → multipart/mixed */
     ))
   })
   .then(function(r) {
@@ -3584,13 +3622,15 @@ function envoyerModeleWa(nomModele) {
       finEnvoi();
       return;  // le message n'est PAS ajouté au fil, le champ est conservé
     }
-    c.fil.push(Object.assign({ qui: "agent", de: MOI, t: h, txt: texteFinal, suj: sujet, canal: "Email", st: "envoye", mid: (rep.j.message_id || ""), ts: new Date().toISOString() }, htmlFinal ? { html: htmlFinal } : {}));   /* v106: mid pour dédup · v121: ts → remonte en haut */
+    var nomsPj = PJ_BROUILLON.map(function (p) { return p.nom; }).join(", ");
+    c.fil.push(Object.assign({ qui: "agent", de: MOI, t: h, txt: texteFinal, suj: sujet, canal: "Email", st: "envoye", mid: (rep.j.message_id || ""), ts: new Date().toISOString() }, htmlFinal ? { html: htmlFinal } : {}, nomsPj ? { pj: nomsPj } : {}));   /* v106: mid pour dédup · v121: ts → remonte en haut · v127: noms des PJ envoyées */
     c.extrait = v; c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
     if (inp) inp.value = ""; majHauteurSaisie();
     finEnvoi();
+    PJ_BROUILLON = []; renduPJsBrouillon();   /* v127 : brouillon PJ vidé après envoi réussi */
     renduFil(); renduListe(); rafraichirFiche(); majBadgeNouveaux();
-    pushNotif("✅ Email envoyé pour de vrai à " + mail);
+    pushNotif("✅ Email envoyé pour de vrai à " + mail + (nomsPj ? " 📎 " + nomsPj : ""));
   })
   .catch(function(e) {
     pushNotif("⚠️ Envoi email impossible : " + String((e && e.message) || e));
@@ -3967,7 +4007,7 @@ function pushLog(txt) {
   LOGS.unshift({ txt: txt, t: maintenant() });
   if (LOGS.length > 100) LOGS.length = 100;
   var p = document.getElementById("notifs");
-  if (p && p.classList.contains("ouvert")) renduNotifs();
+
 }
 /* C25-NOTIF-EQUIPE : actions "notif" déjà vues sur cet appareil (cap 500) —
    évite de re-notifier à chaque refresh auto. */
@@ -4368,7 +4408,7 @@ function dessinerConv(c, conteneur) {
 var FIL_META = (function(){ try { return localStorage.getItem("umob_fil_meta") !== "0"; } catch (e) { return true; } })();
 function basculeFilMeta() {
   FIL_META = !FIL_META;
-  try { localStorage.setItem("umob_fil_meta", FIL_META ? "1" : "0"); } catch (e) {}
+
   renduFil();
 }
 function l2Ouvre() { return FIL_META ? "" : ' style="display:none;"'; }
@@ -4683,6 +4723,7 @@ function voirConv(id) {
   marquerLecture(convParId(id));
   marquerVu(convParId(id));               /* C17-VU : accusé de vue persisté */
   SELID = id; SELSENT = null; saverSel({ id: id, key: (convParId(id) && (convParId(id).contact.tel || convParId(id).contact.email)) || "" });
+  resetPJsBrouillon();   /* v127 : les PJ du brouillon appartiennent à la conversation en cours */
   syncCanalConv(convParId(id));
   renduListe(); renduFil(); majSaisieC2();   /* v44: rafraîchit l'avertissement fenêtre 24 h */
   if (estMobile()) basculerVueMobile("volet-fil");   /* C14-MOBILE : ouvrir une conversation = vue fil plein écran */
@@ -4694,11 +4735,11 @@ function restaurerSelection() {
   var o = null;
   try { o = JSON.parse(localStorage.getItem("umob_sel") || "null"); } catch (e) {}
   if (!o) return;
-  if (o.ent) { SELSENT = o.ent; SELID = null; renduListe(); renduFil(); majSaisieC2(); return; }
-  if (o.id && convParId(o.id)) { SELID = o.id; SELSENT = null; syncCanalConv(convParId(o.id)); renduListe(); renduFil(); majSaisieC2(); return; }
+  if (o.ent) { SELSENT = o.ent; SELID = null; resetPJsBrouillon(); renduListe(); renduFil(); majSaisieC2(); return; }
+  if (o.id && convParId(o.id)) { SELID = o.id; SELSENT = null; resetPJsBrouillon(); syncCanalConv(convParId(o.id)); renduListe(); renduFil(); majSaisieC2(); return; }
   if (o.key) {
     var c = CONVS.filter(function(x){ return (x.contact.tel || x.contact.email || "") === o.key; })[0];
-    if (c) { SELID = c.id; SELSENT = null; syncCanalConv(c); renduListe(); renduFil(); majSaisieC2(); }
+    if (c) { SELID = c.id; SELSENT = null; resetPJsBrouillon(); syncCanalConv(c); renduListe(); renduFil(); majSaisieC2(); }
   }
 }
 /* ===== C14-MOBILE : navigation un volet à la fois (≤ 860 px) ============
@@ -4768,7 +4809,7 @@ function convParId(id) { return CONVS.filter(function(c) { return c.id === id; }
    « Entreprise + Contact » (une entreprise peut avoir plusieurs contacts). */
 function normNom(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9àâäéèêëîïôöùûüç]+/gi, " ").trim(); }
 function nomAff(c) {
-  var n = normNom(c.nom), e = normNom(c.entreprise);
+
   return (n && n === e) ? c.entreprise : c.nom;
 }
 function socParEnt(e) { return SOCIETES.filter(function(s) { return s.ent === e; })[0]; }
@@ -4807,7 +4848,8 @@ function voirConvCarnet(id) {
   fermerCarnet();
   marquerLecture(convParId(id));
   marquerVu(convParId(id));               /* C17-VU : accusé de vue persisté */
-  SELID = id; SELSENT = null; renduListe(); renduFil();
+  SELID = id; SELSENT = null; resetPJsBrouillon();   /* v127 */
+  renduListe(); renduFil();
   if (estMobile()) basculerVueMobile("volet-fil");   /* C14-MOBILE */
 
 }
@@ -5168,7 +5210,7 @@ function initVolets() {
     setTimeout(function() {
       var s = document.getElementById(secId);
       if (!s) return;
-      s.scrollIntoView({ behavior: "smooth", block: "start" });
+
       s.classList.remove("flash-sec");
       void s.offsetWidth;   /* relance l'animation même si déjà jouée */
       s.classList.add("flash-sec");
@@ -5569,7 +5611,7 @@ function rattacherEntreprise(ent) {
       if (!existe) s.vraisContacts.push({ nom: c.nom, tel: c.contact.tel || "", plaque: c.contact.plaque || "", email: c.contact.email });
     }
   }
-  persisterAction("entreprise", cleConv(c), ent, null);
+
   actIndex(cleConv(c)).entreprise = ent;
   fermerRattacheEnt();
   renduListe(); renduFil(); renduMesCycles(); rafraichirFiche();
@@ -5970,7 +6012,7 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
              s'y retrouvent dès que leurs messages sont chargés. */
           try {
             var sN = JSON.parse(String(d.valeur || ""));
-            if (sN && sN.ent && !SOCIETES.some(function(s){ return normTxt(s.ent) === normTxt(sN.ent); })) {
+
               if (!Array.isArray(sN.convs)) sN.convs = [];
               if (!Array.isArray(sN.vraisContacts)) sN.vraisContacts = [];
               if (!Array.isArray(sN.scooters)) sN.scooters = [];
@@ -6371,7 +6413,7 @@ function appliquerMoiSession(nomComplet) {
     try { majEquipe(); renduListe(); renduMesCycles(); } catch (e) {}
   }
 }
-function seConnecter() {
+
   var email = document.getElementById("auth-email").value.trim();
   var mdp = document.getElementById("auth-mdp").value;
   var msg = document.getElementById("auth-msg");
@@ -6628,7 +6670,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v126 · Actions équipe dans table dédiée choix_equipe (lue en entier, plus de fenêtre de perte) — SQL à exécuter côté Supabase';
+var VER_FRONT = 'v127 · Pièce jointe email : s\'ajoute au mail en cours de rédaction (puces sur le brouillon, multipart/mixed côté SMTP)';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
@@ -6637,6 +6679,8 @@ renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); ma
 </script>
 </body>
 </html>
+
+
 
 
 
