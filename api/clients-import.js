@@ -579,12 +579,26 @@ module.exports = async function handler(req, res) {
         if (limiteA < 1) limiteA = 1;
         if (limiteA > 5000) limiteA = 5000;
         // v123 : order DESC côté Supabase (les plus RÉCENTES d'abord — en ASC,
-        // le plafond max-rows 1000 excluait les actions récentes, ex. les
-        // fiches "societe" créées qui disparaissaient au refresh), puis
-        // reverse() pour renvoyer l'ordre chronologique au front (inchangé).
-        var actionsLues = await supabaseGet('journal',
-          'select=horodatage,contact_id,texte,detail&etape=eq.action_plateforme&order=horodatage.desc&limit=' + limiteA);
-        actionsLues.reverse();
+        // le plafond max-rows 1000 excluait les actions récentes), puis tri
+        // chronologique avant réponse (le front rejoue dans l'ordre).
+        // v125 : PAGINATION (offset, pages de 1000, max 5 pages ≈ 5000 actions)
+        // — le journal grossit vite (chaque ouverture de conversation écrit
+        // « vu » + « lu »), donc les vieux changements de cycle/assignation
+        // sortaient de la fenêtre des 1000 et n'étaient plus rejoués (les
+        // conversations retombaient sur le cycle respond.io au rechargement).
+        var actionsLues = [];
+        var limitePage = 1000, maxPages = Math.max(1, Math.ceil(Math.min(limiteA, 5000) / limitePage));
+        for (var pageA = 0; pageA < maxPages; pageA++) {
+          var part = await supabaseGet('journal',
+            'select=horodatage,contact_id,texte,detail&etape=eq.action_plateforme&order=horodatage.desc&limit=' + limitePage + '&offset=' + (pageA * limitePage));
+          if (!Array.isArray(part) || !part.length) break;
+          actionsLues = actionsLues.concat(part);
+          if (part.length < limitePage) break;
+        }
+        actionsLues.sort(function(a, b) {
+          var ha = String(a.horodatage || ''), hb = String(b.horodatage || '');
+          return ha < hb ? -1 : (ha > hb ? 1 : 0);
+        });
         return res.status(200).json({
           ok: true, brique: 'C15-ACT', version: VERSION,
           limite: limiteA, trouves: actionsLues.length, actions: actionsLues

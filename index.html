@@ -399,6 +399,7 @@
   .cp-btn.appeler { background: var(--card); color: var(--ink); border: 1px solid var(--bord2); } .cp-btn.appeler:hover { background: #F0F1EA; }
   .cp-btn.ouvrir { background: var(--anthra); color: #fff; } .cp-btn.ouvrir:hover { background: #23282D; }
 
+
   .cp-section { margin: 16px 28px; background: var(--card); border-radius: 12px; padding: 16px 18px; }
   .cp-section h3 { font-size: 12px; text-transform: uppercase; color: var(--mut); letter-spacing: .5px; margin-bottom: 12px; }
   .cp-ligne { display: flex; gap: 10px; align-items: baseline; font-size: 13px; padding: 5px 0; flex-wrap: wrap; }
@@ -800,6 +801,7 @@
   header.topbar .badge-ver, header.topbar select { flex: 0 0 auto; white-space: nowrap; }
 
 
+
   /* --- volet fil : pas de double bord --- */
   section.fil { background: transparent; }
   #volet-fil { background: #fff; }
@@ -1198,6 +1200,7 @@
         <button class="outil-btn ob-bleu" onclick="ouvrirBoiteOutils('racc')" title="Messages types à insérer (comme les réponses enregistrées de respond.io) — clic : insérer, ➕ : créer les tiens"><span class="ob-ico">⚡</span>Raccourcis</button>
         <button class="outil-btn ob-vert" onclick="ouvrirBoiteOutils('wa')" title="Modèles WhatsApp Business approuvés, avec champs automatiquement remplis"><span class="ob-ico">📋</span>Modèles WA</button>
         <button class="outil-btn ob-bleu" onclick="ouvrirBoiteOutils('sig')" title="Signature des emails : logo, coordonnées, activée/désactivée à la demande"><span class="ob-ico">✉️</span>Signature</button>
+
         <button class="outil-btn ob-orange" onclick="document.getElementById('pj-input').click()" title="Joindre un fichier (photo, PDF…) — envoyé tel quel au client"><span class="ob-ico">📎</span>Joindre</button>
         <input type="file" id="pj-input" style="display:none;" onchange="joindreFichier(this)" />
 
@@ -1598,6 +1601,7 @@ var SOCIETES = [
     ], "convs": [10, 11]},
     {"ent": "TAINAM (DOMINO'S PIZZA)", "siren": "828384750", "siege": "82 RUE EDOUARD VAILLANT, 95870 Bezons", "livraison": "Même adresse", "contact_sc": "Adel AMEZIANE (GERANT) — 06 48 78 41 23", "risque": "Impayé", "classeR": "impaye", "scooters": [
       {"plaque": "GE-383-BK", "produit": "INFINITY PRO Châssis Noir", "contrat": "Modèle Confort 48 — CO00346, 19/01/2022 → 20/02/2026"},
+
       {"plaque": "GX-934-EN", "produit": "DAILY PRO CHASSIS BLANC", "contrat": "Modèle Confort + 48 — CO01655, 24/06/2024 → 20/07/2028"},
       {"plaque": "GX-982-EN", "produit": "DAILY PRO CHASSIS BLANC", "contrat": "Modèle Confort + 48 — CO01655, 24/06/2024 → 20/07/2028"}
     ], "convs": [12]},
@@ -1998,6 +2002,7 @@ function renduOngletSignature() {
   corps.innerHTML =
     '<div style="padding:14px 18px;max-height:100%;overflow:auto;">' +
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">' +
+
         '<label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:#0e5aa7;cursor:pointer;">' +
           '<input type="checkbox" id="sig-actif" ' + (s.actif ? "checked" : "") + ' style="transform:scale(1.25);accent-color:#0e5aa7;" onchange="sigSauver(sigLireChamps()); renduOngletSignature();" /> Ajouter ma signature aux emails envoyés' +
         '</label>' +
@@ -2266,7 +2271,7 @@ function creerConvsProspects(parWa) {
       return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
     });
     var dernier = fil[fil.length - 1];
-    var cy = p.cycle;   /* v111 : « Attente interne » conservé tel quel (cycle distinct) */
+    var cy = cycleManuelDe(p.tel, p.email) || p.cycle;   /* v125 : cycle manuel plateforme prioritaire (respond obsolète) ; v111 : « Attente interne » conservé tel quel */
     if (CYCLES_LISTE.indexOf(cy) < 0) cy = "";
     /* une entrée PAR prospect : fiche entreprise = le nom du prospect */
     var ent = String(p.nom || p.tel).trim() || p.tel;
@@ -2345,7 +2350,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
              Email arrivé avant) → fusion, pas de nouvelle conversation */
           var ex = convDuContact(v.tel);
           if (ex) { fusionnerFil(ex, fil); qualifierCycleRio(ex, cycleRioTel(v.tel)); qualifierAssignRio(ex, assignRioTel(v.tel)); creees++; return; }
-          var cyRio = cycleRioTel(v.tel);            /* C8-CYC-1 : cycle de vie respond.io */
+          var cyRio = cycleManuelDe(v.tel, emailParTel(v.tel)) || cycleRioTel(v.tel);   /* v125 : manuel prioritaire ; C8-CYC-1 : repli respond.io */
           var asRio = assignRioTel(v.tel);           /* C12-ASSIGN : assignation respond.io */
           nid++;
           CONVS.push({
@@ -2387,7 +2392,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
         });
         var ex = convDuContact("+" + d);
         if (ex) { fusionnerFil(ex, fil); qualifierCycleRio(ex, cycleRioTel(d)); qualifierAssignRio(ex, assignRioTel(d)); creees++; return; }
-        var cyRio = cycleRioTel(d);                 /* C8-CYC-1 : cycle de vie respond.io */
+        var cyRio = cycleManuelDe("+" + d) || cycleRioTel(d);                 /* v125 : manuel prioritaire ; C8-CYC-1 : repli respond.io */
         var asRio = assignRioTel(d);                /* C12-ASSIGN : assignation respond.io */
         nid++;
         CONVS.push({
@@ -2398,6 +2403,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
           contact: { tel: "+" + d, plaque: t.plaque, email: emailParTel("+" + d) }, fil: fil, comms: []
         });
         if (s) s.convs.push(nid);
+
         creees++;
       });
       inconnus = 0;                                    // v39: plus aucun numéro ignoré, tous créent une conversation
@@ -2798,6 +2804,7 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
           trouve = { s: null, v: { nom: nomX, tel: "", plaque: "", email: addr }, nom: nomX };
         }
         var msgs = parAddr[addr];
+
         var dernier = msgs[msgs.length - 1];
         var fil = msgs.map(function(m) {
           var h = heureWa(m.recu_a);
@@ -2823,7 +2830,7 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
           });
         }
         if (existante) { fusionnerFil(existante, fil); qualifierCycleRio(existante, cycleRioMel(addr)); qualifierAssignRio(existante, assignRioMel(addr)); creees++; return; }
-        var cyRio = cycleRioMel(addr);              /* C8-CYC-1 : cycle de vie respond.io */
+        var cyRio = cycleManuelDe(v.tel, addr) || cycleRioMel(addr);              /* v125 : manuel prioritaire ; C8-CYC-1 : repli respond.io */
         var asRio = assignRioMel(addr);             /* C12-ASSIGN : assignation respond.io */
         nid++;
         CONVS.push({
@@ -2958,7 +2965,7 @@ function lancerConvVrai(ent, i) {
   if (!s || !s.vraisContacts || !s.vraisContacts[i]) return;
   var v = s.vraisContacts[i];
   var id = (CONVS.length ? Math.max.apply(null, CONVS.map(function(c) { return c.id; })) + 1 : 1);
-  var cyRio = cycleRioTel(v.tel) || cycleRioMel(v.email);   /* C8-CYC-1 */
+  var cyRio = cycleManuelDe(v.tel, v.email) || cycleRioTel(v.tel) || cycleRioMel(v.email);   /* v125 : manuel prioritaire ; C8-CYC-1 */
   var asRio = assignRioTel(v.tel) || assignRioMel(v.email); /* C12-ASSIGN */
   CONVS.push({
     id: id, nom: v.nom, entreprise: ent, canal: "WhatsApp",
@@ -3198,6 +3205,7 @@ function renduProfils() {
         '<div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap;">' + COULEURS_PROFILS.map(function(co){
           return '<button title="Couleur" onclick="setCouleur(\'' + n + '\',\'' + co + '\')" style="width:20px;height:20px;border-radius:50%;border:2px solid ' + (p.col === co ? "#1b2430" : "#fff") + ';background:' + co + ';cursor:pointer;"></button>'; }).join("") + '</div>') +
       '</div>' +
+
       (p.ia ? "" : '<div style="display:flex;flex-direction:column;gap:5px;">' +
         '<button class="btn" onclick="renommerProfil(\'' + n + '\')">✏️ Nom</button>' +
         '<button class="btn" onclick="supprimerProfil(\'' + n + '\')">🗑️</button></div>') +
@@ -3598,6 +3606,7 @@ function prenomContact(s) {
   return String(v.nom).split("(")[0].trim().split(/\s+/)[0];
 }
 function corpsPropositionEmail(s, dm) {
+
   var pre = prenomContact(s) || "Bonjour";
   var l = [];
   l.push("Bonjour " + pre + ",");
@@ -3998,6 +4007,7 @@ function renduNotifs() {
       return '<div class="nv-log-item"><span class="h">' + l.t + '</span> ' + escTxt(l.txt) + '</div>';
     }).join("");
   }
+
 }
 function lireNotif(i) {
   /* C31-NOTIF-NAV : clic → conversation d'où vient la notif, même si la cible
@@ -4398,6 +4408,7 @@ function renduFil() {
   items.forEach(function(it){
     if (it.type === "msg") {
       var msg = it.msg;
+
       var b = document.createElement("div");
       var kc = msg.canal || c.canal;
       b.className = "bulle "+CLS[msg.qui]+(kc === "WhatsApp" ? " can-wa" : kc === "Email" ? " can-mail" : "");
@@ -4798,6 +4809,7 @@ function appelerContact(cid) {
   var d = t.replace(/\D/g, "");
   /* C7-PROP-2 (interim) : ouvre l'appel via l'app téléphonique du poste (tel:)
      quand on a un vrai numéro — le raccordement Ringover (softphone, traçabilité
+
      des appels) viendra remplacer ce lien plus tard. */
   if (VRAIES_DONNEES && d) {
     window.location.href = "tel:+" + d;
@@ -5199,6 +5211,7 @@ function initVolets() {
     } catch (e) {}
   })();
 
+
   /* --- Réordonnancement : glisser la barre de titre, déposer sur un autre volet --- */
   var SRC = null;
   document.querySelectorAll(".volet").forEach(function(v) {
@@ -5598,6 +5611,7 @@ function sujetsArbreHtml(ent) {
   if (!racines.length) return '<div class="petit" style="color:#8a93a3;">Aucune conversation active — voir les Archives ci-dessous.</div>';
   var groupes = {}, labels = [];
   racines.forEach(function(c){
+
     var lab = sujetDetecte(c);
     if (!groupes[lab]) { groupes[lab] = []; labels.push(lab); }
     groupes[lab].push(c);
@@ -5995,6 +6009,16 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
 /* garde-fou : les données respond.io ne JAMAIS écraser un choix manuel
    restauré/rejoué par C15-ACT (lors des fusions du refresh auto). */
 function actManuelle(c) { return ACT_BAS[cleConv(c)] || null; }
+/* v125 : cycle modifié SUR LA PLATEFORME (action "cycle" du journal) pour un
+   contact — prioritaire sur le cycle respond.io (respond n'est plus utilisé,
+   ses cycles sont obsolètes et ne doivent jamais écraser un choix manuel). */
+
+function cycleManuelDe(tel, email) {
+  var d = String(tel || "").replace(/\D/g, "");
+  var ix = d ? ACT_BAS["T" + d.slice(-9)] : null;
+  if ((!ix || !ix.cycle) && email) { var e2 = ACT_BAS["M" + normMel(email)]; if (e2 && e2.cycle) ix = e2; }
+  return (ix && ix.cycle) || "";
+}
 
 /* ===== C17-VU : accusés de vue équipe ======================================
    À l'ouverture d'une conversation, on enregistre QUI l'a ouverte (action
@@ -6389,6 +6413,7 @@ function apresConnexion() {
   majBadgeAuth(); majBadgeAuto();
   if (!CHARGEMENT_AUTO_FAIT) {
     CHARGEMENT_AUTO_FAIT = true;
+
     chargerVraisClients();
     setTimeout(demarrerRealtime, 3000);
   }
@@ -6587,7 +6612,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v124 · Fiche entreprise : suppression 🗑️ persistée + carnet re-rendu en live (plus besoin de rafraîchir)';
+var VER_FRONT = 'v125 · Cycle modifié sur la plateforme = prioritaire, jamais écrasé par respond.io (cycles respond obsolètes) + fenêtre de rejoue élargie à 5000 actions';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
@@ -6596,5 +6621,6 @@ renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); ma
 </script>
 </body>
 </html>
+
 
 
