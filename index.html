@@ -1317,6 +1317,7 @@
 <div class="ctx" id="ctxmenu">  <button onclick="actionCtx(true)">💬 Marquer comme non lu</button>
   <button onclick="actionCtx(false)">👁️ Marquer comme lu</button>
   <button onclick="actionCtxArchiver()">🗄️ Archiver ⇄ Désarchiver</button>
+  <button onclick="actionCtxSupprimer()" style="color:#b91c1c;">🗑️ Supprimer définitivement…</button>
   <button onclick="fermerCtx(); ouvrirRattache(CTX_ID);">🔗 Rattacher à une autre conversation…</button>
   <button onclick="ouvrirCtx()">↗ Ouvrir la conversation</button>
 </div>
@@ -5502,11 +5503,43 @@ function actionCtxArchiver() {
   var c = convParId(CTX_ID);
   if (!c) return;
   c.archive = !c.archive;
+  /* v131 : l'archivage est persisté (action équipe) → rejoué après rechargement,
+     y compris pour les conversations SANS entreprise */
+  var cleA = cleConv(c);
+  var ixA = actIndex(cleA);
+  ixA.archive = c.archive ? "1" : "";
+  ixA.archive_a = new Date().toISOString();
+  persisterAction("archive", cleA, c.archive ? "1" : "", null);
   fermerCtx();
   renduListe();
   renduNouveauxSiOuvert();
   rafraichirFiche();
   if (document.getElementById("carnet").classList.contains("ouvert")) renduPageCarnet();
+}
+/* v131 : 🗑️ suppression définitive d'une conversation (clic droit) — persistée
+   (action équipe "supprime") → la conversation disparaît pour toute l'équipe,
+   même après rechargement. Les messages restent dans la boîte mail / WhatsApp. */
+function actionCtxSupprimer() {
+  var c = convParId(CTX_ID);
+  if (!c) { fermerCtx(); return; }
+  var ok = confirm("🗑️ Supprimer définitivement la conversation « " + c.nom + " » ?\n\nElle disparaîtra de la plateforme pour toute l'équipe (les messages restent dans la boîte mail / WhatsApp).");
+  if (!ok) { fermerCtx(); return; }
+  var cle = cleConv(c);
+  var ix = actIndex(cle);
+  ix.supprime = "1";
+  ix.supprime_a = new Date().toISOString();
+  persisterAction("supprime", cle, "1", null);
+  fermerCtx();
+  supprimerConvLocale(c);
+}
+function supprimerConvLocale(c) {
+  if (!c) return;
+  CONVS = CONVS.filter(function(x){ return x.id !== c.id; });
+  SOCIETES.forEach(function(s){ if (s.convs) s.convs = s.convs.filter(function(id){ return id !== c.id; }); });
+  delete RATTACHE[c.id];
+  if (SELID === c.id) { SELID = null; SELSENT = null; }
+  renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
+  pushNotif("🗑️ Conversation « " + c.nom + " » supprimée.");
 }
 function renduNouveauxSiOuvert() {
   majBadgeNouveaux();
@@ -5733,6 +5766,12 @@ function archivesHtml(ent) {
 function archiverConv(id, arch) {
   var c = convParId(id); if (!c) return;
   c.archive = !!arch;
+  /* v131 : persisté comme action équipe → rejoué après rechargement */
+  var cleA2 = cleConv(c);
+  var ixA2 = actIndex(cleA2);
+  ixA2.archive = c.archive ? "1" : "";
+  ixA2.archive_a = new Date().toISOString();
+  persisterAction("archive", cleA2, c.archive ? "1" : "", null);
   rafraichirTout();
 }
 
@@ -6013,6 +6052,23 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
           delete ix.rattache_a;
           var e2 = convParCle(cle);
           if (e2 && RATTACHE[e2.id]) { delete RATTACHE[e2.id]; n++; }
+        } else if (typ === "archive") {
+          /* v131 : archivage persisté — rejoué sur tous les postes (avec ou
+             sans entreprise), au rechargement comme au refresh auto */
+          if (!ix["archive_a"] || ix["archive_a"] < h) {
+            ix.archive = String(d.valeur || "");
+            ix["archive_a"] = h;
+            var cA = convParCle(cle);
+            if (cA && cA.archive !== (ix.archive === "1")) { cA.archive = (ix.archive === "1"); n++; }
+          }
+        } else if (typ === "supprime") {
+          /* v131 : conversation supprimée définitivement → retirée partout */
+          if (!ix["supprime_a"] || ix["supprime_a"] < h) {
+            ix.supprime = String(d.valeur || "");
+            ix["supprime_a"] = h;
+            var cS = convParCle(cle);
+            if (cS && ix.supprime === "1") { supprimerConvLocale(cS); n++; }
+          }
         } else if (typ === "entreprise") {
           /* v119 : rattachement d'une conversation à une entreprise, rejoué
              sur tous les postes comme les autres actions équipe. */
@@ -6693,7 +6749,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v129 · Envoi d\'un mail/message ne marque plus la conversation comme non lue (décision « non lu » sur le dernier message client)';
+var VER_FRONT = 'v131 · Archivage persisté (fonctionne aussi sans entreprise) + 🗑️ Supprimer définitivement en clic droit sur la conversation';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
@@ -6702,6 +6758,7 @@ renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); ma
 </script>
 </body>
 </html>
+
 
 
 
