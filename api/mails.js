@@ -20,7 +20,7 @@
 var imap = require('../lib/imap');
 var mail = require('../lib/mail');
 
-var VERSION = 'C5.3-HTML-1';
+var VERSION = 'C5.3-HTML-2';
 var MAX_PAR_RUN = 25;   /* v46: rattrapage plus rapide (25/run) */
 
 function urlSupabase(chemin) {
@@ -119,8 +119,13 @@ async function poller(user, pass, host) {
   var boite = await imap.ouvrirBoite({ host: host, user: user, pass: pass });
   var resultat = { dernier_uid_avant: dernierUid, uids: [], importes: 0, doublons: 0, ignores: 0, echecs: 0, colonne_uid: colonneUid, colonne_html: colonneHtml, dossiers: [] };
   try {
-    // v56: plusieurs dossiers — respond.io deplace les mails dans INBOX/1. RESPOND etc.
-    var DOSSIERS = (process.env.DOSSIERS_IMAP || 'INBOX,INBOX/1. RESPOND,INBOX/1. EN ATTENTE DE REPONSE').split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+    // v128 (décision Corentin 18/11) : on n'importe PLUS que le dossier
+    // "1. RESPOND" de la boite service.technique@umob.fr — c'est la règle
+    // Outlook de Nicolas qui y dépose les mails clients (et uniquement eux :
+    // les expéditeurs internes @umob.fr / praxedo / gmail perso restent dans
+    // l'INBOX et ne doivent plus polluer la plateforme). La variable
+    // d'environnement DOSSIERS_IMAP n'est volontairement PLUS lue.
+    var DOSSIERS = ['INBOX/1. RESPOND'];
     for (var di = 0; di < DOSSIERS.length; di++) {
       var dossier = DOSSIERS[di];
       // reprise PAR DOSSIER : max uid_imap des lignes dont brut.folder = dossier
@@ -315,7 +320,7 @@ async function debugRaw(uid, user, pass, host, opts) {
     try {
       var rMaj = await fetch(urlSupabase('emails?message_id=eq.' + encodeURIComponent(pm.message_id)), {
         method: 'PATCH',
-        headers: Object.assign(teteSupa(), { 'Content-Profile': 'agent_sav' }),
+        headers: Object.assign({}, teteSupa(), { 'Content-Profile': 'agent_sav' }),
         body: JSON.stringify({ corps_html: hParse })
       });
       maj = { status: rMaj.status, ok: rMaj.ok, message_id: pm.message_id };
@@ -595,3 +600,205 @@ module.exports = async function (req, res) {
     return repondre(res, 500, { ok: false, erreur: String(err && err.message || err).substring(0, 300) });
   }
 };
+          if (rIns2.ok) ecrits++;
+          else erreurs.push(mid + ':' + rIns2.status);
+        } catch (eImp) { erreurs.push(mid + ':' + String(eImp && eImp.message || eImp).substring(0, 100)); }
+      }
+      return repondre(res, 200, {
+        ok: true, brique: 'C8-IMP', mode: 'import',
+        recus: corps.importer.length, ecrits: ecrits, ignores: ignores, erreurs: erreurs.slice(0, 10)
+      });
+    }
+
+    // ---- MODE DEBUG : lister les dossiers IMAP (verification folder envoyes)
+    if (u.searchParams.get('dossiers') === '1') {
+      var hL = process.env.SMTP_HOST, uL = process.env.SMTP_USER, pL = process.env.SMTP_PASS;
+      if (!hL || !uL || !pL) return repondre(res, 500, { ok: false, erreur: 'config SMTP absente' });
+      try {
+        var imapL = require('../lib/imap');
+        var boiteL = await imapL.ouvrirBoite({ host: hL, user: uL, pass: pL });
+        var listeL = null;
+        try { listeL = await boiteL.api.command('LIST "" "*"'); } finally { try { if (boiteL.api.detruire) boiteL.api.detruire(); } catch (eL) {} }
+        return repondre(res, 200, { ok: true, user: uL, list: listeL });
+      } catch (eLst) { return repondre(res, 502, { ok: false, erreur: String(eLst && eLst.message || eLst).substring(0, 300) }); }
+    }
+
+    // ---- MODE DEBUG v55 : scanner TOUS les dossiers, chercher les messages récents (SINCE)
+    if (u.searchParams.get('scanall') === '1') {
+      var hA = process.env.SMTP_HOST, uA = process.env.SMTP_USER, pA = process.env.SMTP_PASS;
+      if (!hA || !uA || !pA) return repondre(res, 500, { ok: false, erreur: 'config SMTP absente' });
+      var since = u.searchParams.get('since') || '16-Nov-2026';
+      try {
+        var imapA = require('../lib/imap');
+        var boiteA = await imapA.ouvrirBoite({ host: hA, user: uA, pass: pA });
+        var outA = { ok: true, user: uA, since: since, dossiers: [] };
+        try {
+          var rList = await boiteA.api.command('LIST "" "*"');
+          var nomsA = [];
+          rList.split(/\r?\n/).forEach(function (l) {
+            if (l.indexOf('* LIST') !== 0) return;
+            var lit = /<LIT>([^<]*)<\/LIT>/.exec(l);
+            var cites = l.match(/"[^"]*"/g) || [];
+            var nom = lit ? lit[1] : (cites[cites.length - 1] || '').replace(/^"|"$/g, '');
+            if (nom) nomsA.push(nom);
+          });
+          var prefix = u.searchParams.get('prefix') || '';
+          if (prefix) nomsA = nomsA.filter(function (n) { return n === prefix.replace(/\/$/, '') || n.indexOf(prefix) === 0; });
+          for (var iA = 0; iA < nomsA.length && iA < 60; iA++) {
+            var nd = '"' + nomsA[iA].replace(/(["\\])/g, '\\$1') + '"';
+            try {
+              await boiteA.api.command('SELECT ' + nd);
+              var rS = await boiteA.api.command('UID SEARCH SINCE ' + since);
+              var uidsA = (rS.match(/\d+/g) || []).map(Number).filter(function (n) { return n > 100; });
+              if (uidsA.length) outA.dossiers.push({ dossier: nomsA[iA], nb: uidsA.length, max: Math.max.apply(null, uidsA) });
+            } catch (eA) {}
+          }
+          await boiteA.api.command('SELECT INBOX');
+        } finally { try { if (boiteA.api.detruire) boiteA.api.detruire(); } catch (eA2) {} }
+        return repondre(res, 200, outA);
+      } catch (eAt) { return repondre(res, 502, { ok: false, erreur: String(eAt && eAt.message || eAt).substring(0, 300) }); }
+    }
+
+    // ---- MODE DEBUG v53 : STATUS d'un dossier quelconque + UID SEARCH ALL
+    if (u.searchParams.get('folderstatus')) {
+      var hF = process.env.SMTP_HOST, uF = process.env.SMTP_USER, pF = process.env.SMTP_PASS;
+      if (!hF || !uF || !pF) return repondre(res, 500, { ok: false, erreur: 'config SMTP absente' });
+      try {
+        var imapF = require('../lib/imap');
+        var boiteF = await imapF.ouvrirBoite({ host: hF, user: uF, pass: pF });
+        var dossier = decodeURIComponent(u.searchParams.get('folderstatus'));
+        var nomDossier = '"' + dossier.replace(/(["\\])/g, '\\$1') + '"';
+        var outF = { ok: true, user: uF, dossier: dossier };
+        try {
+          outF.status = await boiteF.api.command('STATUS ' + nomDossier + ' (MESSAGES UIDNEXT UNSEEN)');
+          await boiteF.api.command('SELECT ' + nomDossier);
+          outF.searchAll = await boiteF.api.command('UID SEARCH ALL');
+        } finally { try { if (boiteF.api.detruire) boiteF.api.detruire(); } catch (eF2) {} }
+        return repondre(res, 200, outF);
+      } catch (eFt) { return repondre(res, 502, { ok: false, erreur: String(eFt && eFt.message || eFt).substring(0, 300) }); }
+    }
+
+    // ---- MODE DEBUG v50 : STATUS INBOX (MESSAGES / UIDNEXT / UNSEEN) + UID SEARCH ALL
+    if (u.searchParams.get('inboxstatus') === '1') {
+      var hS = process.env.SMTP_HOST, uS = process.env.SMTP_USER, pS = process.env.SMTP_PASS;
+      if (!hS || !uS || !pS) return repondre(res, 500, { ok: false, erreur: 'config SMTP absente' });
+      try {
+        var imapS = require('../lib/imap');
+        var boiteS = await imapS.ouvrirBoite({ host: hS, user: uS, pass: pS });
+        var outS = { ok: true, user: uS };
+        try {
+          outS.status = await boiteS.api.command('STATUS INBOX (MESSAGES UIDNEXT UIDVALIDITY UNSEEN)');
+          outS.searchAll = await boiteS.api.command('UID SEARCH ALL');
+          outS.searchLast = await boiteS.api.command('UID SEARCH UID 199982:*');
+          outS.searchRecent = await boiteS.api.command('UID SEARCH UID 199900:*');
+        } finally { try { if (boiteS.api.detruire) boiteS.api.detruire(); } catch (eS2) {} }
+        return repondre(res, 200, outS);
+      } catch (eSt) { return repondre(res, 502, { ok: false, erreur: String(eSt && eSt.message || eSt).substring(0, 300) }); }
+    }
+
+    // ---- MODE DEBUG C5-ENV-3 : essayer des variantes d'APPEND ------------
+    if (u.searchParams.get('debugappend') === '1') {
+      var hA = process.env.SMTP_HOST, uA = process.env.SMTP_USER, pA = process.env.SMTP_PASS;
+      if (!hA || !uA || !pA) return repondre(res, 500, { ok: false, erreur: 'config SMTP absente' });
+      var imapA = require('../lib/imap');
+      var msgMini = 'From: test@umob.fr\r\nTo: test@umob.fr\r\nSubject: Test append\r\n\r\nCorps minimal.\r\n';
+      var variantes = [
+        { nom: 'Sent Items + flags \\Seen', dossier: 'Sent Items', flags: '(\\Seen)' },
+        { nom: 'Sent Items sans flags', dossier: 'Sent Items', flags: '' },
+        { nom: 'INBOX + flags (controle)', dossier: 'INBOX', flags: '(\\Seen)' },
+        { nom: 'Sent Items + flags + date', dossier: 'Sent Items', flags: '(\\Seen) "02-Nov-2026 15:00:00 +0100"' }
+      ];
+      var resultats = [];
+      for (var iv = 0; iv < variantes.length; iv++) {
+        var va = variantes[iv];
+        var uneLigne = { nom: va.nom, reponse: null };
+        try {
+          var boiteA = await imapA.ouvrirBoite({ host: hA, user: uA, pass: pA });
+          try {
+            var tag = 'A9' + iv;
+            var nA = Buffer.byteLength(msgMini, 'utf8');
+            boiteA.api.ecrireBrut(tag + ' APPEND "' + va.dossier + '" ' + (va.flags ? va.flags + ' ' : '') + '{' + nA + '}\r\n');
+            await boiteA.api.attendreContinuation(3000);
+            boiteA.api.ecrireBrut(msgMini);
+            var rA = await boiteA.api.command('NOOP');
+            var mA = new RegExp(tag + ' (OK|NO|BAD)[^\r\n]*').exec(rA);
+            uneLigne.reponse = mA ? mA[0] : ('pas de reponse taggee : ' + rA.substring(0, 150));
+          } catch (eV) { uneLigne.reponse = 'ERREUR : ' + String((eV && eV.message) || eV).substring(0, 200); }
+          finally { try { if (boiteA.api.detruire) boiteA.api.detruire(); } catch (eD2) {} }
+        } catch (eBx) { uneLigne.reponse = 'CONNEXION : ' + String((eBx && eBx.message) || eBx).substring(0, 150); }
+        resultats.push(uneLigne);
+      }
+      return repondre(res, 200, { ok: true, variantes: resultats });
+    }
+
+    // ---- MODE DEBUG : test APPEND isole (iterations rapides sans envoi SMTP)
+    if (u.searchParams.get('appendtest') === '1') {
+      var hA = process.env.SMTP_HOST, uA = process.env.SMTP_USER, pA = process.env.SMTP_PASS;
+      if (!hA || !uA || !pA) return repondre(res, 500, { ok: false, erreur: 'config SMTP absente' });
+      try {
+        var imapA = require('../lib/imap');
+        var boiteA = await imapA.ouvrirBoite({ host: hA, user: uA, pass: pA });
+        var variantes = [];
+        var dossierA = u.searchParams.get('folder') || 'Sent Items';
+        var msgA = 'From: <test@umob.fr>\r\nSubject: test append\r\n\r\ncorps test\r\n';
+        var nA = Buffer.byteLength(msgA, 'utf8');
+        try {
+          // variante 1 : avec drapeaux (\Seen) ; variante 2 : sans drapeaux
+          var cmd1 = 'B901 APPEND "' + dossierA.replace(/(["\\])/g, '\\$1') + '" (\\Seen) {' + nA + '}';
+          var cmd2 = 'B902 APPEND "' + dossierA.replace(/(["\\])/g, '\\$1') + '" {' + nA + '}';
+          var essais = [cmd1, cmd2];
+          for (var iA = 0; iA < essais.length; iA++) {
+            var cmd = essais[iA];
+            boiteA.api.ecrireBrut(cmd + '\r\n');
+            try {
+              await boiteA.api.attendreContinuation(3000);
+              boiteA.api.ecrireBrut(msgA);
+              var rA = await boiteA.api.command('NOOP');
+              variantes.push({ cmd: cmd.substring(0, 60), ok: rA.indexOf(cmd.slice(0, 4) + ' OK') !== -1, reponse: rA.substring(0, 250) });
+            } catch (eEss) {
+              variantes.push({ cmd: cmd.substring(0, 60), ok: false, erreur: String((eEss && eEss.message) || eEss).substring(0, 200), accu: boiteA.api.accu ? boiteA.api.accu() : '' });
+            }
+          }
+        } finally { try { if (boiteA.api.detruire) boiteA.api.detruire(); } catch (eF) {} }
+        return repondre(res, 200, { ok: true, dossier: dossierA, variantes: variantes });
+      } catch (eAp) { return repondre(res, 502, { ok: false, erreur: String(eAp && eAp.message || eAp).substring(0, 300) }); }
+    }
+
+    // ---- MODE DEBUG TEMPORAIRE C5.3b (a retirer) ---------------------------
+    var uidDebug = u.searchParams.get('debugraw');
+    if (uidDebug) {
+      var hD = process.env.SMTP_HOST, uD = process.env.SMTP_USER, pD = process.env.SMTP_PASS;
+      if (!hD || !uD || !pD) return repondre(res, 500, { ok: false, erreur: 'config SMTP absente' });
+      try { return repondre(res, 200, await debugRaw(uidDebug, uD, pD, hD, { maj: u.searchParams.get('maj') === '1' })); }
+      catch (eD) { return repondre(res, 502, { ok: false, erreur: String(eD && eD.message || eD).substring(0, 300) }); }
+    }
+
+    var veutPoll = u.searchParams.get('poll') === '1' || corps.poll === 1 || corps.poll === '1';
+
+    // ---- MODE POLLING IMAP -------------------------------------------------
+    if (veutPoll) {
+      var host = process.env.SMTP_HOST, user = process.env.SMTP_USER, pass = process.env.SMTP_PASS;
+      if (!host || !user || !pass || !process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+        return repondre(res, 500, { ok: false, erreur: 'config incomplete (SMTP_HOST/SMTP_USER/SMTP_PASS ou Supabase absents)' });
+      }
+      try {
+        var resultat = await poller(user, pass, host);
+        return repondre(res, 200, Object.assign({ ok: true, brique: 'C5.2', mode: 'poll', version: VERSION }, resultat));
+      } catch (err) {
+        await journaliser('email_inbox', 'ERREUR : ' + String(err && err.message || err).substring(0, 400));
+        return repondre(res, 502, { ok: false, brique: 'C5.2', mode: 'poll', erreur: String(err && err.message || err).substring(0, 400) });
+      }
+    }
+
+    // ---- MODE LECTURE ------------------------------------------------------
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+      return repondre(res, 500, { ok: false, erreur: 'config Supabase absente' });
+    }
+    var lecture = await lireEmails(u);
+    if (lecture.code !== 200) lecture.corps.version = VERSION;
+    return repondre(res, lecture.code, lecture.corps);
+  } catch (err) {
+    return repondre(res, 500, { ok: false, erreur: String(err && err.message || err).substring(0, 300) });
+  }
+};
+
