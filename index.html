@@ -400,6 +400,7 @@
   .cp-btn.ouvrir { background: var(--anthra); color: #fff; } .cp-btn.ouvrir:hover { background: #23282D; }
 
 
+
   .cp-section { margin: 16px 28px; background: var(--card); border-radius: 12px; padding: 16px 18px; }
   .cp-section h3 { font-size: 12px; text-transform: uppercase; color: var(--mut); letter-spacing: .5px; margin-bottom: 12px; }
   .cp-ligne { display: flex; gap: 10px; align-items: baseline; font-size: 13px; padding: 5px 0; flex-wrap: wrap; }
@@ -798,6 +799,7 @@
      passe sur 2 lignes proprement si la fenêtre est étroite (plus de collage) */
   header.topbar { flex-wrap: wrap; row-gap: 8px; }
   header.topbar .logo, header.topbar .crumb, header.topbar .btn-nouv,
+
   header.topbar .badge-ver, header.topbar select { flex: 0 0 auto; white-space: nowrap; }
 
 
@@ -1198,6 +1200,7 @@
       </div>
       <div class="outils-envoi" id="outils-envoi" style="display:none;">
         <button class="outil-btn ob-bleu" onclick="ouvrirBoiteOutils('racc')" title="Messages types à insérer (comme les réponses enregistrées de respond.io) — clic : insérer, ➕ : créer les tiens"><span class="ob-ico">⚡</span>Raccourcis</button>
+
         <button class="outil-btn ob-vert" onclick="ouvrirBoiteOutils('wa')" title="Modèles WhatsApp Business approuvés, avec champs automatiquement remplis"><span class="ob-ico">📋</span>Modèles WA</button>
         <button class="outil-btn ob-bleu" onclick="ouvrirBoiteOutils('sig')" title="Signature des emails : logo, coordonnées, activée/désactivée à la demande"><span class="ob-ico">✉️</span>Signature</button>
 
@@ -1598,6 +1601,7 @@ var SOCIETES = [
       {"plaque": "GC-784-MK", "produit": "INFINITY PRO Châssis Noir", "contrat": "Modèle Confort 48 — CO00107, 26/10/2021 → 30/11/2025"},
       {"plaque": "GP-613-DB", "produit": "INFINITY PRO CHASSIS NOIR", "contrat": "Modèle Confort + 48 — CO01094, 21/06/2023 → 30/07/2027"},
       {"plaque": "GP-646-DB", "produit": "INFINITY PRO CHASSIS NOIR", "contrat": "Modèle Confort + 48 — CO01094, 21/06/2023 → 30/07/2027"}
+
     ], "convs": [10, 11]},
     {"ent": "TAINAM (DOMINO'S PIZZA)", "siren": "828384750", "siege": "82 RUE EDOUARD VAILLANT, 95870 Bezons", "livraison": "Même adresse", "contact_sc": "Adel AMEZIANE (GERANT) — 06 48 78 41 23", "risque": "Impayé", "classeR": "impaye", "scooters": [
       {"plaque": "GE-383-BK", "produit": "INFINITY PRO Châssis Noir", "contrat": "Modèle Confort 48 — CO00346, 19/01/2022 → 20/02/2026"},
@@ -1998,6 +2002,7 @@ function sigApercuMaj() {
 }
 function renduOngletSignature() {
   var s = SIGNATURE;
+
   var corps = document.getElementById("bo-corps");
   corps.innerHTML =
     '<div style="padding:14px 18px;max-height:100%;overflow:auto;">' +
@@ -2398,6 +2403,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
         CONVS.push({
           id: nid, nom: nomProfilOu(dernier.nom_profil, t.nom), entreprise: inconnu ? "" : t.ent, canal: "WhatsApp",
           cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
+
           lu: false, wa: true, extrait: String(dernier.texte || ""),
           assigne: asRio || null,
           contact: { tel: "+" + d, plaque: t.plaque, email: emailParTel("+" + d) }, fil: fil, comms: []
@@ -2798,6 +2804,7 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
       Object.keys(parAddr).forEach(function(addr) {
         var trouve = resoudreContact(addr);
         var inconnu = !trouve;                                     // v54: adresse hors carnet → conversation créée quand même, sans fiche entreprise
+
         if (inconnu) {
           var dm0 = parAddr[addr][parAddr[addr].length - 1];
           var nomX = (dm0 && dm0.from_nom) ? dm0.from_nom : addr;
@@ -3198,6 +3205,7 @@ function renduProfils() {
     var p = PROFILS[n];
     return '<div class="prof-item">' + avatar(n, true) +
       '<div style="flex:1;"><div class="prof-nom">' + n + (n === MOI ? ' <span class="tag" style="background:#dcfce7;color:#166534;">toi</span>' : "") + '</div>' +
+
       '<div class="prof-role">' + (p.ia ? "Réponses automatiques IA (non modifiable)" : "Membre de l'équipe — ses messages et commentaires portent son icône") + '</div>' +
       (p.ia ? "" :
         '<div class="prof-pick" style="margin-top:6px;">' + ICONES_PROFILS.map(function(ic){
@@ -3598,6 +3606,7 @@ function donneesMaintSoc(s) {
     (((m && m.donnees) || {}).sites || []).forEach(function(st) { sites.push(st); });
   });
   var st = sites.filter(function(x) { return x.pack; })[0] || sites[0] || null;
+
   return st || {};
 }
 function prenomContact(s) {
@@ -3998,6 +4007,7 @@ function renduNotifs() {
     return '<div class="nv-item" style="' + (n.lu ? "opacity:.55;" : "") + '" onclick="lireNotif(' + i + ')">' +
       '<span class="avatar" style="background:' + (cible ? couleur(cible.entreprise) : "#8a93a3") + '">🔔</span>' +
       '<span class="infos"><span class="n">' + n.txt + '</span><br/>' +
+
       '<span class="e">' + (cible ? '💬 ' + cible.nom + ' — ' + cible.extrait : '') + '</span></span>' +
       '<span class="h">' + n.t + '</span></div>';
   }).join("");
@@ -4399,6 +4409,7 @@ function renduFil() {
   var m = document.getElementById("messages"); m.innerHTML = "";
   var nbTrouves = 0;
 
+
   /* messages + commentaires internes fusionnés, par ordre chronologique */
   var items = [];
   c.fil.forEach(function(msg){ items.push({ type: "msg", key: cleMsg(c.id, msg), msg: msg }); });
@@ -4798,6 +4809,7 @@ function voirConvCarnet(id) {
   marquerVu(convParId(id));               /* C17-VU : accusé de vue persisté */
   SELID = id; SELSENT = null; renduListe(); renduFil();
   if (estMobile()) basculerVueMobile("volet-fil");   /* C14-MOBILE */
+
 }
 function lancerConversation() {
   alert("Brique C2 : l'envoi de messages arrivera derrière un drapeau. En C1, le carnet reste en lecture.");
@@ -5198,6 +5210,7 @@ function initVolets() {
       h.addEventListener("pointerup", up);
     });
   });
+
   /* Au chargement : réapplique les largeurs mémorisées (redimensionnements conservés) */
   (function() {
     try {
@@ -5598,6 +5611,7 @@ function basculeSujet(lab) {
   SUJETS_OUVERTS[lab] = (SUJETS_OUVERTS[lab] === false);
   rafraichirTout();
 }
+
 function toutSujets() {
   var labels = {};
   CONVS.forEach(function(c){ if (!c.archive && !RATTACHE[c.id]) labels[sujetDetecte(c)] = true; });
@@ -5998,6 +6012,7 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
             pushNotif("💬 Nouveau commentaire de " + x.a + (cN && cN.nom ? " — " + cN.nom : ""), cN ? cN.id : null, x.cle);
           });
           if (!nouveaux.length && n) pushNotif("🔄 " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe mise(s) à jour");
+
         } else if (n) {
           pushLog("📨 " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe restaurée(s)");
         }
@@ -6398,6 +6413,7 @@ function verifierSession() {
         majBadgeAuth();
         apresConnexion();
       }
+
     }).catch(function(e){ /* réseau KO : session conservée */ if (!sessionDe()) afficherPorte(); });
 }
 
@@ -6612,7 +6628,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v125 · Cycle modifié sur la plateforme = prioritaire, jamais écrasé par respond.io (cycles respond obsolètes) + fenêtre de rejoue élargie à 5000 actions';
+var VER_FRONT = 'v126 · Actions équipe dans table dédiée choix_equipe (lue en entier, plus de fenêtre de perte) — SQL à exécuter côté Supabase';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
@@ -6621,6 +6637,7 @@ renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); ma
 </script>
 </body>
 </html>
+
 
 
 

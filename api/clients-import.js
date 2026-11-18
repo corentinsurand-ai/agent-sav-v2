@@ -53,7 +53,7 @@
 // ni enseigne) ; 401 secret invalide ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C15-ACT-1';
+var VERSION = 'C15-ACT-2';
 var SCHEMA = 'agent_sav';
 
 var clients = require('../lib/clients.js');
@@ -578,15 +578,27 @@ module.exports = async function handler(req, res) {
         var limiteA = parseInt(paramDe(req, 'limite'), 10) || 2000;
         if (limiteA < 1) limiteA = 1;
         if (limiteA > 5000) limiteA = 5000;
-        // v123 : order DESC côté Supabase (les plus RÉCENTES d'abord — en ASC,
-        // le plafond max-rows 1000 excluait les actions récentes), puis tri
-        // chronologique avant réponse (le front rejoue dans l'ordre).
-        // v125 : PAGINATION (offset, pages de 1000, max 5 pages ≈ 5000 actions)
-        // — le journal grossit vite (chaque ouverture de conversation écrit
-        // « vu » + « lu »), donc les vieux changements de cycle/assignation
-        // sortaient de la fenêtre des 1000 et n'étaient plus rejoués (les
-        // conversations retombaient sur le cycle respond.io au rechargement).
+        // v126 : source de vérité = agent_sav.choix_equipe (UNE ligne par
+        // (cle,type,cle2), lue EN ENTIER — plus de fenêtre, plus de perte :
+        // les vieux changements de cycle/assignation restent rejoués).
+        // + journal historique paginé (v125) pour les actions d'avant la
+        // migration. Si la table n'existe pas encore → journal seul (repli).
         var actionsLues = [];
+        var vuChoix = false;
+        try {
+          var lignesC = await supabaseGet('choix_equipe',
+            'select=horodatage,cle,type,valeur,detail,auteur&order=horodatage.asc&limit=' + limiteA);
+          vuChoix = true;
+          (lignesC || []).forEach(function(l) {
+            actionsLues.push({
+              horodatage: l.horodatage,
+              contact_id: l.cle,
+              texte: l.type,
+              detail: { type: l.type, cle: l.cle, valeur: l.valeur, auteur: l.auteur || '', detail: l.detail || null }
+            });
+          });
+        } catch (eC) { vuChoix = false; }
+        // v123/v125 : journal (paginé) — historique + repli si table absente
         var limitePage = 1000, maxPages = Math.max(1, Math.ceil(Math.min(limiteA, 5000) / limitePage));
         for (var pageA = 0; pageA < maxPages; pageA++) {
           var part = await supabaseGet('journal',
@@ -595,13 +607,22 @@ module.exports = async function handler(req, res) {
           actionsLues = actionsLues.concat(part);
           if (part.length < limitePage) break;
         }
-        actionsLues.sort(function(a, b) {
+        // dédup (horodatage, cle, type) + tri chronologique avant réponse
+        var vusK = {}, dedup = [];
+        actionsLues.forEach(function(a) {
+          var k = String(a.horodatage || '') + '|' + String(a.contact_id || '') + '|' + String(a.texte || '');
+          if (vusK[k]) return;
+          vusK[k] = 1; dedup.push(a);
+        });
+        dedup.sort(function(a, b) {
           var ha = String(a.horodatage || ''), hb = String(b.horodatage || '');
           return ha < hb ? -1 : (ha > hb ? 1 : 0);
         });
+        actionsLues = dedup;
         return res.status(200).json({
           ok: true, brique: 'C15-ACT', version: VERSION,
-          limite: limiteA, trouves: actionsLues.length, actions: actionsLues
+          limite: limiteA, trouves: actionsLues.length, actions: actionsLues,
+          source: vuChoix ? 'choix_equipe+journal' : 'journal'
         });
       } catch (e) {
         // Table indisponible → silencieux côté plateforme (données locales).
@@ -662,18 +683,31 @@ module.exports = async function handler(req, res) {
       if (courantA && courantA.nom) auteurA = String(courantA.nom).trim().split(/\s+/)[0];
     } catch (e) { auteurA = ''; }
     try {
-      var ecritA = await supabaseEcrire('journal', 'POST', '', {
-        etape: 'action_plateforme',
-        contact_id: cleA,
-        texte: typeA,
-        detail: {
-          type: typeA,
-          cle: cleA,
-          valeur: valA === null ? null : (typeof valA === 'object' ? valA : String(valA)),
-          auteur: auteurA,
-          detail: ac.detail || null
-        }
-      });
+      // v126 : écriture dans agent_sav.choix_equipe (upsert sur
+      // (cle,type,cle2) → UNE ligne par action, jamais de doublon, table lue
+      // en entier au GET). Repli : si la table n'existe pas encore, on écrit
+      // dans le journal (etape=action_plateforme) comme avant.
+      var cle2A = '';
+      if (ac.detail && ac.detail.uid) cle2A = String(ac.detail.uid);
+      else if (typeA === 'vu') cle2A = String(valA || '');
+      else if (typeA === 'notif') cle2A = String(valA || '') + '|' + new Date().toISOString();
+      var valeurStockee = valA === null ? null : (typeof valA === 'object' ? JSON.stringify(valA) : String(valA));
+      var detailStocke = { type: typeA, cle: cleA, valeur: valeurStockee, auteur: auteurA, detail: ac.detail || null };
+      var ecritA;
+      try {
+        ecritA = await supabaseEcrire('choix_equipe', 'POST', 'on_conflict=cle,type,cle2', {
+          cle: cleA, type: typeA, cle2: cle2A,
+          valeur: valeurStockee, detail: ac.detail || null, auteur: auteurA,
+          horodatage: new Date().toISOString()
+        });
+      } catch (eC) {
+        ecritA = await supabaseEcrire('journal', 'POST', '', {
+          etape: 'action_plateforme',
+          contact_id: cleA,
+          texte: typeA,
+          detail: detailStocke
+        });
+      }
       var actionErite = Array.isArray(ecritA) ? ecritA[0] : ecritA;
       return res.status(201).json({
         ok: true, brique: 'C15-ACT', version: VERSION,
@@ -806,4 +840,5 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
   }
 };
+
 
