@@ -2656,7 +2656,7 @@ function chargerHistoriqueConv(c) {
         var filM = rep.messages.map(function(m) {
           var h = heureWa(m.recu_a);
           if (m.sens === "sortant") {
-            return { qui: "agent", de: m.from_nom || MOI, t: h.t, txt: String(m.texte || ""), suj: m.sujet || "", canal: "Email", st: "envoye", ts: m.recu_a, mid: m.message_id };
+            return { qui: "agent", de: m.from_nom || "Service U'mob", t: h.t, txt: String(m.texte || ""), suj: m.sujet || "", canal: "Email", st: "envoye", ts: m.recu_a, mid: m.message_id };
           }
           return { qui: "client", t: h.t, txt: String(m.texte || ""), suj: m.sujet || "", canal: "Email", ts: m.recu_a, mid: m.message_id };
         });
@@ -2835,7 +2835,7 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
           var cite = corps.cite ? formaterMailTxt(corps.cite) : null;
           /* C8-IMP-2 : vrai expéditeur — from_nom stocké/migré côté backend. */
           if (m.sens === "sortant") {
-            return { qui: "agent", de: m.from_nom || MOI, t: h.t, txt: txt, canal: "Email", st: "envoye", ts: m.recu_a, suj: suj, cite: cite, html: m.corps_html || null, mid: m.message_id };
+            return { qui: "agent", de: m.from_nom || "Service U'mob", t: h.t, txt: txt, canal: "Email", st: "envoye", ts: m.recu_a, suj: suj, cite: cite, html: m.corps_html || null, mid: m.message_id };
           }
           return { qui: "client", t: h.t, txt: txt, canal: "Email", ts: m.recu_a, suj: suj, cite: cite, html: m.corps_html || null, mid: m.message_id };
         });
@@ -6778,7 +6778,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v132 · Fix cycles perdus au rechargement : une action enregistrée sous l ancienne identité (tél ↔ email) de la conversation est retrouvée par la clé alternative';
+var VER_FRONT = 'v133 · Bulle email sortant : vrai expéditeur affiché (from_nom persisté à l envoi ; repli « Service U mob » au lieu du viewer)';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();

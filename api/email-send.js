@@ -24,7 +24,7 @@
 // 500 config manquante ; 502 erreur SMTP.
 // ============================================================================
 
-var VERSION = 'C5-ENV-4';
+var VERSION = 'C5-ENV-5';   /* v133 : from_nom = nom du compte de la session */
 var SCHEMA = 'agent_sav';
 var smtp = require('../lib/smtp');
 
@@ -103,9 +103,13 @@ module.exports = async function handler(req, res) {
   }
 
   var authA = require('../lib/auth');
-  if (!authA.authentifierRequete(secretDe(req, corps), jetonDe(req, corps)).ok) {
+  var authR = authA.authentifierRequete(secretDe(req, corps), jetonDe(req, corps));
+  if (!authR.ok) {
     return res.status(401).json({ ok: false, erreur: 'secret invalide' });
   }
+  /* v133 : vrai expéditeur (nom du compte de la session) stocké avec le mail
+     sortant → la plateforme affiche qui a envoyé, même pour un autre membre. */
+  var nomExpediteur = (authR.utilisateur && authR.utilisateur.nom) || null;
 
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, erreur: 'methode non autorisee' });
@@ -222,6 +226,7 @@ module.exports = async function handler(req, res) {
         message_id: result.message_id,
         sens: 'sortant',
         from_addr: de,
+        from_nom: nomExpediteur,
         to_addr: a,
         sujet: sujet,
         texte: texte,
