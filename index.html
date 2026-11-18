@@ -2620,6 +2620,13 @@ function fusionnerFil(c, fil) {
   var tnlF = toutNonLuTs();
   if (tnlF && luMax && luMax < tnlF) luMax = 0;
   var tsDer = (der && der.ts) ? new Date(der.ts).getTime() : 0;
+  /* v129 : « non lu » se décide sur le dernier message DU CLIENT — un envoi
+     de notre part (qui = agent/collab) ne rend plus la conversation non lue. */
+  var derClient = null;
+  for (var ci = (c.fil || []).length - 1; ci >= 0; ci--) {
+    if (c.fil[ci] && c.fil[ci].qui === "client") { derClient = c.fil[ci]; break; }
+  }
+  if (derClient && derClient.ts) tsDer = new Date(derClient.ts).getTime(); else if (!derClient) tsDer = 0;
   c.lu = (!luMax || tsDer > luMax) ? false : true;
   if (der && der.canal) c.canal = der.canal;
 }
@@ -2797,7 +2804,7 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
           s = { ent: t.ent, siren: "", siege: "", livraison: "Même adresse", contact_sc: "",
                 risque: "RAS", classeR: "ok", scooters: [], convs: [],
                 vraisContacts: [{ nom: t.nom, tel: "", plaque: t.plaque, email: addr }] };
-          SOCIETES.push(s);
+
         }
         return { s: s, v: s.vraisContacts[0], nom: t.nom };
       }
@@ -3198,7 +3205,7 @@ function joindreFichier(inp) {  try {
     var h = new Date().toTimeString().slice(0, 5);
     var kb = f.size > 1048576 ? (f.size / 1048576).toFixed(1) + " Mo" : Math.max(1, Math.round(f.size / 1024)) + " Ko";
     var estImg = /^image\//.test(f.type);
-    try { c.fil.push({ qui: "agent", de: MOI, t: h, txt: estImg ? "🖼 " + f.name : "📎 " + f.name, canal: CANAL_ENVOI, pj: f.name, taille: kb, img: estImg, url: estImg ? URL.createObjectURL(f) : null, ts: new Date().toISOString() }); }
+
     catch (e) { c.fil.push({ qui: "agent", de: MOI, t: h, txt: (estImg ? "🖼 " : "📎 ") + f.name, canal: CANAL_ENVOI, pj: f.name, taille: kb, ts: new Date().toISOString() }); }
     c.extrait = (estImg ? "🖼 " : "📎 ") + f.name; c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
@@ -3485,6 +3492,7 @@ function envoyerMessage() {
   c.fil.push({ qui: "agent", de: MOI, t: h, txt: v, canal: CANAL_ENVOI, st: "envoye", ts: new Date().toISOString() });   /* v121: ts → la conversation remonte en haut de la liste */
   c.extrait = v; c.lu = true; c.heure = h; c.delai = "à l'instant";
   c.dateLbl = dateLblDe(c, 0);
+  marquerLecture(c);   /* v129 : envoyer = lu (met à jour le ts de lecture persisté) */
   if (inp) inp.value = ""; majHauteurSaisie();
   renduFil(); renduListe(); rafraichirFiche(); majBadgeNouveaux();
 }
@@ -3521,6 +3529,7 @@ function envoyerMessageWaReel(c, inp, v) {
     c.fil.push({ qui: "agent", de: MOI, t: h, txt: v, canal: "WhatsApp", wa: true, st: "envoye", wamid: (rep.j.wamid || ""), ts: new Date().toISOString() });   /* v106: wamid pour dédup + maj statut · v121: ts → remonte en haut */
     c.extrait = v; c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
+    marquerLecture(c);   /* v129 : envoyer = lu */
     if (inp) inp.value = ""; majHauteurSaisie();
     finEnvoi();
     renduFil(); renduListe(); rafraichirFiche(); majBadgeNouveaux();
@@ -3597,7 +3606,7 @@ function envoyerModeleWa(nomModele) {
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
   var secret = (sessionDe() || {}).jeton || "";
   if (!secret) { afficherPorte(); finEnvoi(); return; }
-  var h = new Date().toTimeString().slice(0, 5);
+
   // C5-ENV-2 : objet de réponse (RE: pré-rempli, modifiable) + signature HTML
   var sujet = sujetCourant(c);
   var sig = SIGNATURE.actif ? SIGNATURE : null;
@@ -3626,6 +3635,7 @@ function envoyerModeleWa(nomModele) {
     c.fil.push(Object.assign({ qui: "agent", de: MOI, t: h, txt: texteFinal, suj: sujet, canal: "Email", st: "envoye", mid: (rep.j.message_id || ""), ts: new Date().toISOString() }, htmlFinal ? { html: htmlFinal } : {}, nomsPj ? { pj: nomsPj } : {}));   /* v106: mid pour dédup · v121: ts → remonte en haut · v127: noms des PJ envoyées */
     c.extrait = v; c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
+    marquerLecture(c);   /* v129 : envoyer un email = lu (ts de lecture persisté) */
     if (inp) inp.value = ""; majHauteurSaisie();
     finEnvoi();
     PJ_BROUILLON = []; renduPJsBrouillon();   /* v127 : brouillon PJ vidé après envoi réussi */
@@ -4398,7 +4408,7 @@ function dessinerConv(c, conteneur) {
        état habituel (visible uniquement via la recherche globale) */
     (c.archive ? '<span class="tag" title="Conversation archivée">📦 archivée</span>' : '')+
     (RATTACHE[c.id] ? '<span class="tag" title="Rattachée à une autre conversation">📎 rattachée</span>' : '')+
-    '</div></div>';
+
   d.onclick = function(){ ouvrirConvLu(c.id); };
   d.oncontextmenu = function(ev){ menuContext(ev, c.id); };
   el.appendChild(d);
@@ -4799,7 +4809,7 @@ function lancerNouvelleConv(id) {
    CARNET D'ADRESSES (menu C3) : liste à gauche, PAGE DE DÉTAIL
    à droite — clic sur un contact ou une société pour ouvrir
    sa page. Mêmes infos que la fiche société + actions
-   « Lancer une conversation » (C2) et « Appeler » (Ringover).
+
    ============================================================ */
 var CARNET_SEL = null; /* { type:"contact", id } ou { type:"societe", ent } */
 
@@ -5200,7 +5210,7 @@ function initVolets() {
     try {
       var mem = JSON.parse(localStorage.getItem("umob_volets_replies") || "{}");
       mem[id] = replie;
-      localStorage.setItem("umob_volets_replies", JSON.stringify(mem));
+
     } catch (e) {}
   };
   /* --- C8-VOLET-3 : icônes du volet Filtres réduit → rouvrir sur la section --- */
@@ -5601,7 +5611,7 @@ function rattacherEntreprise(ent) {
   var avant = c.entreprise || "";
   if (avant === ent) { fermerRattacheEnt(); return; }
   if (avant) { var s0 = socParEnt(avant); if (s0) s0.convs = s0.convs.filter(function(id){ return id !== c.id; }); }
-  c.entreprise = ent;
+
   var s = socParEnt(ent);
   if (s) {
     if (s.convs.indexOf(c.id) < 0) s.convs.push(c.id);
@@ -6002,7 +6012,7 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
             if (avE) { var sA = socParEnt(avE); if (sA) sA.convs = sA.convs.filter(function(id){ return id !== cE.id; }); }
             cE.entreprise = entV;
             var sB = socParEnt(entV);
-            if (sB && sB.convs.indexOf(cE.id) < 0) sB.convs.push(cE.id);
+
             n++;
           }
         } else if (typ === "societe") {
@@ -6403,7 +6413,7 @@ function appliquerMoiSession(nomComplet) {
   if (!PROFILS[prenom]) {
     var utilisees = Object.keys(PROFILS).map(function(n){ return PROFILS[n].col; });
     PROFILS[prenom] = {
-      ic: ICONES_PROFILS[Object.keys(PROFILS).length % ICONES_PROFILS.length],
+
       col: COULEURS_PROFILS.filter(function(c){ return utilisees.indexOf(c) < 0; })[0] || COULEURS_PROFILS[0]
     };
     sauvegarderProfils();
@@ -6670,7 +6680,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v127 · Pièce jointe email : s\'ajoute au mail en cours de rédaction (puces sur le brouillon, multipart/mixed côté SMTP)';
+var VER_FRONT = 'v129 · Envoi d\'un mail/message ne marque plus la conversation comme non lue (décision « non lu » sur le dernier message client)';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
@@ -6679,6 +6689,8 @@ renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); ma
 </script>
 </body>
 </html>
+
+
 
 
 
