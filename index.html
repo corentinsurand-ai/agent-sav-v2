@@ -87,7 +87,7 @@
   .f-sec h3 .fs-f { display: inline-block; width: 12px; text-align: center; color: #0e5aa7; font-size: 9px; }
   .f-sec.reduit .f-sec-chips { display: none; }
   .f-sec.reduit h3 { margin-bottom: 4px; }
-  .wa::before { content: ""; } .mail::before { content: "✉"; }
+  .wa::before { content: "💬"; } .mail::before { content: "✉️"; }
 
   section.liste { background: var(--card); border-right: 1px solid var(--bord); display: flex; flex-direction: column; }
   .liste-head { padding: 12px 14px; border-bottom: 1px solid var(--bord); display: flex; align-items: center; gap: 8px; }
@@ -271,7 +271,7 @@
   .comm-saisie { display: flex; gap: 7px; margin-top: 9px; }
   .comm-saisie input { flex: 1; border: 1px solid var(--bord2); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; background: #fff; }
   .comm-saisie input:focus { border-color: var(--lime-hov); outline: none; box-shadow: 0 0 0 2px rgba(16,185,129,.22); }
-  /* C28-MENTION-AUTOCOMPLETE : suggestions @ + volet  au-dessus de la saisie */
+  /* C28-MENTION-AUTOCOMPLETE : suggestions @ + volet 👥 au-dessus de la saisie */
   .comm-saisie { position: relative; }
   .comm-champ { position: relative; flex: 1; display: flex; }
   .comm-champ input { flex: 1; }
@@ -442,7 +442,7 @@
   .btn-nouv .n { background: #ffd166; color: #1b2430; border-radius: 999px; padding: 1px 7px; margin-left: 5px; font-size: 11px; }
   .badge-new { background: #0e5aa7; color: #fff; font-size: 9.5px; font-weight: 700; border-radius: 999px; padding: 1px 6px; white-space: nowrap; }
   .wa-flag { background: #25d366; color: #fff; font-size: 9.5px; font-weight: 700; border-radius: 999px; padding: 1px 6px; white-space: nowrap; }
-  /* Logo de canal sur chaque bulle du fil :  = WhatsApp réel, ✉ = email */
+  /* Logo de canal sur chaque bulle du fil : 💬 = WhatsApp réel, ✉️ = email */
   .mcan { display: inline-block; width: 17px; height: 17px; line-height: 17px; text-align: center; border-radius: 4px; font-size: 10.5px; vertical-align: -3px; }
   .mcan.wa { background: #dcf8c6; }
   .mcan.mail { background: #dbeafe; }
@@ -842,7 +842,7 @@
 
   /* --- barre de recherche du fil : capsule avec loupe --- */
   .rech-fil { position: relative; }
-  .rech-fil::before { content: ""; position: absolute; left: 32px; top: 50%; transform: translateY(-50%); font-size: 12px; opacity: .6; pointer-events: none; }
+  .rech-fil::before { content: "🔍"; position: absolute; left: 32px; top: 50%; transform: translateY(-50%); font-size: 12px; opacity: .6; pointer-events: none; }
   .rech-fil input { border-radius: 999px; padding: 7px 14px 7px 34px; border: 1.5px solid var(--bord2); background: #FAFCFE; }
   .rech-fil input:focus { background: #fff; }
 
@@ -896,7 +896,7 @@
 
   /* ============================================================
      C8-THEME-1 : THÈME U.MOB V55 : vert émeraude #10B981 (remplace le lime #BCCF00 jugé trop jaune) + anthracite
-     #1b2430) — activé par body.umob via le bouton  topbar, état
+     #1b2430) — activé par body.umob via le bouton 🎨 topbar, état
      mémorisé (localStorage umob_theme). LEÇON du 29/10 : vert en
      accents lisibles (texte SOMBRE sur vert, jamais l'inverse), pas
      de tints olive étalés, anthracite pour les textes.
@@ -948,7 +948,7 @@
   body.umob .bulle.agent a { color: #123f30; text-decoration: underline; }
 
   /* ============================================================
-     C8-THEME-6 : MODE SOMBRE (3e thème du cycle ) — anthracite
+     C8-THEME-6 : MODE SOMBRE (3e thème du cycle 🎨) — anthracite
      U'mob #32373C, surfaces #262c33, accents verts #10B981,
      texte clair #e8ebee. Activé par body.sombre, mémorisé
      (localStorage umob_theme = "sombre").
@@ -1019,7 +1019,7 @@
   /* ============================================================
      C14-MOBILE : couche responsive de la plateforme.
      ≤ 860 px = un seul volet PLEIN ÉCRAN à la fois, navigation par
-     boutons (☰ filtres /  conversations / ← retour). Le drag &
+     boutons (☰ filtres / 💬 conversations / ← retour). Le drag &
      resize et le pliage des volets sont désactivés (souris only).
      JS associé : estMobile / basculerVueMobile / majMobile.
      ============================================================ */
@@ -1067,7 +1067,7 @@
 </head>
 <body>
 
-<div class="proto"> Plateforme SAV U'mob — données réelles · WhatsApp &amp; Email · envois directs · rafraîchissement auto 60 s · <b>Ctrl/⌘+K</b> pour rechercher</div>
+<div class="proto">🟢 Plateforme SAV U'mob — données réelles · WhatsApp &amp; Email · envois directs · rafraîchissement auto 60 s · <b>Ctrl/⌘+K</b> pour rechercher</div>
 
 <header class="topbar">
   <div class="logo" style="display:flex;align-items:center;gap:9px;">
@@ -1076,20 +1076,20 @@
   <div class="crumb">Boîte de réception</div>
   <!-- C14-MOBILE : navigation volets sur mobile (masqués sur desktop) -->
   <button class="btn-nouv btn-mob" id="btn-mob-filtres" onclick="basculerVueMobile(VUE_MOBILE === 'volet-filtres' ? 'volet-liste' : 'volet-filtres')" title="Filtres">☰</button>
-  <button class="btn-nouv btn-mob" id="btn-mob-liste" onclick="basculerVueMobile('volet-liste')" title="Conversations"></button>
+  <button class="btn-nouv btn-mob" id="btn-mob-liste" onclick="basculerVueMobile('volet-liste')" title="Conversations">💬</button>
   <div class="spacer"></div>
   <span class="badge-ver" id="badge-ver" title="Version de la plateforme chargée dans ce navigateur">…</span>
-  <button class="btn-nouv" id="btn-nouv" onclick="ouvrirNouveaux()"> Nouveaux messages<span class="n" id="btn-nouv-n">0</span></button>
+  <button class="btn-nouv" id="btn-nouv" onclick="ouvrirNouveaux()">🔔 Nouveaux messages<span class="n" id="btn-nouv-n">0</span></button>
   <button class="btn-nouv" id="btn-newconv" onclick="ouvrirNouvelleConv()" title="Démarrer une conversation avec un nouveau contact (numéro WhatsApp ou adresse email) — le premier message part réellement">➕ Nouvelle conversation</button>
-  <button class="btn-nouv" onclick="ouvrirNotifs()" title="Assignations et tags reçus"> Notifications<span class="n" id="btn-notif-n">0</span></button>
-  <button class="btn-nouv" onclick="ouvrirProfils()" title="Créer et modifier les profils de l'équipe (icônes affichées à côté des messages)"> Profils</button>
-  <button class="btn-nouv" id="btn-auth" onclick="ouvrirConnexion()" title="Connexion équipe C6 (compte agent_sav.utilisateurs) — jeton mémorisé dans ce navigateur"> Connexion</button>
-  <button class="btn-nouv" id="btn-comptes" style="display:none;" onclick="ouvrirComptes()" title="Admin : créer, activer/désactiver les comptes de l'équipe (table agent_sav.utilisateurs)"> Comptes</button>
+  <button class="btn-nouv" onclick="ouvrirNotifs()" title="Assignations et tags reçus">🔔 Notifications<span class="n" id="btn-notif-n">0</span></button>
+  <button class="btn-nouv" onclick="ouvrirProfils()" title="Créer et modifier les profils de l'équipe (icônes affichées à côté des messages)">👥 Profils</button>
+  <button class="btn-nouv" id="btn-auth" onclick="ouvrirConnexion()" title="Connexion équipe C6 (compte agent_sav.utilisateurs) — jeton mémorisé dans ce navigateur">👤 Connexion</button>
+  <button class="btn-nouv" id="btn-comptes" style="display:none;" onclick="ouvrirComptes()" title="Admin : créer, activer/désactiver les comptes de l'équipe (table agent_sav.utilisateurs)">🛡️ Comptes</button>
   <select class="badge-ver" id="sel-moi" title="Qui suis-je ? (pour les commentaires internes et le filtre « Mes conversations »)" onchange="MOI = this.value; renduListe(); renduMesCycles();"></select>
-  <button class="btn-nouv" id="btn-kpi" onclick="ouvrirConsole()" title="Console de contrôle : KPI de la boîte de réception (charge, délais, activité, équipe) — calculés sur les conversations chargées."> Console</button>
-  <button class="btn-nouv" id="btn-auto" onclick="basculerAuto()" title="Rafraîchissement automatique : toutes les minutes, la plateforme relit les messages WhatsApp et les emails réels (tant que les vraies données sont chargées et l'onglet visible). Clique pour activer/désactiver."> Auto : arrêt</button>
-  <button class="btn-nouv" id="btn-theme" onclick="basculerThemeUmob()" title="Basculer le thème visuel : bleu plateforme / couleurs de marque U'mob / mode sombre"> Thème</button>
-  <button class="btn-nouv" id="btn-ding" onclick="basculerDing()" title="Notification sonore : un petit « ding » quand un nouveau message arrive. Clique pour activer/désactiver."></button>
+  <button class="btn-nouv" id="btn-kpi" onclick="ouvrirConsole()" title="Console de contrôle : KPI de la boîte de réception (charge, délais, activité, équipe) — calculés sur les conversations chargées.">📊 Console</button>
+  <button class="btn-nouv" id="btn-auto" onclick="basculerAuto()" title="Rafraîchissement automatique : toutes les minutes, la plateforme relit les messages WhatsApp et les emails réels (tant que les vraies données sont chargées et l'onglet visible). Clique pour activer/désactiver.">🔄 Auto : arrêt</button>
+  <button class="btn-nouv" id="btn-theme" onclick="basculerThemeUmob()" title="Basculer le thème visuel : bleu plateforme / couleurs de marque U'mob / mode sombre">🎨 Thème</button>
+  <button class="btn-nouv" id="btn-ding" onclick="basculerDing()" title="Notification sonore : un petit « ding » quand un nouveau message arrive. Clique pour activer/désactiver.">🔊</button>
 </header>
 
 <div class="layout" id="layout">
@@ -1098,11 +1098,11 @@
   <aside class="filters volet" id="volet-filtres">
     <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet"><button class="volet-pli" onclick="event.stopPropagation();plierVolet('volet-filtres')" title="Réduire / agrandir ce volet">‹</button><span class="vt">Filtres</span> <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
     <div class="volet-rail">
-      <button class="rail-btn" onclick="ouvrirVoletSur('fsec-canaux')" title="Canaux — filtrer WhatsApp / Email"></button>
-      <button class="rail-btn" onclick="ouvrirVoletSur('fsec-cycles')" title="Cycles de vie — filtrer par cycle"></button>
-      <button class="rail-btn" onclick="ouvrirVoletSur('fsec-mescycles')" title="Mes conversations par cycle"></button>
-      <button class="rail-btn" onclick="ouvrirVoletSur('fsec-assignation')" title="Assignation — mes conversations / non assignées"></button>
-      <button class="rail-btn" onclick="ouvrirVoletSur('fsec-confort')" title="Carnet d'adresses et recherche"></button>
+      <button class="rail-btn" onclick="ouvrirVoletSur('fsec-canaux')" title="Canaux — filtrer WhatsApp / Email">💬</button>
+      <button class="rail-btn" onclick="ouvrirVoletSur('fsec-cycles')" title="Cycles de vie — filtrer par cycle">🔄</button>
+      <button class="rail-btn" onclick="ouvrirVoletSur('fsec-mescycles')" title="Mes conversations par cycle">🗂</button>
+      <button class="rail-btn" onclick="ouvrirVoletSur('fsec-assignation')" title="Assignation — mes conversations / non assignées">👤</button>
+      <button class="rail-btn" onclick="ouvrirVoletSur('fsec-confort')" title="Carnet d'adresses et recherche">📇</button>
     </div>
     <div class="volet-corps filters-corps">
     <div class="f-sec" id="fsec-canaux">
@@ -1134,7 +1134,7 @@
     </div>
 
     <div class="f-sec" id="fsec-mescycles">
-      <h3 onclick="basculeFiltreSec('mescycles')"><span class="fs-f">▾</span>  Mes conversations par cycle <span class="n" id="mescycles-qui" style="font-size:10px;color:#8a93a3;background:#eef1f5;border-radius:999px;padding:1px 7px;"></span></h3>
+      <h3 onclick="basculeFiltreSec('mescycles')"><span class="fs-f">▾</span> 🗂 Mes conversations par cycle <span class="n" id="mescycles-qui" style="font-size:10px;color:#8a93a3;background:#eef1f5;border-radius:999px;padding:1px 7px;"></span></h3>
       <div class="f-sec-chips" id="mes-cycles-chips"></div>
     </div>
 
@@ -1142,7 +1142,7 @@
       <h3 onclick="basculeFiltreSec('assignation')"><span class="fs-f">▾</span> Assignation</h3>
       <div class="f-sec-chips">
       <div class="chip on" data-fa="tous" onclick="filtre('ass','tous',this)">Toutes <span class="n">0</span></div>
-      <div class="chip" data-fa="moi" onclick="filtre('ass','moi',this)"> Mes conversations <span class="n">0</span></div>
+      <div class="chip" data-fa="moi" onclick="filtre('ass','moi',this)">👤 Mes conversations <span class="n">0</span></div>
       <div class="chip" data-fa="aucun" onclick="filtre('ass','aucun',this)">Non assignées <span class="n">0</span></div>
       </div>
     </div>
@@ -1150,8 +1150,8 @@
     <div class="f-sec" id="fsec-confort">
       <h3 onclick="basculeFiltreSec('confort')"><span class="fs-f">▾</span> Confort (C3)</h3>
       <div class="f-sec-chips">
-      <div class="chip" onclick="ouvrirCarnet()"> Carnet d'adresses</div>
-      <div class="chip" onclick="document.getElementById('rech-conv').focus()"> Rechercher (liste)</div>
+      <div class="chip" onclick="ouvrirCarnet()">📇 Carnet d'adresses</div>
+      <div class="chip" onclick="document.getElementById('rech-conv').focus()">🔎 Rechercher (liste)</div>
       </div>
     </div>
     </div>
@@ -1163,15 +1163,15 @@
     <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet"><button class="volet-pli" onclick="event.stopPropagation();plierVolet('volet-liste')" title="Réduire / agrandir ce volet">‹</button><span class="vt">Conversations</span> <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
     <div class="liste-head">
       <b>Conversations</b>
-      <input class="rech-conv" id="rech-conv" placeholder=" Tél, plaque, nom, entreprise…" oninput="RECH_TXT = this.value; saverRech(); renduListe();" />
+      <input class="rech-conv" id="rech-conv" placeholder="🔎 Tél, plaque, nom, entreprise…" oninput="RECH_TXT = this.value; saverRech(); renduListe();" />
       <span class="compteur" id="rech-nb" title="Nombre de résultats de la recherche"></span>
       <span class="compteur" id="nb"></span>
       <button class="btn" title="Rafraîchir" onclick="alert('Dans la vraie C1 : recharge via l\u2019API respond.io (lecture seule).')">⟳</button>
     </div>
     <div style="padding:8px 14px;border-bottom:1px solid #eef1f5;">
       <div class="toggle">
-        <button id="tg-ent" onclick="basculeVue('entreprise')"> Par entreprise</button>
-        <button class="on" id="tg-ctc" onclick="basculeVue('contact')"> Par contact</button>
+        <button id="tg-ent" onclick="basculeVue('entreprise')">🏢 Par entreprise</button>
+        <button class="on" id="tg-ctc" onclick="basculeVue('contact')">👤 Par contact</button>
       </div>
     </div>
     <div class="convs" id="convs"></div>
@@ -1183,7 +1183,7 @@
     <div class="volet-bar" title="Glisse cette barre sur un autre volet pour déplacer ce volet"><button class="btn-ret" onclick="basculerVueMobile('volet-liste')" title="Retour aux conversations">‹</button><span class="vt">Conversation</span> <span class="aide">⇄ glisser · bord ⇢ étirer</span></div>
     <div class="fil-head" id="filhead"></div>
     <div class="rech-fil">
-      <input id="rech-fil" placeholder=" Rechercher dans la conversation (ex. « batt »)…" oninput="RECH_FIL = this.value; renduFil();" />
+      <input id="rech-fil" placeholder="🔎 Rechercher dans la conversation (ex. « batt »)…" oninput="RECH_FIL = this.value; renduFil();" />
       <span class="nb" id="rech-fil-nb"></span>
       <button class="btn" title="Effacer la recherche" onclick="RECH_FIL=''; document.getElementById('rech-fil').value=''; renduFil();">✕</button>
     </div>
@@ -1194,17 +1194,17 @@
       <div class="canal-envoi" id="canal-envoi" style="display:none;">
         <span class="lab">Envoyer via</span>
         <div class="toggle">
-          <button id="tg-can-wa" class="on" onclick="setCanalEnvoi('WhatsApp')"> WhatsApp</button>
+          <button id="tg-can-wa" class="on" onclick="setCanalEnvoi('WhatsApp')">💬 WhatsApp</button>
           <button id="tg-can-mail" onclick="setCanalEnvoi('Email')">✉ Email</button>
         </div>
       </div>
       <div class="outils-envoi" id="outils-envoi" style="display:none;">
         <button class="outil-btn ob-bleu" onclick="ouvrirBoiteOutils('racc')" title="Messages types à insérer (comme les réponses enregistrées de respond.io) — clic : insérer, ➕ : créer les tiens"><span class="ob-ico">⚡</span>Raccourcis</button>
 
-        <button class="outil-btn ob-vert" onclick="ouvrirBoiteOutils('wa')" title="Modèles WhatsApp Business approuvés, avec champs automatiquement remplis"><span class="ob-ico"></span>Modèles WA</button>
+        <button class="outil-btn ob-vert" onclick="ouvrirBoiteOutils('wa')" title="Modèles WhatsApp Business approuvés, avec champs automatiquement remplis"><span class="ob-ico">📋</span>Modèles WA</button>
         <button class="outil-btn ob-bleu" onclick="ouvrirBoiteOutils('sig')" title="Signature des emails : logo, coordonnées, activée/désactivée à la demande"><span class="ob-ico">✉</span>Signature</button>
 
-        <button class="outil-btn ob-orange" onclick="document.getElementById('pj-input').click()" title="Joindre un fichier (photo, PDF…) — il s'ajoute au message en cours (Email ou WhatsApp)"><span class="ob-ico"></span>Joindre</button>
+        <button class="outil-btn ob-orange" onclick="document.getElementById('pj-input').click()" title="Joindre un fichier (photo, PDF…) — il s'ajoute au message en cours (Email ou WhatsApp)"><span class="ob-ico">📎</span>Joindre</button>
         <input type="file" id="pj-input" style="display:none;" onchange="joindreFichier(this)" />
 
       </div>
@@ -1215,7 +1215,7 @@
       </div>
       <div class="barre">
         <textarea id="nv-msg" rows="1" placeholder="Écrire au client… — Entrée : nouvelle ligne, Ctrl+Entrée : envoyer" onkeydown="if(event.key==='Enter'&&!event.shiftKey&&(event.ctrlKey||event.metaKey)){event.preventDefault();envoyerMessage();}" oninput="majHauteurSaisie()"></textarea>
-        <button class="outil-btn ob-rouge" id="btn-dictee" onclick="dicter()" title="Dicter ton message (reconnaissance vocale du navigateur — Chrome/Edge)"><span class="ob-ico"></span></button>
+        <button class="outil-btn ob-rouge" id="btn-dictee" onclick="dicter()" title="Dicter ton message (reconnaissance vocale du navigateur — Chrome/Edge)"><span class="ob-ico">🎤</span></button>
         <button class="btn primaire" id="btn-env" disabled onclick="envoyerMessage()"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M3.5 11.5L20.5 3.8a.5.5 0 0 1 .7.6l-5.9 16.4a.5.5 0 0 1-.9.1l-3.4-6.1-6.9-2.5a.5.5 0 0 1 0-1z"/><path d="M11 13.9l3.4-3.9"/></svg> Envoyer</button>
       </div>
       <div class="note-c2" id="note-c2"></div>
@@ -1237,7 +1237,7 @@
 <div id="carnet">
   <div class="carnet-fen">
     <div class="carnet-head">
-      <b> Carnet d'adresses</b>
+      <b>📇 Carnet d'adresses</b>
       <input class="carnet-recherche" id="carnet-q" placeholder="Rechercher une société, un contact, un numéro, une plaque…" oninput="renduCarnet()" />
       <span class="carnet-nb" id="carnet-nb"></span>
       <button class="btn" style="padding:5px 12px;font-size:12px;font-weight:700;" onclick="ouvrirFormSociete()" title="Créer une fiche entreprise avant d'engager une conversation">➕ Nouvelle fiche entreprise</button>
@@ -1255,9 +1255,9 @@
 <div id="nouveaux">
   <div class="nv-fen">
     <div class="carnet-head">
-      <b> Nouveaux messages</b>
+      <b>🔔 Nouveaux messages</b>
       <span class="carnet-nb" id="nouveaux-nb"></span>
-      <button class="btn" onclick="toutMettreEnNonLu()" title="C37-TOUT-NON-LU : remettre TOUTES les conversations en non lu (les lectures faites après ce clic remettront lue)"> Tout non lu</button>
+      <button class="btn" onclick="toutMettreEnNonLu()" title="C37-TOUT-NON-LU : remettre TOUTES les conversations en non lu (les lectures faites après ce clic remettront lue)">🙈 Tout non lu</button>
       <button class="btn-fermer" onclick="fermerNouveaux()">✕ Fermer</button>
     </div>
     <div class="nv-corps" id="nv-corps"></div>
@@ -1280,7 +1280,7 @@
       <div>
         <label>Canal</label>
         <div class="toggle" style="display:flex;gap:8px;">
-          <button class="chip wa on" id="nc-can-wa" onclick="newconvCanal('WhatsApp')"> WhatsApp</button>
+          <button class="chip wa on" id="nc-can-wa" onclick="newconvCanal('WhatsApp')">💬 WhatsApp</button>
           <button class="chip mail" id="nc-can-mail" onclick="newconvCanal('Email')">✉ Email</button>
         </div>
       </div>
@@ -1305,7 +1305,7 @@
     <div class="bo-head">
       <div class="bo-tabs">
         <button id="bt-racc" class="on" onclick="ongletOutils('racc')">⚡ Raccourcis</button>
-        <button id="bt-wa" onclick="ongletOutils('wa')"> Modèles WA</button>
+        <button id="bt-wa" onclick="ongletOutils('wa')">📋 Modèles WA</button>
         <button id="bt-sig" onclick="ongletOutils('sig')">✉ Signature</button>
       </div>
       <button class="btn-fermer" style="background:#F0F1EA;color:#383E43;" onclick="fermerBoiteOutils()">✕ Fermer</button>
@@ -1315,11 +1315,11 @@
 </div>
 
 <div class="ctx" id="menu-cycle"></div>
-<div class="ctx" id="ctxmenu">  <button onclick="actionCtx(true)"> Marquer comme non lu</button>
-  <button onclick="actionCtx(false)"> Marquer comme lu</button>
-  <button onclick="actionCtxArchiver()"> Archiver ⇄ Désarchiver</button>
+<div class="ctx" id="ctxmenu">  <button onclick="actionCtx(true)">💬 Marquer comme non lu</button>
+  <button onclick="actionCtx(false)">👁️ Marquer comme lu</button>
+  <button onclick="actionCtxArchiver()">🗄️ Archiver ⇄ Désarchiver</button>
   <button onclick="actionCtxSupprimer()" style="color:#b91c1c;"> Supprimer définitivement…</button>
-  <button onclick="fermerCtx(); ouvrirRattache(CTX_ID);"> Rattacher à une autre conversation…</button>
+  <button onclick="fermerCtx(); ouvrirRattache(CTX_ID);">🔗 Rattacher à une autre conversation…</button>
   <button onclick="ouvrirCtx()">↗ Ouvrir la conversation</button>
 </div>
 
@@ -1327,7 +1327,7 @@
 <div id="notifs">
   <div class="nv-fen" style="max-width:560px;">
     <div class="carnet-head">
-      <b> Notifications</b>
+      <b>🔔 Notifications</b>
       <span class="carnet-nb" id="notifs-nb"></span>
       <button class="btn" onclick="toutLireNotifs()" title="Tout marquer comme lu">✅ Tout lire</button>
       <button class="btn-fermer" onclick="fermerNotifs()">✕ Fermer</button>
@@ -1340,7 +1340,7 @@
 <div id="profils">
   <div class="nv-fen" style="max-width:520px;">
     <div class="carnet-head">
-      <b> Profils de l'équipe</b>
+      <b>👥 Profils de l'équipe</b>
       <span class="carnet-nb" id="profils-nb"></span>
       <button class="btn-fermer" onclick="fermerProfils()">✕ Fermer</button>
     </div>
@@ -1352,7 +1352,7 @@
 <div id="comptes">
   <div class="nv-fen" style="max-width:620px;">
     <div class="carnet-head">
-      <b> Comptes de l'équipe (C6)</b>
+      <b>🛡️ Comptes de l'équipe (C6)</b>
       <span class="carnet-nb" id="comptes-nb"></span>
       <button class="btn-fermer" onclick="fermerComptes()">✕ Fermer</button>
     </div>
@@ -1377,7 +1377,7 @@
 <div id="kpi">
   <div class="nv-fen" style="max-width:680px;">
     <div class="carnet-head">
-      <b> Console de contrôle</b>
+      <b>📊 Console de contrôle</b>
       <span class="carnet-nb" id="kpi-date"></span>
       <button class="btn-fermer" onclick="fermerConsole()">✕ Fermer</button>
     </div>
@@ -1389,7 +1389,7 @@
 <div id="rattache">
   <div class="carnet-fen" style="max-width:640px;">
     <div class="carnet-head">
-      <b> Rattacher une conversation</b>
+      <b>🔗 Rattacher une conversation</b>
       <span class="carnet-nb" id="rattache-titre"></span>
       <button class="btn-fermer" onclick="fermerRattache()">✕ Fermer</button>
     </div>
@@ -1400,7 +1400,7 @@
 <!-- ===== C6-AUTH : overlay de connexion équipe ===== -->
 <div id="auth-overlay" class="cache" onclick="if(event.target===this)fermerConnexion();">
   <div id="auth-carte">
-    <div id="auth-tete"><h3> Connexion équipe</h3><p>Compte U'mob (agent_sav.utilisateurs) — le jeton reste 12 h.</p></div>
+    <div id="auth-tete"><h3>👤 Connexion équipe</h3><p>Compte U'mob (agent_sav.utilisateurs) — le jeton reste 12 h.</p></div>
     <div id="auth-corps">
       <label>Email pro</label>
       <input id="auth-email" type="email" placeholder="prenom.nom@umob.fr" autocomplete="username" />
@@ -1439,7 +1439,7 @@
   <div class="ia-corps" id="ia-corps"></div>
   <div class="ia-barre">
     <textarea id="ia-saisie" rows="1" placeholder="Pose ta question (fonctionnement, clients, derniers échanges)…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();iaEnvoyer();}"></textarea>
-    <button class="ia-mic" id="btn-dictee-ia" onclick="dicterIA()" title="Dicter ta question (reconnaissance vocale du navigateur — Chrome/Edge)" aria-label="Dicter"></button>
+    <button class="ia-mic" id="btn-dictee-ia" onclick="dicterIA()" title="Dicter ta question (reconnaissance vocale du navigateur — Chrome/Edge)" aria-label="Dicter">🎤</button>
     <button class="ia-env" id="ia-env-btn" onclick="iaEnvoyer()" title="Envoyer" aria-label="Envoyer">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11.5L20.5 3.8a.5.5 0 0 1 .7.6l-5.9 16.4a.5.5 0 0 1-.9.1l-3.4-6.1-6.9-2.5a.5.5 0 0 1 0-1z"/><path d="M11 13.9l3.4-3.9"/></svg>
     </button>
@@ -1476,9 +1476,9 @@ var CONVS = [
   ]},
   {"id": 4, "nom": "Mohamed (Gérant)", "entreprise": "TCHIKO (PIZZA TIME POISSY)", "canal": "WhatsApp", "cycle": "En cours de réalisation", "classe": "encours", "tags": ["Prise de main"], "heure": "11:47", "delai": "8 h", "lu": true, "extrait": "Le technicien est passé, tout roule merci !", "contact": {"tel": "06 15 57 06 64", "plaque": "GB-027-QV / GZ-604-WC / GZ-578-WC / GZ-552-WC"}, "fil": [
     {"qui": "client", "t": "11:40", "txt": "Bonjour, intervention révision des 3 DAILY PRO passée aujourd'hui ?"},
-    {"de": "Marine", "qui": "collab", "t": "11:42", "txt": "(Marine) Oui, le technicien est sur place "},
+    {"de": "Marine", "qui": "collab", "t": "11:42", "txt": "(Marine) Oui, le technicien est sur place 🛠️"},
     {"qui": "client", "t": "11:47", "txt": "Le technicien est passé, tout roule merci !"},
-    {"de": "Nicolas", "qui": "agent", "t": "11:48", "txt": "Merci pour votre retour ! Je clôture le dossier : passez une excellente journée "}
+    {"de": "Nicolas", "qui": "agent", "t": "11:48", "txt": "Merci pour votre retour ! Je clôture le dossier : passez une excellente journée 🙌"}
   ], "comms": [
     {"a": "Marine", "t": "29/10 11:42", "txt": "@Agent IA — révision des 3 scooters, en cours sur place."}
   ]},
@@ -1492,7 +1492,7 @@ var CONVS = [
   ]},
   {"id": 6, "nom": "Nathalie Ben Othmen (PDG)", "entreprise": "CNKL (DOMINO'S PIZZA MONTARGIS)", "canal": "WhatsApp", "cycle": "DE Commerciales", "classe": "qualifier", "tags": ["Demande Commerciale"], "heure": "lundi", "delai": "4 j", "lu": true, "extrait": "Possible d'avoir un devis pour 2 scooters supplémentaires ?", "contact": {"tel": "06 23 75 57 35", "plaque": "HJ-447-AN / HJ-480-AN"}, "fil": [
     {"qui": "client", "t": "10:05", "txt": "Bonjour, possible d'avoir un devis pour 2 scooters supplémentaires ?"},
-    {"qui": "agent", "t": "10:06", "txt": "Bonjour ! Votre demande est transmise à un conseiller commercial qui vous recontactera "}
+    {"qui": "agent", "t": "10:06", "txt": "Bonjour ! Votre demande est transmise à un conseiller commercial qui vous recontactera 📋"}
   ], "comms": [
     {"a": "Nicolas", "t": "28/10 10:10", "txt": "Demande commerciale — transmise au commercial, cycle DE posé."}
   ]},
@@ -1699,13 +1699,13 @@ function maintsHtml(ent) {
   if (!m.length) return "";
   return m.map(function(x) {
     return '<div class="ligne-ctc" style="flex-direction:column;align-items:flex-start;gap:2px;">' +
-      '<span><b style="color:#0e5aa7;"> ' + x.d + '</b> <span class="petit">·  ' + x.plaque + ' · ' + x.tech + '</span></span>' +
+      '<span><b style="color:#0e5aa7;">🔧 ' + x.d + '</b> <span class="petit">· 🛵 ' + x.plaque + ' · ' + x.tech + '</span></span>' +
       '<span class="petit">' + x.type + '</span></div>';
   }).join("");
 }
 
 /* ===== C7-MAINT : vraies données de maintenances (comptage précalculé) =====
-   Arrivent avec l'import  Vrais clients : chaque client du miroir porte
+   Arrivent avec l'import 🔌 Vrais clients : chaque client du miroir porte
    un champ maintenances [{code_client, nom, donnees:{sans_contrat,
    sites:[{cp,ville,adresse,pack,droits,consommes,restants,contrat_debut,
    contrat_fin,derniere,reparations_recentes,conclusion}], connecteurs:
@@ -1734,7 +1734,7 @@ function maintsHtmlReelles(s) {
     var sites = Array.isArray(d.sites) ? d.sites : [];
     var html = sites.map(function(st) {
       var l = '<div class="ligne-ctc" style="flex-direction:column;align-items:flex-start;gap:2px;">' +
-        '<span><b style="color:#0e5aa7;"> ' + escTxt(st.ville) + ' (' + escTxt(st.cp) + ')</b>' +
+        '<span><b style="color:#0e5aa7;">📍 ' + escTxt(st.ville) + ' (' + escTxt(st.cp) + ')</b>' +
         ' <span class="petit">· ' + escTxt(st.adresse) + '</span></span>';
       /* v134 : pack du site si homogène (calculé depuis « Clients Complets »),
          et datation(s) du contrat du site (plusieurs si hétérogènes) */
@@ -1749,7 +1749,7 @@ function maintsHtmlReelles(s) {
         }
       }
       if (st.pack) {
-        l += '<span class="petit"> Pack <b>' + escTxt(st.pack) + '</b>';
+        l += '<span class="petit">📦 Pack <b>' + escTxt(st.pack) + '</b>';
         if (st.droits !== undefined && st.droits !== null) {
           l += ' — <b>' + st.consommes + '</b> consommé(s) sur <b>' + st.droits + '</b>' +
                 ' · <b style="color:' + (st.restants > 0 ? "#1c7ed6" : "#c0392b") + ';">reste ' + st.restants + '</b>';
@@ -1768,7 +1768,7 @@ function maintsHtmlReelles(s) {
             var enc = a.en_cours === true;
             return '<span style="display:inline-block;border-radius:9px;padding:1px 7px;font-weight:' +
               (enc ? '700' : '400') + ';background:' + (enc ? '#e2f0fc;color:#0e5aa7;' : '#f1f4f8;color:#697180;') +
-              '">' + (enc ? ' ' : ' ') + escTxt(dateFr(a.debut)) + ' → ' + escTxt(dateFr(a.fin)) +
+              '">' + (enc ? '📌 ' : '📅 ') + escTxt(dateFr(a.debut)) + ' → ' + escTxt(dateFr(a.fin)) +
               ' : <b>' + a.consommes + '</b>/' + a.droits +
               (a.restants <= 0 ? ' <span style="color:#c0392b;">(épuisé)</span>' : '') + '</span>';
           }).join("") + '</span>';
@@ -1780,7 +1780,7 @@ function maintsHtmlReelles(s) {
       var debC = (st.periode_courante && st.periode_courante.debut) || st.contrat_debut || "";
       var datesContrat = dates.filter(function(dd) { return !(debC && dd < debC); });
       if (datesContrat.length) {
-        l += '<span class="petit" style="line-height:1.9;"> Passages réalisés (contrat en cours) : ' +
+        l += '<span class="petit" style="line-height:1.9;">🔧 Passages réalisés (contrat en cours) : ' +
           datesContrat.map(function(dd) {
             return '<span title="comptabilisé dans le quota du contrat en cours" style="display:inline-block;background:#e2f0fc;color:#0e5aa7;' +
               'border-radius:9px;padding:1px 7px;margin:1px 3px 1px 0;font-weight:600;">' + escTxt(dateFr(dd)) + '</span>';
@@ -1788,7 +1788,7 @@ function maintsHtmlReelles(s) {
       }
       /* Réparations non comptées (hors forfait / pas de MO sous contrat) */
       if (Array.isArray(st.dates_non_comptes) && st.dates_non_comptes.length) {
-        l += '<span class="petit" style="color:#8a93a3;"> Réparations non comptées (hors forfait) : ' +
+        l += '<span class="petit" style="color:#8a93a3;">🔧 Réparations non comptées (hors forfait) : ' +
           st.dates_non_comptes.map(function(dd) { return escTxt(dateFr(dd)); }).join(" · ") + '</span>';
       }
       if (st.conclusion) l += '<span class="petit" style="color:' + coulConclusion(st.conclusion) + ';font-weight:600;">→ ' + escTxt(st.conclusion) + '</span>';
@@ -1800,11 +1800,11 @@ function maintsHtmlReelles(s) {
     }
     var cn = d.connecteurs || {};
     if (cn.nb) {
-      html += '<div class="petit" style="margin-top:3px;"> Connecteur batterie : <b>' + cn.nb + '</b> remplacement(s) déjà réalisé(s)' +
+      html += '<div class="petit" style="margin-top:3px;">🔌 Connecteur batterie : <b>' + cn.nb + '</b> remplacement(s) déjà réalisé(s)' +
         (cn.dernier ? ' (dernier : ' + escTxt(dateFr(cn.dernier)) + ')' : '') +
         ' <span style="color:#c0392b;font-weight:600;">→ le prochain est à FACTURER (le geste commercial a déjà été utilisé)</span></div>';
     } else {
-      html += '<div class="petit" style="margin-top:3px;color:#1c7ed6;"> Connecteur batterie : aucun remplacement à ce jour → <b>1er remplacement OFFERT</b> (geste commercial possible, première fois)</div>' +
+      html += '<div class="petit" style="margin-top:3px;color:#1c7ed6;">🔌 Connecteur batterie : aucun remplacement à ce jour → <b>1er remplacement OFFERT</b> (geste commercial possible, première fois)</div>' +
         '<div class="petit" style="color:#e67e22;">⚠ Sécurité technicien : disjoncter le scooter avant de brancher la batterie</div>';
     }
     if (!html) return "";
@@ -1823,7 +1823,7 @@ function maintsAffiches(s) {
 }
 /* Bandeau d'avertissement (uniquement quand les données sont de démo). */
 function maintsAvertissement(demo) {
-  return demo ? '<div class="petit" style="margin-top:6px;color:#9aa4b1;font-size:10.5px;">⚠ Exemples de démonstration — importe les vrais clients () pour le comptage réel des maintenances.</div>' : '';
+  return demo ? '<div class="petit" style="margin-top:6px;color:#9aa4b1;font-size:10.5px;">⚠️ Exemples de démonstration — importe les vrais clients (🔌) pour le comptage réel des maintenances.</div>' : '';
 }
 /* Bloc complet : données + bandeau d'avertissement si démo. videCls = classe
    du texte « aucune maintenance » (fiche ou carnet). */
@@ -1837,9 +1837,9 @@ function maintsBloc(s, videCls) {
     var idx = SOCIETES.indexOf(s);
     if (idx >= 0) {
       out += '<div class="petit" style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
-        '<span style="font-weight:700;color:#0e5aa7;"> Proposer une maintenance :</span>' +
-        '<button class="btn" style="background:#e2f0fc;color:#0e5aa7;border:1px solid #b7d4ee;" onclick="proposerMaintenance(' + idx + ',\'email\')"> Email</button>' +
-        '<button class="btn" style="background:#e0f5ec;color:#1d7a4f;border:1px solid #b9e4cd;" onclick="proposerMaintenance(' + idx + ',\'wa\')"> WhatsApp</button>' +
+        '<span style="font-weight:700;color:#0e5aa7;">📩 Proposer une maintenance :</span>' +
+        '<button class="btn" style="background:#e2f0fc;color:#0e5aa7;border:1px solid #b7d4ee;" onclick="proposerMaintenance(' + idx + ',\'email\')">📧 Email</button>' +
+        '<button class="btn" style="background:#e0f5ec;color:#1d7a4f;border:1px solid #b9e4cd;" onclick="proposerMaintenance(' + idx + ',\'wa\')">🟢 WhatsApp</button>' +
         '</div>';
     }
   }
@@ -1852,13 +1852,13 @@ var FX = { canal: "tous", cycle: "tous", ass: "tous" };
 /* ===== Équipe, « Qui suis-je », assignation ===== */
 /* ===== Profils équipe : icône + couleur affichées à côté de chaque message envoyé ===== */
 var PROFILS = {
-  "Marine":  { ic: "",    col: "#f97316" },
-  "Nicolas": { ic: "六‍", col: "#0d9488" },
-  "Corentin":{ ic: "倫",    col: "#e11d48" },
-  "Agent IA":{ ic: "烙",    col: "#0e5aa7", ia: true }
+  "Marine":  { ic: "👩",    col: "#f97316" },
+  "Nicolas": { ic: "🧑‍🔧", col: "#0d9488" },
+  "Corentin":{ ic: "🧔",    col: "#e11d48" },
+  "Agent IA":{ ic: "🤖",    col: "#0e5aa7", ia: true }
 };
 /* ===== v37 : profils persistés (icône/couleur/renom./suppression/création) ====
-   Toute personnalisation du panneau  Profils est gardée au rechargement. */
+   Toute personnalisation du panneau 👥 Profils est gardée au rechargement. */
 var PROFILS_BASE = ["Marine", "Nicolas", "Corentin", "Agent IA"];
 function sauvegarderProfils() {
   var supprimes = PROFILS_BASE.filter(function(n){ return !PROFILS[n]; });
@@ -1877,7 +1877,7 @@ function restaurerProfils() {
   } catch (e) {}
 }
 restaurerProfils();
-var ICONES_PROFILS = ["","六","","倫","‍","六‍","‍","六‍","‍","六‍","","","隸","慄","烙","女","","力","黎",""];
+var ICONES_PROFILS = ["👩","🧑","👨","🧔","👩‍🎤","🧑‍🔧","👩‍🔧","🧑‍💻","👩‍💻","🧑‍🏫","👮","🕵️","🦸","🧙","🤖","🦁","🐬","🦊","🦉","🐝"];
 var COULEURS_PROFILS = ["#f97316","#0d9488","#e11d48","#4f46e5","#15803d","#b45309","#7c3aed","#0369a1"];
 var EQUIPE = ["Marine", "Nicolas", "Corentin"];
 var MOI = "Marine";
@@ -1886,7 +1886,7 @@ CONVS.forEach(function(c){ if (c.assigne === undefined) c.assigne = null; });
   .forEach(function(p){ convParId(p[0]).assigne = p[1]; });
 
 function profDe(nom) { return PROFILS[nom] || null; }
-function iconeDe(nom) { var p = profDe(nom); return p ? p.ic : ""; }
+function iconeDe(nom) { var p = profDe(nom); return p ? p.ic : "👤"; }
 function colDe(nom) { var p = profDe(nom); return p ? p.col : "#8a93a3"; }
 function avatar(nom, gd) {
   return '<span class="pav' + (gd ? " gd" : "") + '" style="background:' + colDe(nom) + ';" title="' + nom + '">' + iconeDe(nom) + '</span>';
@@ -1943,9 +1943,9 @@ function renduBoiteOutils() {
         var perso = i >= RACCOURCIS.length;
         var idx = perso ? i - RACCOURCIS.length : -1;
         return '<div class="bo-item">' +
-          '<div class="bo-txt" onclick="insererDepuisOutils(' + JSON.stringify(r).replace(/"/g, "&quot;") + ')" title="Cliquer pour insérer dans le message"> ' + r + '</div>' +
+          '<div class="bo-txt" onclick="insererDepuisOutils(' + JSON.stringify(r).replace(/"/g, "&quot;") + ')" title="Cliquer pour insérer dans le message">💬 ' + r + '</div>' +
           (perso
-            ? '<div class="bo-sp"><button class="btn" title="Modifier" onclick="editerRaccourci(' + idx + ')">✏</button><button class="btn" title="Supprimer" onclick="supprimerRaccourci(' + idx + ')"></button></div>'
+            ? '<div class="bo-sp"><button class="btn" title="Modifier" onclick="editerRaccourci(' + idx + ')">✏️</button><button class="btn" title="Supprimer" onclick="supprimerRaccourci(' + idx + ')">🗑️</button></div>'
             : '<span class="tag" title="Raccourci standard de l\'équipe">standard</span>') +
           '</div>';
       }).join("") + '</div>' +
@@ -2042,10 +2042,10 @@ function renduOngletSignature() {
       sigChamp("sig-logo", "URL du logo", s.logo, "https://umob.fr/…/Logo-umob.png") +
       sigChamp("sig-mention", "Mention SAV", s.mention, "Une demande technique relative à vos scooters ?") +
       '<div style="display:flex;justify-content:flex-end;gap:8px;margin:10px 0;">' +
-        '<button class="btn primaire" onclick="sigSauver(sigLireChamps()); renduOngletSignature(); pushNotif(\'✅ Signature enregistrée\');"> Enregistrer la signature</button>' +
+        '<button class="btn primaire" onclick="sigSauver(sigLireChamps()); renduOngletSignature(); pushNotif(\'✅ Signature enregistrée\');">💾 Enregistrer la signature</button>' +
         '<button class="btn" title="Insère la signature en texte à la fin du message en cours (utile aussi pour WhatsApp)" onclick="insererTexte(\'\\n\\n-- \\n\' + signatureTexte(sigLireChamps())); fermerBoiteOutils();">✉ Insérer dans le message</button>' +
       '</div>' +
-      '<div style="margin-top:12px;"><div class="lab" style="margin-bottom:6px;"> Aperçu du mail reçu par le client :</div>' +
+      '<div style="margin-top:12px;"><div class="lab" style="margin-bottom:6px;">👀 Aperçu du mail reçu par le client :</div>' +
         '<div id="sig-apercu" style="border:1px solid #dbe3ec;border-radius:10px;background:#fff;padding:12px;"></div>' +
       '</div>' +
     '</div>';
@@ -2063,7 +2063,7 @@ function chargerVraisClients() {
      synchro « Clients Complets »). Un umob_api_nb personnalisé reste prioritaire. */
   var nb = parseInt(localStorage.getItem("umob_api_nb") || "5000", 10) || 5000;
   if (nb > 5000) nb = 5000;
-  pushLog(" Chargement des vraies conversations…");
+  pushLog("🔌 Chargement des vraies conversations…");
   fetch(base + "/api/clients-import?jeton=" + encodeURIComponent(s.jeton) + "&liste=1&limite=" + nb)
     .then(function(r) { return r.json(); })
     .then(function(rep) {
@@ -2233,11 +2233,11 @@ function appliquerVraisClients(liste) {
   pushLog("✅ " + socs.length + " sociétés chargées (" + liste.length + " fiches miroir)");
 }
 /* ===== C4 : vrais messages WhatsApp (via /api/whatsapp-messages) =====
-   Après l'import des clients , on récupère les derniers messages enregistrés
+   Après l'import des clients 🔌, on récupère les derniers messages enregistrés
    par le webhook /api/whatsapp-webhook et on crée une conversation par numéro
    CONNU du carnet (téléphone d'un vrai contact). Les numéros inconnus sont
    ignorés (pas de fausse fiche). Silencieux si la brique C4 n'est pas encore
-   configurée (table absente, webhook non branché) — c'est le chargement 
+   configurée (table absente, webhook non branché) — c'est le chargement 🔌
    suivant qui les ramènera. */
 function heureWa(iso) {
   var d = iso ? new Date(iso) : null;
@@ -2494,12 +2494,12 @@ function chargerMessagesWhatsApp(base, secret, cb) {
 
       if (nProsp) {
         creees += nProsp;
-        pushLog(" " + nProsp + " prospect(s) respond.io importé(s) — contacts assignés hors carnet.");
+        pushLog("📞 " + nProsp + " prospect(s) respond.io importé(s) — contacts assignés hors carnet.");
       }
       if (creees) {
         majLusDepuisStockage();
         renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
-        pushLog(" " + creees + " conversation(s) WhatsApp réelle(s)" + (inconnus ? " (" + inconnus + " numéro(s) hors carnet ignorés)" : "") + ".");
+        pushLog("💬 " + creees + " conversation(s) WhatsApp réelle(s)" + (inconnus ? " (" + inconnus + " numéro(s) hors carnet ignorés)" : "") + ".");
       }
       /* C40-PHOTOS backfill (v100) : médias reçus AVANT le déploiement C40 —
          rattrapage auto une fois par chargement de page (les media id Meta
@@ -2513,7 +2513,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
             .then(function(rep) {
               if (!rep || !rep.ok) return;
               if (rep.stockes > 0) {
-                pushLog(" " + rep.stockes + " média(s) rattrapé(s) (reçus avant C40-PHOTOS).");
+                pushLog("🖼 " + rep.stockes + " média(s) rattrapé(s) (reçus avant C40-PHOTOS).");
                 chargerMessagesWhatsApp(base, secret, null);   // v102: recharge immediate pour afficher les photos
               } else if (rep.a_traiter > 0 && rep.traites > 0 && n < 10) {
                 setTimeout(function() { backfillMedia(n + 1); }, 1200);
@@ -2528,7 +2528,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
     .catch(function() { if (cb) cb(); /* brique C4 pas encore configurée — silencieux */ });
 }
 /* ===== C5.2 : vrais emails (via /api/emails?liste=1) =====
-   Après l'import des clients  (ou via le bouton ), on récupère les emails
+   Après l'import des clients 🔌 (ou via le bouton 📧), on récupère les emails
    importés par le poll IMAP OVH (table agent_sav.emails) et on crée une
    conversation Email par adresse CORRESPONDANTE connue du carnet :
    - message ENTRANT → le client est dans from_addr ;
@@ -2612,7 +2612,7 @@ function marquerNonLecture(c) {
   try { localStorage.setItem("umob_lus", JSON.stringify(L)); } catch (e) {}
   c.lu = false;
 }
-/* ===== C37-TOUT-NON-LU : bouton «  Tout non lu » =======================
+/* ===== C37-TOUT-NON-LU : bouton « 🙈 Tout non lu » =======================
    Pose un horodatage local umob_tout_non_lu : toute lecture (locale umob_lus
    OU partagée action "lu") antérieure à ce ts ne compte plus → la conv reste
    non lue. Une lecture faite APRÈS le clic (ouvrir la conv) remet lue. */
@@ -2627,7 +2627,7 @@ function toutMettreEnNonLu() {
   /* pas de ding/notif pour ce changement de masse : on cale les compteurs */
   try { DERNIER_NB_NONLUS = nonLues().length; DERNIERES_NONLUES = nonLues().map(function(c){ return c.id; }); } catch (e) {}
   majBadgeNouveaux();
-  pushNotif(" Toutes les conversations sont remises en non lu.");
+  pushNotif("🙈 Toutes les conversations sont remises en non lu.");
 }
 function majLusDepuisStockage() {
   CONVS.forEach(function(c) {
@@ -2816,7 +2816,7 @@ function photoHtml(msg) {
   var p = msg.photo || waPhotoDe(msg);   // v104: l'entrée de fil porte photo (URL), pas _media
   if (p) return '<a href="' + escapeAttr(p) + '" target="_blank" rel="noopener" title="Ouvrir la photo en grand"><img class="msg-img" loading="lazy" src="' + escapeAttr(p) + '" alt="Photo reçue via WhatsApp"></a>';
   var l = waMediaLien(msg);
-  if (l) return '<div class="pj"> média ' + escTxt(l.kind) + ' — <a href="' + escapeAttr(l.url) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">ouvrir</a></div>';
+  if (l) return '<div class="pj">🎞 média ' + escTxt(l.kind) + ' — <a href="' + escapeAttr(l.url) + '" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;">ouvrir</a></div>';
   return "";
 }
 function corpsMsgHtml(msg, rech) {
@@ -2829,7 +2829,7 @@ function corpsMsgHtml(msg, rech) {
   if (mm) {
     var moT = MODELES_WA.filter(function(x){ return x.nom === mm[1]; })[0];
     if (moT) t = moT.txt;
-    return '<span class="tag" style="background:#e2f0fc;color:#0e5aa7;" title="Envoyé via le modèle WhatsApp approuvé « ' + mm[1] + ' »"> modèle ' + mm[1] + '</span><br>' + surligner(t, rech) + citeHtml(msg, rech);
+    return '<span class="tag" style="background:#e2f0fc;color:#0e5aa7;" title="Envoyé via le modèle WhatsApp approuvé « ' + mm[1] + ' »">🗨 modèle ' + mm[1] + '</span><br>' + surligner(t, rech) + citeHtml(msg, rech);
   }
   return surligner(t, rech) + citeHtml(msg, rech);
 }
@@ -2948,8 +2948,8 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
     .catch(function() { /* brique C5.2 pas encore configurée — silencieux */ })
     .then(function() { if (cb) cb(); });   /* C15-ACT : toujours appelé, même en erreur */
 }
-/* Bouton  Emails réels : relit l'URL + le secret du localStorage
-   (même mécanisme que  Vrais clients — jamais dans le fichier). */
+/* Bouton 📧 Emails réels : relit l'URL + le secret du localStorage
+   (même mécanisme que 🔌 Vrais clients — jamais dans le fichier). */
 /* ===== C8-AUTO-1 : rafraîchissement automatique (60 s) =====================
    Tant que les VRAIES données sont chargées et l'onglet visible, la
    plateforme relit WhatsApp + emails toutes les minutes et fusionne les
@@ -2964,8 +2964,8 @@ function majBadgeAuto() {
   var act = autoActif() && VRAIES_DONNEES;
   var h = AUTO_DERNIERE ? new Date(AUTO_DERNIERE).toTimeString().slice(0, 5) : null;
   b.innerHTML = act
-    ? ' Auto ✓ · maj ' + (h || 'en cours…')
-    : (autoActif() ? ' Auto (attend les vraies données)' : '⏸ Auto arrêt') + (h ? ' · maj ' + h : '');
+    ? '🔄 Auto ✓ · maj ' + (h || 'en cours…')
+    : (autoActif() ? '🔄 Auto (attend les vraies données)' : '⏸️ Auto arrêt') + (h ? ' · maj ' + h : '');
   b.style.opacity = (VRAIES_DONNEES && autoActif()) ? "1" : ".55";
   b.title = act
     ? "Rafraîchissement automatique actif : toutes les " + Math.round(AUTO_MS / 1000) + " s (onglet visible). Clique pour arrêter."
@@ -2982,7 +2982,7 @@ function rafraichirAuto() {
   chargerMessagesWhatsApp(base, secret, function() {
     /* C18-RT : le refresh auto rejoue AUSSI les actions équipe (commentaires,
        vus, cycles…) → nouveau commentaire d'un collègue = apparaît dans le
-       fil sans recharger ; « vu » d'un collègue =  mis à jour tout seul. */
+       fil sans recharger ; « vu » d'un collègue = 👁️ mis à jour tout seul. */
     chargerEmails(base, secret, function() { chargerActions(base, secret, null, "auto"); majSaisieC2(); /* v120: bandeau 24 h recalculé */ });
   });
   AUTO_DERNIERE = Date.now();
@@ -3041,14 +3041,14 @@ function basculerAuto() {
   localStorage.setItem("umob_auto", autoActif() ? "0" : "1");
   demarrerAuto();
   pushNotif(autoActif()
-    ? " Rafraîchissement automatique ACTIVÉ — les messages sont relus toutes les minutes."
+    ? "🔄 Rafraîchissement automatique ACTIVÉ — les messages sont relus toutes les minutes."
     : "⏸ Rafraîchissement automatique arrêté.");
 }
 function chargerEmailsManuel() {
   var base = localStorage.getItem("umob_api_base") || "";
   var secret = (sessionDe() || {}).jeton || "";
   if (!base || !secret) { afficherPorte(); return; }
-  pushLog(" Chargement des emails réels…");
+  pushLog("📧 Chargement des emails réels…");
   chargerEmails(String(base).replace(/\/+$/, ""), secret);
 }
 function lancerConvVrai(ent, i) {
@@ -3068,7 +3068,7 @@ function lancerConvVrai(ent, i) {
   s.convs.push(id);
   SELID = id; SELSENT = null;
   renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); rafraichirFiche();
-  pushLog(" Conversation créée avec " + v.nom + " — vrais messages à la bascule C4.");
+  pushLog("💬 Conversation créée avec " + v.nom + " — vrais messages à la bascule C4.");
 }
 function revenirDonneesDemo() {
   if (!CONVS_DEMO) { pushNotif("Les données de démo sont déjà actives."); return; }
@@ -3085,7 +3085,7 @@ var RACCOURCIS = [
   "Pouvez-vous nous envoyer une photo du véhicule et préciser l'adresse d'intervention ?",
   "Le paiement par carte sera demandé juste avant l'intervention.",
   "Votre dossier est en attente de régularisation — le service comptabilité vous recontacte.",
-  "Bonne journée ! N'hésitez pas si vous avez besoin d'autre chose "
+  "Bonne journée ! N'hésitez pas si vous avez besoin d'autre chose 🙂"
 ];
 var MODELES_WA = [
   /* ===== VRAIS MODÈLES du compte WhatsApp Business U'MOB — relevés dans le
@@ -3149,7 +3149,7 @@ function insererTexte(v) {
   inp.focus();
 }
 function copierTxt(txt) {
-  var done = function(){ pushNotif(" Message copié dans le presse-papiers."); };
+  var done = function(){ pushNotif("📋 Message copié dans le presse-papiers."); };
   if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(txt).then(done); return; }
   var ta = document.createElement("textarea");
   ta.value = txt; ta.style.cssText = "position:fixed;opacity:0;";
@@ -3203,7 +3203,7 @@ function dicter() {
     for (var i = e.resultIndex; i < e.results.length; i++) { if (e.results[i].isFinal) ajout += e.results[i][0].transcript; }
     if (ajout) insererTexte(ajout.trim());
   };
-  REC_VOCAL.onstart = function() { DICTEE_ON = true; btn.classList.add("rec"); btn.title = "Dictée en cours — clique pour arrêter"; inp.placeholder = " Dictée en cours… parle, le texte s'inscrit ici"; };
+  REC_VOCAL.onstart = function() { DICTEE_ON = true; btn.classList.add("rec"); btn.title = "Dictée en cours — clique pour arrêter"; inp.placeholder = "🎤 Dictée en cours… parle, le texte s'inscrit ici"; };
   REC_VOCAL.onend = function() { DICTEE_ON = false; btn.classList.remove("rec"); btn.title = "Dicter ton message (reconnaissance vocale du navigateur — Chrome/Edge)"; inp.placeholder = "Écris ton message…"; };
   REC_VOCAL.onerror = function(ev) { if (ev.error === "not-allowed") alert("Micro refusé — autorise l'accès au microphone dans ton navigateur."); };
   REC_VOCAL.start();
@@ -3232,13 +3232,13 @@ function dicterIA() {
       inp.focus();
     }
   };
-  REC_IA.onstart = function() { DICTEE_IA_ON = true; btn.classList.add("rec"); btn.title = "Dictée en cours — clique pour arrêter"; inp.placeholder = " Dictée en cours… ta question s'inscrit ici"; };
+  REC_IA.onstart = function() { DICTEE_IA_ON = true; btn.classList.add("rec"); btn.title = "Dictée en cours — clique pour arrêter"; inp.placeholder = "🎤 Dictée en cours… ta question s'inscrit ici"; };
   REC_IA.onend = function() { DICTEE_IA_ON = false; btn.classList.remove("rec"); btn.title = "Dicter ta question (reconnaissance vocale du navigateur — Chrome/Edge)"; inp.placeholder = "Pose ta question (fonctionnement, clients, derniers échanges)…"; };
   REC_IA.onerror = function(ev) { if (ev.error === "not-allowed") alert("Micro refusé — autorise l'accès au microphone dans ton navigateur."); };
   REC_IA.start();
 }
 /* v127 : pièces jointes du mail en cours de rédaction — en canal Email,
-   cliquer sur  les ajoute AU BROUILLON (puces au-dessus du champ) et elles
+   cliquer sur 📎 les ajoute AU BROUILLON (puces au-dessus du champ) et elles
    partent avec l'envoi SMTP (multipart/mixed côté serveur). */
 var PJ_BROUILLON = [];
 function resetPJsBrouillon() { PJ_BROUILLON = []; renduPJsBrouillon(); }
@@ -3250,7 +3250,7 @@ function renduPJsBrouillon() {
   if (!PJ_BROUILLON.length) { box.style.display = "none"; box.innerHTML = ""; return; }
   box.style.display = "flex";
   box.innerHTML = PJ_BROUILLON.map(function (p, i) {
-    return '<span style="display:inline-flex;align-items:center;gap:6px;background:#FFF4E5;border:1px solid #F5C98A;color:#7A4A00;border-radius:999px;padding:3px 6px 3px 10px;font-size:11.5px;font-weight:600;"> ' + escTxt(p.nom) +
+    return '<span style="display:inline-flex;align-items:center;gap:6px;background:#FFF4E5;border:1px solid #F5C98A;color:#7A4A00;border-radius:999px;padding:3px 6px 3px 10px;font-size:11.5px;font-weight:600;">📎 ' + escTxt(p.nom) +
       ' <span style="color:#a06a1a;font-weight:500;">(' + tailleFmt(p.taille) + ')</span>' +
       '<button onclick="retirerPjBrouillon(' + i + ')" title="Retirer cette pièce jointe du message" style="border:none;background:#f3d9a8;color:#7A4A00;border-radius:50%;width:17px;height:17px;line-height:1;cursor:pointer;font-size:11px;padding:0;">✕</button></span>';
   }).join("");
@@ -3282,8 +3282,8 @@ function joindreFichier(inp) {  try {
     var kb = f.size > 1048576 ? (f.size / 1048576).toFixed(1) + " Mo" : Math.max(1, Math.round(f.size / 1024)) + " Ko";
     var estImg = /^image\//.test(f.type);
     try { c.fil.push({ qui: "agent", de: MOI, t: h, txt: estImg ? " " + f.name : " " + f.name, canal: CANAL_ENVOI, pj: f.name, taille: kb, img: estImg, url: estImg ? URL.createObjectURL(f) : null, ts: new Date().toISOString() }); }
-    catch (e) { c.fil.push({ qui: "agent", de: MOI, t: h, txt: (estImg ? " " : " ") + f.name, canal: CANAL_ENVOI, pj: f.name, taille: kb, ts: new Date().toISOString() }); }
-    c.extrait = (estImg ? " " : " ") + f.name; c.lu = true; c.heure = h; c.delai = "à l'instant";
+    catch (e) { c.fil.push({ qui: "agent", de: MOI, t: h, txt: (estImg ? "🖼 " : "📎 ") + f.name, canal: CANAL_ENVOI, pj: f.name, taille: kb, ts: new Date().toISOString() }); }
+    c.extrait = (estImg ? "🖼 " : "📎 ") + f.name; c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
     inp.value = "";
     renduFil(); renduListe(); rafraichirFiche(); majBadgeNouveaux();
@@ -3337,7 +3337,7 @@ function renduProfils() {
 
       (p.ia ? "" : '<div style="display:flex;flex-direction:column;gap:5px;">' +
         '<button class="btn" onclick="renommerProfil(\'' + n + '\')">✏ Nom</button>' +
-        '<button class="btn" onclick="supprimerProfil(\'' + n + '\')"></button></div>') +
+        '<button class="btn" onclick="supprimerProfil(\'' + n + '\')">🗑️</button></div>') +
       '</div>';
   }).join("") +
   '<button class="btn primaire" style="margin-top:6px;" onclick="nouveauProfil()">➕ Créer un profil</button>' +
@@ -3373,7 +3373,7 @@ function supprimerProfil(n) {
 function nouveauProfil() {
   var v = prompt("Prénom du nouveau profil :"); if (!v) return;
   v = v.trim(); if (!v || PROFILS[v]) { alert("Nom vide ou déjà utilisé."); return; }
-  PROFILS[v] = { ic: "六", col: COULEURS_PROFILS[Object.keys(PROFILS).length % COULEURS_PROFILS.length] };
+  PROFILS[v] = { ic: "🧑", col: COULEURS_PROFILS[Object.keys(PROFILS).length % COULEURS_PROFILS.length] };
   sauvegarderProfils();
   toutRafraichirProfils(); renduProfils();
 }
@@ -3387,9 +3387,9 @@ function assignerConv(id, val) {
   c.assigne = (val === "" ? null : val);
   persisterAction("assigne", cleConv(c), c.assigne || "", null);   /* C15-ACT */
   if (c.assigne === MOI && avant !== MOI)
-    pushNotif(" La conversation de " + c.nom + " t'a été assignée", id);
+    pushNotif("👤 La conversation de " + c.nom + " t'a été assignée", id);
   else if (c.assigne && c.assigne !== MOI && c.assigne !== avant)
-    persisterAction("notif", cleConv(c), c.assigne, { txt: " " + c.nom + " t'a été assignée par " + MOI, cle: cleConv(c) });  /* C25-NOTIF-EQUIPE */
+    persisterAction("notif", cleConv(c), c.assigne, { txt: "👤 " + c.nom + " t'a été assignée par " + MOI, cle: cleConv(c) });  /* C25-NOTIF-EQUIPE */
   renduListe(); renduFil(); renduMesCycles();
 }
 
@@ -3437,7 +3437,7 @@ function majSaisieC2() {
   if (note && ACTIF && CANAL_ENVOI === "WhatsApp" && VRAIES_DONNEES && c && fenetre24hExpiree(c)) {
     var t = dernierMsgClientTs(c);
     note.innerHTML = '<div style="background:#fee2e2;border:1.5px solid #ef4444;color:#991b1b;border-radius:10px;padding:8px 12px;text-align:left;font-weight:600;line-height:1.5;">⚠ <b>Fenêtre de 24 h expirée</b>' + (t ? ' — dernier message du client il y a <b>' + delaiDepuisMs(Date.now() - t) + '</b>' : " — le client n'a jamais écrit sur WhatsApp") +
-      ' : un texte libre sera <b>rejeté par WhatsApp</b> (statut « failed »). Utilise un <b>modèle approuvé</b> (bouton «  Modèles WA », clic direct sur le modèle) pour écrire hors fenêtre.</div>';
+      ' : un texte libre sera <b>rejeté par WhatsApp</b> (statut « failed »). Utilise un <b>modèle approuvé</b> (bouton « 📋 Modèles WA », clic direct sur le modèle) pour écrire hors fenêtre.</div>';
   }
 }
 var CANAL_ENVOI = "WhatsApp";
@@ -3659,7 +3659,7 @@ function envoyerModeleWa(nomModele) {
     if (!rep.okHttp || !rep.j || rep.j.ok !== true) {
       var detM = String(((rep.j && (rep.j.erreur || rep.j.detail)) || "erreur API"));
       if (/2593181|permission for this action|autorisation/i.test(detM)) {
-        pushNotif(" ENVOI IMPOSSIBLE : le jeton Meta (WA_TOKEN) n'est plus valide ou n'a plus les droits WhatsApp. Régénère un token dans Meta for Developers (WhatsApp ▸ API Setup ou un utilisateur système), mets à jour la variable WA_TOKEN dans Vercel (Settings ▸ Environment Variables) puis Redeploy.");
+        pushNotif("🔑 ENVOI IMPOSSIBLE : le jeton Meta (WA_TOKEN) n'est plus valide ou n'a plus les droits WhatsApp. Régénère un token dans Meta for Developers (WhatsApp ▸ API Setup ou un utilisateur système), mets à jour la variable WA_TOKEN dans Vercel (Settings ▸ Environment Variables) puis Redeploy.");
       } else {
         pushNotif("⚠ Modèle WhatsApp échoué : " + detM);
       }
@@ -3725,7 +3725,7 @@ function envoyerModeleWa(nomModele) {
     finEnvoi();
     PJ_BROUILLON = []; renduPJsBrouillon();   /* v127 : brouillon PJ vidé après envoi réussi */
     renduFil(); renduListe(); rafraichirFiche(); majBadgeNouveaux();
-    pushNotif("✅ Email envoyé pour de vrai à " + mail + (nomsPj ? "  " + nomsPj : ""));
+    pushNotif("✅ Email envoyé pour de vrai à " + mail + (nomsPj ? " 📎 " + nomsPj : ""));
   })
   .catch(function(e) {
     pushNotif("⚠ Envoi email impossible : " + String((e && e.message) || e));
@@ -3793,7 +3793,7 @@ function proposerMaintenance(idx, canal) {
   var contact = ((s.vraisContacts || []).filter(function(v) { return (canal === "wa") ? v.tel : v.email; }))[0]
     || (s.vraisContacts || [])[0] || null;
   if (!contact) {
-    pushNotif("⚠ Aucun contact connu pour cette société — importe d'abord les vrais clients ().");
+    pushNotif("⚠️ Aucun contact connu pour cette société — importe d'abord les vrais clients (🔌).");
     return;
   }
   var estWa = canal === "wa";
@@ -3840,14 +3840,14 @@ function proposerMaintenance(idx, canal) {
   m.innerHTML =
     '<div style="background:#fff;border-radius:14px;width:min(560px,94vw);max-height:88vh;overflow:auto;padding:18px 20px;box-shadow:0 12px 40px rgba(15,23,42,.25);font-family:inherit;">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
-        '<div style="font-weight:800;color:#0e5aa7;font-size:15px;"> Proposition de maintenance — ' + escTxt(s.ent) + '</div>' +
+        '<div style="font-weight:800;color:#0e5aa7;font-size:15px;">📩 Proposition de maintenance — ' + escTxt(s.ent) + '</div>' +
         '<button class="btn" onclick="fermerProposition()" style="font-size:14px;">✕</button>' +
       '</div>' +
       '<div style="margin-top:6px;font-size:11.5px;color:#697180;">' + infoSolde + ' · destinataire : <b>' + escTxt(dest) + '</b> (' + (estWa ? "WhatsApp" : "Email") + ')</div>' +
       corpsModal +
       '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">' +
         '<button class="btn" onclick="fermerProposition()">Annuler</button>' +
-        '<button class="btn primaire" id="prop-env" onclick="envoyerProposition(' + idx + ',\'' + (estWa ? "wa" : "email") + '\')"> Envoyer pour de vrai</button>' +
+        '<button class="btn primaire" id="prop-env" onclick="envoyerProposition(' + idx + ',\'' + (estWa ? "wa" : "email") + '\')">🚀 Envoyer pour de vrai</button>' +
       '</div>' +
     '</div>';
   document.body.appendChild(m);
@@ -3898,18 +3898,18 @@ function envoyerProposition(idx, canal) {
   .then(function(rep) {
     PROP_ENVOI = false;
     if (!rep.okHttp || !rep.j || rep.j.ok !== true) {
-      if (btn) { btn.disabled = false; btn.innerHTML = " Envoyer pour de vrai"; }
+      if (btn) { btn.disabled = false; btn.innerHTML = "🚀 Envoyer pour de vrai"; }
       pushNotif("⚠ Proposition " + (estWa ? "WhatsApp" : "email") + " échouée : " +
         ((rep.j && (rep.j.erreur || rep.j.detail)) || "erreur API"));
       return;
     }
     fermerProposition();
     pushNotif("✅ Proposition de maintenance envoyée pour de vrai à " + dest + (estWa && rep.j.wamid ? " (" + rep.j.wamid + ")" : "") +
-      (estWa ? " — recharge  pour voir l'accusé" : ""));
+      (estWa ? " — recharge 🔌 pour voir l'accusé" : ""));
   })
   .catch(function(e) {
     PROP_ENVOI = false;
-    if (btn) { btn.disabled = false; btn.innerHTML = " Envoyer pour de vrai"; }
+    if (btn) { btn.disabled = false; btn.innerHTML = "🚀 Envoyer pour de vrai"; }
     pushNotif("⚠ Envoi impossible : " + String((e && e.message) || e));
   });
 }
@@ -3925,10 +3925,10 @@ function changerCycle(id, val) {
   c.classe = classeCycle(val) || "traitee";
   persisterAction("cycle", cleConv(c), val, null);                 /* C15-ACT */
   renduFil(); renduListe(); renduMesCycles(); rafraichirFiche();
-  if (avant !== val) pushNotif(" Cycle de " + c.nom + " : « " + avant + " » → « " + val + " »", id);
+  if (avant !== val) pushNotif("🔄 Cycle de " + c.nom + " : « " + avant + " » → « " + val + " »", id);
 }
 function optionsAssigne(cur) {
-  return '<option value=""' + (cur ? "" : " selected") + '> Non assignée</option>' +
+  return '<option value=""' + (cur ? "" : " selected") + '>👤 Non assignée</option>' +
     EQUIPE.map(function(e){ return '<option value="' + e + '"' + (cur === e ? " selected" : "") + '>' + iconeDe(e) + ' ' + e + '</option>'; }).join("");
 }
 function maintenant() {
@@ -3950,8 +3950,8 @@ function ajouterComm() {
   persisterAction("commentaire", cleConv(c), v, { uid: uid, heure: maintenant() });   /* C15-ACT */
   /* notification si quelqu'un est tagué (@Marine, @Nicolas…) */
   personnesTaguees(v).forEach(function(p){
-    if (p === MOI) pushNotif(" Tu as été tagué dans un commentaire interne — " + c.nom, c.id);
-    else persisterAction("notif", cleConv(c), p, { txt: " " + MOI + " t'a mentionné dans un commentaire — " + c.nom, cle: cleConv(c) });  /* C25-NOTIF-EQUIPE */
+    if (p === MOI) pushNotif("📌 Tu as été tagué dans un commentaire interne — " + c.nom, c.id);
+    else persisterAction("notif", cleConv(c), p, { txt: "📌 " + MOI + " t'a mentionné dans un commentaire — " + c.nom, cle: cleConv(c) });  /* C25-NOTIF-EQUIPE */
   });
   renduFil();
 }
@@ -4024,7 +4024,7 @@ function personnesTaguees(txt) {
   return res;
 }
 
-/* ===== C28-MENTION-AUTOCOMPLETE : @ dans le commentaire → suggestions + volet  ===== */
+/* ===== C28-MENTION-AUTOCOMPLETE : @ dans le commentaire → suggestions + volet 👥 ===== */
 var MENTIONS_FILTRE = [];
 function suggMentions() {
   var inp = document.getElementById("nv-comm"); var s = document.getElementById("mentions-sugg");
@@ -4038,7 +4038,7 @@ function suggMentions() {
   s.innerHTML = MENTIONS_FILTRE.map(function(p, i){
     var pr = PROFILS[p] || {};
     return '<div class="mention-item' + (i === 0 ? " on" : "") + '" onmousedown="accepterMention(' + i + ');return false;">'
-      + '<span class="mention-ic" style="background:' + (pr.col || "#0e5aa7") + '">' + (pr.ic || "") + '</span>@' + escTxt(p) + '</div>';
+      + '<span class="mention-ic" style="background:' + (pr.col || "#0e5aa7") + '">' + (pr.ic || "👤") + '</span>@' + escTxt(p) + '</div>';
   }).join("");
   s.dataset.sel = "0";
   s.style.display = "block";
@@ -4077,10 +4077,10 @@ function ouvrirVoletMentions() {
   var v = document.getElementById("volet-mentions"); if (!v) return;
   if (v.style.display === "block") { v.style.display = "none"; return; }
   var liste = EQUIPE.filter(function(p){ return p !== MOI; });
-  v.innerHTML = '<div class="mention-titre">Mentionner (notification  assurée) :</div>' + liste.map(function(p){
+  v.innerHTML = '<div class="mention-titre">Mentionner (notification 🔔 assurée) :</div>' + liste.map(function(p){
     var pr = PROFILS[p] || {};
     return '<div class="mention-item" onmousedown="insererMention(\'' + escTxt(p).replace(/'/g, "\\'") + '\');return false;">'
-      + '<span class="mention-ic" style="background:' + (pr.col || "#0e5aa7") + '">' + (pr.ic || "") + '</span>@' + escTxt(p) + '</div>';
+      + '<span class="mention-ic" style="background:' + (pr.col || "#0e5aa7") + '">' + (pr.ic || "👤") + '</span>@' + escTxt(p) + '</div>';
   }).join("");
   v.style.display = "block";
 }
@@ -4137,14 +4137,14 @@ function fermerNotifs() { document.getElementById("notifs").classList.remove("ou
 function renduNotifs() {
   majBadgeNotifs();
   var corps = document.getElementById("notifs-corps");
-  if (!NOTIFS.length) { corps.innerHTML = '<div class="cp-vide"><span class="ico"></span><b>Aucune notification</b><span>Assignations et tags reçus apparaîtront ici.</span></div>'; return; }
+  if (!NOTIFS.length) { corps.innerHTML = '<div class="cp-vide"><span class="ico">🔕</span><b>Aucune notification</b><span>Assignations et tags reçus apparaîtront ici.</span></div>'; return; }
   corps.innerHTML = NOTIFS.map(function(n, i){
     var cible = n.conv ? convParId(n.conv) : null;
     return '<div class="nv-item" style="' + (n.lu ? "opacity:.55;" : "") + '" onclick="lireNotif(' + i + ')">' +
-      '<span class="avatar" style="background:' + (cible ? couleur(cible.entreprise) : "#8a93a3") + '"></span>' +
+      '<span class="avatar" style="background:' + (cible ? couleur(cible.entreprise) : "#8a93a3") + '">🔔</span>' +
       '<span class="infos"><span class="n">' + n.txt + '</span><br/>' +
 
-      '<span class="e">' + (cible ? ' ' + cible.nom + ' — ' + cible.extrait : '') + '</span></span>' +
+      '<span class="e">' + (cible ? '💬 ' + cible.nom + ' — ' + cible.extrait : '') + '</span></span>' +
       '<span class="h">' + n.t + '</span></div>';
   }).join("");
   /* C32-NOTIF-LOG : section « Activité » (hors badge) */
@@ -4176,17 +4176,17 @@ function toutLireNotifs() {
 /* ===== Dictée vocale pour les commentaires internes ===== */
 function dicterComm() {
   var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { alert(" La dictée vocale n'est pas disponible dans cet affichage (navigateur ou sandbox). Tu peux saisir le commentaire au clavier."); return; }
+  if (!SR) { alert("🎤 La dictée vocale n'est pas disponible dans cet affichage (navigateur ou sandbox). Tu peux saisir le commentaire au clavier."); return; }
   var inp = document.getElementById("nv-comm");
   try {
     var rec = new SR();
     rec.lang = "fr-FR";
     rec.interimResults = false;
     rec.onresult = function(ev){ if (ev.results && ev.results[0]) { inp.value = (inp.value ? inp.value + " " : "") + ev.results[0][0].transcript; inp.focus(); } };
-    rec.onerror = function(ev){ alert(" Dictée impossible (" + ev.error + ") — le micro est peut-être bloqué dans l'affichage canvas. En production (Vercel + HTTPS), la dictée fonctionnera."); };
+    rec.onerror = function(ev){ alert("🎤 Dictée impossible (" + ev.error + ") — le micro est peut-être bloqué dans l'affichage canvas. En production (Vercel + HTTPS), la dictée fonctionnera."); };
     rec.start();
   } catch (err) {
-    alert(" Dictée indisponible ici — elle marchera en production sur le site déployé.");
+    alert("🎤 Dictée indisponible ici — elle marchera en production sur le site déployé.");
   }
 }
 
@@ -4280,7 +4280,7 @@ function renduMesCycles() {
   if (qui) qui.textContent = MOI;
   var mes = CONVS.filter(function(c){ return !c.archive && !RATTACHE[c.id] && c.assigne === MOI; });
   box.innerHTML = CYCLES_LISTE.map(function(cy){
-    /* volet  = MES conversations par cycle (« tous » = toutes mes convs) */
+    /* volet 🗂 = MES conversations par cycle (« tous » = toutes mes convs) */
     var n = (cy === "tous") ? mes.length : mes.filter(function(c){ return c.cycle === cy; }).length;
     if (cy !== "tous" && n === 0) return "";
     var lbl = (cy === "tous") ? "Tous mes dossiers" : cy;
@@ -4291,7 +4291,7 @@ function renduMesCycles() {
 }
 function filtreMesCycle(cy) {
   MESCY_ON = cy;
-  /* C22-FILTRE-4 : le volet  « Mes conversations par cycle » filtre bien sur
+  /* C22-FILTRE-4 : le volet 🗂 « Mes conversations par cycle » filtre bien sur
      MOI (y compris « tous » = toutes MES conversations). C'est le menu cycles
      EN HAUT (filtre()) qui, lui, enlève le filtre d'assignation. */
   FX.ass = "moi";
@@ -4317,7 +4317,7 @@ function basculeVue(v) {
 
 function visible(c){
   /* C21-RECH : quand une recherche est active, elle est GLOBALE — on ignore
-     les exclusions habituelles (archivée , rattachée , filtres assignation/
+     les exclusions habituelles (archivée 📦, rattachée 📎, filtres assignation/
      canal/cycle) pour ne manquer aucune conversation ; les badges dans la ligne
      signalent leur statut. Sans recherche, comportement habituel. */
   if (!RECH_TXT) {
@@ -4402,7 +4402,7 @@ function renduListe() {
   var el = document.getElementById("convs"); el.innerHTML = "";
   /* C10-TRI : tri STRICTEMENT chronologique — la conversation dont le dernier
      message (WA ou Email) est le plus récent est en haut, lues ou non
-     (le badge  signale les non-lues). Vue entreprise : les enseignes suivent
+     (le badge 💬 signale les non-lues). Vue entreprise : les enseignes suivent
      l'activité de leur conversation la plus récente. */
   var liste = CONVS.filter(visible).sort(function(a, b) {
     return dernierTs(b) - dernierTs(a);
@@ -4432,9 +4432,9 @@ function renduListe() {
       var h = document.createElement("div");
       h.className = "grp" + (SELSENT===e ? " on" : "");
       var ouvert = GRP_OUVERTS[e] !== false;
-      h.innerHTML = '<span class="tri" title="' + (ouvert ? "Masquer" : "Afficher") + ' les contacts de cette entreprise"> ' + (ouvert ? "▾" : "▸") + '</span> ' + " " + e +
+      h.innerHTML = '<span class="tri" title="' + (ouvert ? "Masquer" : "Afficher") + ' les contacts de cette entreprise"> ' + (ouvert ? "▾" : "▸") + '</span> ' + "🏢 " + e +
         ' <span class="n">' + g.length + (g.length > 1 ? " contacts" : " contact") + '</span>' +
-        '<span class="n" title="Heure du dernier message de l\'enseigne" style="margin-left:6px;opacity:.8;"> ' + heureDernierMsg(g[0]) + '</span>' +
+        '<span class="n" title="Heure du dernier message de l\'enseigne" style="margin-left:6px;opacity:.8;">🕓 ' + heureDernierMsg(g[0]) + '</span>' +
         '<span class="ind">' + (g.length > 1 ? "▶ clic : fil fusionné" : "") + '</span>';
       h.onclick = function(ev){
         if (ev && ev.target && ev.target.className === "tri") {
@@ -4465,7 +4465,7 @@ function renduListe() {
 function convAvatarHtml(nom, canal, gd) {
   var t = String(nom || "?").trim().split(/\s+/);
   var init = ((t[0] || "?").charAt(0) + (t[1] ? t[1].charAt(0) : "")).toUpperCase();
-  var ico = (canal === "Email") ? "✉" : "";
+  var ico = (canal === "Email") ? "✉️" : "💬";
   return '<span class="cav' + (gd ? " gd" : "") + '" style="background:' + colDe(nom) + ';">' + escTxt(init) +
     '<span class="cch">' + ico + '</span></span>';
 }
@@ -4473,7 +4473,7 @@ function convAvatarHtml(nom, canal, gd) {
 function extraitAff(c) {
   var t = String(c.extrait || "");
   var mm = t.match(/^\[modèle ([^\]]+)\]/);
-  if (mm) { var mo = MODELES_WA.filter(function(x){ return x.nom === mm[1]; })[0]; if (mo) t = " " + mo.txt; }
+  if (mm) { var mo = MODELES_WA.filter(function(x){ return x.nom === mm[1]; })[0]; if (mo) t = "🗨 " + mo.txt; }
   return t;
 }
 function dessinerConv(c, conteneur) {
@@ -4483,17 +4483,17 @@ function dessinerConv(c, conteneur) {
   d.className = "conv" + (actif ? " on" : "");
   d.innerHTML = convAvatarHtml(nomAff(c), c.canal) +
     '<div class="conv-c">' +
-    '<div class="conv-l1"><div class="nom">'+nomAff(c)+'</div><div class="heure" title="Heure du dernier message">'+heureDernierMsg(c)+(c.lu ? "" : ' <span class="badge-new" title="1 nouveau message non lu"> 1</span>')+'</div></div>' +
+    '<div class="conv-l1"><div class="nom">'+nomAff(c)+'</div><div class="heure" title="Heure du dernier message">'+heureDernierMsg(c)+(c.lu ? "" : ' <span class="badge-new" title="1 nouveau message non lu">💬 1</span>')+'</div></div>' +
     (VUE === "entreprise" ? '<div class="sousnom">'+c.contact.tel+'</div>' : '') +
     '<div class="extrait">'+(c.lu ? extraitAff(c) : '<b>'+extraitAff(c)+'</b>')+'</div>' +
     '<div class="meta"><span class="dot'+(c.lu?' lu':'')+'"></span>'+
-    '<span class="tag" title="Date du dernier message"> '+(c.dateLbl || c.heure)+'</span>'+
+    '<span class="tag" title="Date du dernier message">📅 '+(c.dateLbl || c.heure)+'</span>'+
     '<span class="tag" title="'+(c.assigne ? "Assignée à "+c.assigne : "Non assignée")+'" style="'+(c.assigne ? (c.assigne === MOI ? "background:#dcfce7;color:#166534;font-weight:700;" : "background:#eef1f5;color:#475569;") : "background:#fee2e2;color:#991b1b;")+'">'+(c.assigne ? avatar(c.assigne) + " " + c.assigne : "—")+'</span>'+
     '<span class="cy '+c.classe+'">'+c.cycle+'</span>'+
     /* C21-RECH : badges statut quand la conversation est rendue hors de son
        état habituel (visible uniquement via la recherche globale) */
-    (c.archive ? '<span class="tag" title="Conversation archivée"> archivée</span>' : '')+
-    (RATTACHE[c.id] ? '<span class="tag" title="Rattachée à une autre conversation"> rattachée</span>' : '')+
+    (c.archive ? '<span class="tag" title="Conversation archivée">📦 archivée</span>' : '')+
+    (RATTACHE[c.id] ? '<span class="tag" title="Rattachée à une autre conversation">📎 rattachée</span>' : '')+
     '</div></div>';
   d.onclick = function(){ ouvrirConvLu(c.id); };
   d.oncontextmenu = function(ev){ menuContext(ev, c.id); };
@@ -4522,7 +4522,7 @@ function renduFil() {
       '<svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="#b9c8da" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg>' +
       '<div class="ve-tit">Sélectionne une conversation</div>' +
       '<div class="ve-txt">' + (VRAIES_DONNEES
-        ? "Les vrais clients sont chargés — ouvre une conversation dans la liste, ou lance-en une depuis une fiche société ( Lancer) ou le carnet d'adresses. Les nouvelles conversations naîtront dès qu'un vrai message arrivera."
+        ? "Les vrais clients sont chargés — ouvre une conversation dans la liste, ou lance-en une depuis une fiche société (💬 Lancer) ou le carnet d'adresses. Les nouvelles conversations naîtront dès qu'un vrai message arrivera."
         : "Ouvre une conversation dans la liste de gauche pour voir le fil complet.") + '</div></div>';
     document.getElementById("commzone").innerHTML = "";
     document.getElementById("rech-fil-nb").textContent = "";
@@ -4531,15 +4531,15 @@ function renduFil() {
   document.getElementById("filhead").innerHTML =
     '<div class="l1">'+convAvatarHtml(nomAff(c), c.canal, true)+'<b>'+nomAff(c)+'</b><span class="cy '+c.classe+(ACTIF?' cliquable':'')+'" '+(ACTIF ? 'onclick="ouvrirMenuCycles(event,'+c.id+')" title="Cliquer pour changer le cycle de la conversation"' : '')+'>'+c.cycle+(ACTIF?' ▾':'')+'</span>'+
     '<select class="ass-sel" onchange="assignerConv('+c.id+', this.value)" title="Assigner la conversation à un membre de l\'équipe">'+optionsAssigne(c.assigne)+'</select>'+
-    '<button class="btn" id="btn-fiche" onclick="basculeFiche()" style="margin-left:auto;" title="Afficher/masquer la fiche de cette entreprise (comme Coordonnées dans Respond)"> Fiche entreprise</button>' +
-    '<button class="btn" onclick="ouvrirRattacheEnt()" title="Rattacher cette conversation (et son adresse email) à une entreprise du carnet"> Entreprise…</button>'+filMetaBouton()+'</div>'+
-    '<div'+l2Ouvre()+'><span> '+c.entreprise+'</span>' +
+    '<button class="btn" id="btn-fiche" onclick="basculeFiche()" style="margin-left:auto;" title="Afficher/masquer la fiche de cette entreprise (comme Coordonnées dans Respond)">🏢 Fiche entreprise</button>' +
+    '<button class="btn" onclick="ouvrirRattacheEnt()" title="Rattacher cette conversation (et son adresse email) à une entreprise du carnet">🔗 Entreprise…</button>'+filMetaBouton()+'</div>'+
+    '<div'+l2Ouvre()+'><span>🏢 '+c.entreprise+'</span>' +
     (function(){ var sc = socParEnt(c.entreprise); return sc ? '<span class="risque '+sc.classeR+'" title="Statut de risque de la société">'+sc.risque+'</span>' : ''; })() +
-    '<span class="tag" title="Sujet principal détecté automatiquement — ✏ sur la fiche client pour corriger"> '+sujetDetecte(c)+'</span>'+
-    (RATTACHE[c.id] ? '<span class="tag" title="Cette conversation est rattachée à une autre — ses messages apparaissent dans le fil principal"> rattachée à '+ (convParId(RATTACHE[c.id])||{nom:"?"}).nom +'</span>' : '')+
-    (enfantsRattaches(c.id).length ? '<span class="tag"> '+enfantsRattaches(c.id).length+' conversation(s) rattachée(s)</span>' : '')+
+    '<span class="tag" title="Sujet principal détecté automatiquement — ✏️ sur la fiche client pour corriger">📁 '+sujetDetecte(c)+'</span>'+
+    (RATTACHE[c.id] ? '<span class="tag" title="Cette conversation est rattachée à une autre — ses messages apparaissent dans le fil principal">📎 rattachée à '+ (convParId(RATTACHE[c.id])||{nom:"?"}).nom +'</span>' : '')+
+    (enfantsRattaches(c.id).length ? '<span class="tag">📎 '+enfantsRattaches(c.id).length+' conversation(s) rattachée(s)</span>' : '')+
     c.tags.map(function(t){return '<span class="tag">'+t+'</span>';}).join("") +
-    '<span> '+c.contact.tel+'</span>'+(c.contact.email ? '<span title="Adresse email du client — canal ✉ actif">✉ <a href="mailto:'+c.contact.email+'" style="color:inherit;">'+c.contact.email+'</a></span>' : '')+'<span> '+c.contact.plaque+'</span><span>⏱ dernier message : '+c.delai+'</span><span> '+(c.assigne ? "assignée à " + avatar(c.assigne) + ' <b>'+c.assigne+"</b>" : "<b>non assignée</b>")+'</span>'+(VRAIES_DONNEES ? vuTagConv(c) : '')+'</div>';
+    '<span>📞 '+c.contact.tel+'</span>'+(c.contact.email ? '<span title="Adresse email du client — canal ✉️ actif">✉️ <a href="mailto:'+c.contact.email+'" style="color:inherit;">'+c.contact.email+'</a></span>' : '')+'<span>🛵 '+c.contact.plaque+'</span><span>⏱️ dernier message : '+c.delai+'</span><span>👤 '+(c.assigne ? "assignée à " + avatar(c.assigne) + ' <b>'+c.assigne+"</b>" : "<b>non assignée</b>")+'</span>'+(VRAIES_DONNEES ? vuTagConv(c) : '')+'</div>';
 
   var LIB = { client:"Client", agent:"Agent IA U'mob", collab:"Collègue" };
   var CLS = { client:"entrant", agent:"agent", collab:"collab" };
@@ -4565,10 +4565,10 @@ function renduFil() {
 
       b.innerHTML = '<div class="h"><span class="h-qui">'+auteurMsg(msg)+'</span> · '+msg.t+' '+(kc ? logoCanal(kc) : '')+cocheHtml(statutDe(msg, c.fil))+'</div>'+objetHtml(msg, RECH_FIL)+corpsMsgHtml(msg, RECH_FIL)+photoHtml(msg)+expediteurHtml(msg) +
         (msg.pj ? (msg.img
-            ? '<div class="mini" style="'+(msg.url ? 'background-image:url(' + msg.url + ');background-size:cover;' : '')+'">'+(msg.url ? "" : " " + msg.pj)+'</div>'
-            : '<div class="pj"> <b>' + msg.pj + '</b> · ' + msg.taille + '</div>')
+            ? '<div class="mini" style="'+(msg.url ? 'background-image:url(' + msg.url + ');background-size:cover;' : '')+'">'+(msg.url ? "" : "🖼 " + msg.pj)+'</div>'
+            : '<div class="pj">📎 <b>' + msg.pj + '</b> · ' + msg.taille + '</div>')
 
-          : (msg.img ? '<div class="mini"> photo du pneu</div>' : ''));
+          : (msg.img ? '<div class="mini">📷 photo du pneu</div>' : ''));
       m.appendChild(b);
     } else {
       var d = document.createElement("div");
@@ -4576,7 +4576,7 @@ function renduFil() {
       if (RECH_FIL && it.k.txt.toLowerCase().indexOf(RECH_FIL.toLowerCase()) < 0) d.classList.add("sans"); else nbTrouves++;
       var mentions = personnesTaguees(it.k.txt);
       /* C17-VU : personnes taguées ayant ouvert la conversation APRÈS ce
-         commentaire → «  vu par » (l'auteur et moi exclus) */
+         commentaire → « 👁️ vu par » (l'auteur et moi exclus) */
       var vuIx = (ACT_BAS[cleConv(c)] || {}).vu || {};
       var vus = mentions.filter(function(p) {
         return p !== it.k.a && p !== MOI && vuPlusRecentQue(vuIx[p], it.k.t);
@@ -4586,11 +4586,11 @@ function renduFil() {
       var btnsC = it.k.uid
         ? ' <span style="float:right;font-size:10.5px;white-space:nowrap;">' +
           '<a href="javascript:void(0)" onclick="editerComm(\'' + it.k.uid + '\')" title="Modifier ce commentaire" style="margin-right:6px;">✏</a>' +
-          '<a href="javascript:void(0)" onclick="supprimerComm(\'' + it.k.uid + '\')" title="Supprimer ce commentaire"></a></span>' : '';
-      d.innerHTML = '<div class="h"> ' + avatar(it.k.a) + ' Commentaire interne — ' + it.k.a + ' · ' + it.k.t + (it.k.mod ? ' · <i style="opacity:.7;">modifié</i>' : '') + btnsC + '</div>' +
+          '<a href="javascript:void(0)" onclick="supprimerComm(\'' + it.k.uid + '\')" title="Supprimer ce commentaire">🗑️</a></span>' : '';
+      d.innerHTML = '<div class="h">📌 ' + avatar(it.k.a) + ' Commentaire interne — ' + it.k.a + ' · ' + it.k.t + (it.k.mod ? ' · <i style="opacity:.7;">modifié</i>' : '') + btnsC + '</div>' +
         surligner(it.k.txt, RECH_FIL) +
-        (mentions.length ? ' <span class="tag" style="background:#fef3c7;color:#92400e;"> ' + mentions.join(", ") + ' tagué(s)</span>' : '') +
-        (vus.length ? ' <span class="tag" style="background:#e6f7ef;color:#1d7a4f;"> vu par ' + vus.join(", ") + '</span>' : '');
+        (mentions.length ? ' <span class="tag" style="background:#fef3c7;color:#92400e;">👤 ' + mentions.join(", ") + ' tagué(s)</span>' : '') +
+        (vus.length ? ' <span class="tag" style="background:#e6f7ef;color:#1d7a4f;">👁️ vu par ' + vus.join(", ") + '</span>' : '');
       m.appendChild(d);
     }
   });
@@ -4598,7 +4598,7 @@ function renduFil() {
   enfantsRattaches(c.id).forEach(function(e){
     var sep = document.createElement("div");
     sep.style.cssText = "align-self:center;font-size:10.5px;color:#9aa4b1;background:#eef1f5;border-radius:999px;padding:3px 10px;";
-    sep.textContent = " conversation rattachée : " + e.nom + " · " + sujetDetecte(e);
+    sep.textContent = "📎 conversation rattachée : " + e.nom + " · " + sujetDetecte(e);
     m.appendChild(sep);
     e.fil.forEach(function(msg){
       var b = document.createElement("div");
@@ -4608,7 +4608,7 @@ function renduFil() {
       if (RECH_FIL && (String(msg.suj || "") + " " + msg.txt).toLowerCase().indexOf(RECH_FIL.toLowerCase()) < 0) b.classList.add("sans"); else nbTrouves++;
       var qui = auteurMsg(msg) + (msg.qui === "client" ? " · " + e.nom : "");
       b.innerHTML = '<div class="h"><span class="h-qui">' + qui + '</span> · ' + msg.t + ' ' + (kc ? logoCanal(kc) : '') + cocheHtml(statutDe(msg, e.fil)) + '</div>' + objetHtml(msg, RECH_FIL) + corpsMsgHtml(msg, RECH_FIL) + photoHtml(msg) + expediteurHtml(msg) +
-        (msg.img ? '<div class="mini"> photo</div>' : '');
+        (msg.img ? '<div class="mini">📷 photo</div>' : '');
       m.appendChild(b);
     });
   });
@@ -4621,8 +4621,8 @@ function renduFil() {
   var cz = document.getElementById("commzone");
   cz.innerHTML =
     '<div class="comm-saisie">' +
-      '<button class="btn" onclick="dicterComm()" title="Dicter le commentaire au micro"></button>' +
-      '<button class="btn" onclick="ouvrirVoletMentions()" title="Mentionner un collègue (@) — il recevra une notification"></button>' +
+      '<button class="btn" onclick="dicterComm()" title="Dicter le commentaire au micro">🎤</button>' +
+      '<button class="btn" onclick="ouvrirVoletMentions()" title="Mentionner un collègue (@) — il recevra une notification">👥</button>' +
       '<div class="comm-champ">' +
         '<input id="nv-comm" placeholder="Ajouter un commentaire interne (visible par l\'équipe uniquement)… Tape @ pour mentionner" oninput="suggMentions()" onkeydown="return commKey(event)" onblur="setTimeout(fermerSugg,150)"/>' +
         '<div id="mentions-sugg" style="display:none"></div>' +
@@ -4645,12 +4645,12 @@ function renduFilEntreprise(e) {
 
   var socE = socParEnt(e);
   document.getElementById("filhead").innerHTML =
-    '<div class="l1"><span class="cav gd" style="background:linear-gradient(135deg,#1273d1,#0a3f77);"></span><b>' + e + '</b>' +
+    '<div class="l1"><span class="cav gd" style="background:linear-gradient(135deg,#1273d1,#0a3f77);">🏢</span><b>' + e + '</b>' +
     (socE ? '<span class="risque ' + socE.classeR + '" title="Statut de risque de la société">' + socE.risque + '</span>' : '') +
     '<span class="badge-ver" style="background:#e2e8f0;color:#475569;">fil fusionné · ' + convs.length + ' contact(s)</span>' +
-    '<button class="btn" id="btn-fiche" onclick="basculeFiche()" style="margin-left:auto;" title="Afficher/masquer la fiche de cette entreprise"> Fiche entreprise</button>'+filMetaBouton()+'</div>' +
+    '<button class="btn" id="btn-fiche" onclick="basculeFiche()" style="margin-left:auto;" title="Afficher/masquer la fiche de cette entreprise">🏢 Fiche entreprise</button>'+filMetaBouton()+'</div>' +
     '<div'+l2Ouvre()+'>' + convs.map(function(c){
-      return '<span>' + (c.canal==="WhatsApp"?"":"✉") + ' ' + c.nom + ' · ' + c.contact.tel + ' · <span class="cy ' + c.classe + '">' + c.cycle + '</span></span>';
+      return '<span>' + (c.canal==="WhatsApp"?"💬":"✉️") + ' ' + c.nom + ' · ' + c.contact.tel + ' · <span class="cy ' + c.classe + '">' + c.cycle + '</span></span>';
     }).join("") + '</div>';
 
   var msgs = [];
@@ -4683,9 +4683,9 @@ function renduFilEntreprise(e) {
     var qui = auteurMsg(it.msg) + (it.msg.qui === "client" ? " · " + it.conv.nom : "");
     b.innerHTML = '<div class="h"><span class="h-qui">' + qui + '</span> · ' + it.msg.t + ' ' + (kc ? logoCanal(kc) : '') + cocheHtml(statutDe(it.msg, it.conv.fil)) + '</div>' + objetHtml(it.msg, RECH_FIL) + corpsMsgHtml(it.msg, RECH_FIL) + expediteurHtml(it.msg) +
       (it.msg.pj ? (it.msg.img
-          ? '<div class="mini" style="'+(it.msg.url ? 'background-image:url(' + it.msg.url + ');background-size:cover;' : '')+'">'+(it.msg.url ? "" : " " + it.msg.pj)+'</div>'
-          : '<div class="pj"> <b>' + it.msg.pj + '</b> · ' + it.msg.taille + '</div>')
-        : (it.msg.img ? '<div class="mini"> photo du pneu</div>' : ''));
+          ? '<div class="mini" style="'+(it.msg.url ? 'background-image:url(' + it.msg.url + ');background-size:cover;' : '')+'">'+(it.msg.url ? "" : "🖼 " + it.msg.pj)+'</div>'
+          : '<div class="pj">📎 <b>' + it.msg.pj + '</b> · ' + it.msg.taille + '</div>')
+        : (it.msg.img ? '<div class="mini">📷 photo du pneu</div>' : ''));
     m.appendChild(b);
   });
   document.getElementById("rech-fil-nb").textContent = RECH_FIL ? (nbTrouves + " message" + (nbTrouves > 1 ? "s" : "") + " sur " + msgs.length) : "";
@@ -4693,7 +4693,7 @@ function renduFilEntreprise(e) {
   var comms = [];
   convs.forEach(function(c){ c.comms.forEach(function(k){ comms.push({a:k.a, t:k.t, txt:k.txt, who:c.nom}); }); });
   var cz = document.getElementById("commzone");
-  cz.innerHTML = "<h4> Commentaires internes (équipe — tous contacts de l'entreprise)</h4>" +
+  cz.innerHTML = "<h4>💬 Commentaires internes (équipe — tous contacts de l'entreprise)</h4>" +
     (comms.length ? comms.map(function(k){
       return '<div class="comm">' + avatar(k.a) + ' <b>' + k.a + '</b> (' + k.t + ', ' + k.who + ') : ' + k.txt + '</div>';
     }).join("") : '<div class="comm" style="color:#a3a08f">Aucun commentaire interne.</div>') +
@@ -4741,14 +4741,14 @@ function rafraichirFiche() {
 
   document.getElementById("fiche").innerHTML =
     '<div class="fiche-entete">' +
-      '<h2> ' + s.ent +
+      '<h2>🏢 ' + s.ent +
         '<span class="risque ' + s.classeR + '">' + s.risque + '</span>' +
         (s.classeR === "impaye" ? '<span style="background:#dc2626;color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:999px;">⚠ NE PAS INTERVENIR AVANT RÉGULARISATION</span>' : '') +
         '</h2>' +
     '</div>' +
 
     '<div class="fiche-sec">' +
-      fsTete("identite", "fs-bleu", "", "Identité & coordonnées") +
+      fsTete("identite", "fs-bleu", "🏢", "Identité & coordonnées") +
       fsCorps("identite",
         '<div class="fiche-ligne"><span class="k">SIREN</span><b>' + s.siren + '</b></div>' +
         (s.statut ? '<div class="fiche-ligne"><span class="k">Statut</span><b>' + s.statut + '</b></div>' : '') +
@@ -4766,26 +4766,26 @@ function rafraichirFiche() {
     '</div>' +
 
     '<div class="fiche-sec">' +
-      fsTete("sujets", "fs-indigo", "", "Conversations par sujet détecté",
+      fsTete("sujets", "fs-indigo", "🗂", "Conversations par sujet détecté",
         (FICHE_OUVERTS.sujets ? '<button class="btn" onclick="event.stopPropagation(); toutSujets();" title="Tout réduire ⇄ tout déplier">⇕</button>' : '')) +
       '<div class="fs-corps">' +
         (FICHE_OUVERTS.sujets ?
           sujetsArbreHtml(s.ent) +
           archivesHtml(s.ent) +
-          '<div class="petit" style="margin-top:7px;color:#9aa4b1;font-size:10.5px;"> Sujet détecté automatiquement (✏ pour corriger) ·  rattacher ·  archiver</div>'
+          '<div class="petit" style="margin-top:7px;color:#9aa4b1;font-size:10.5px;">📁 Sujet détecté automatiquement (✏️ pour corriger) · 🔗 rattacher · 🗄 archiver</div>'
           : '<div class="petit" style="color:#8a93a3;">▶ ' + convs.filter(function(c){ return !c.archive && !RATTACHE[c.id]; }).length + ' conversation(s) — clique pour dérouler</div>') +
       '</div>' +
     '</div>' +
 
     '<div class="fiche-sec">' +
-      fsTete("contacts", "fs-teal", "", "Contacts de la société") +
+      fsTete("contacts", "fs-teal", "📞", "Contacts de la société") +
       fsCorps("contacts",
         (function(){
           var html = "", telsConv = {};
           convs.forEach(function(c){ if (c.contact && c.contact.tel) telsConv[String(c.contact.tel).replace(/\D/g, "")] = 1; });
           html += convs.map(function(c){
             return '<div class="ligne-ctc">' +
-              '<span>' + (c.canal==="WhatsApp"?"":"✉") + '</span>' +
+              '<span>' + (c.canal==="WhatsApp"?"💬":"✉️") + '</span>' +
               '<span class="qui">' + c.nom + '</span>' +
               '<span class="num">' + c.contact.tel + '</span>' +
               (c.contact.email ? '<span class="num">✉ ' + c.contact.email + '</span>' : '') +
@@ -4793,7 +4793,7 @@ function rafraichirFiche() {
               '<span style="margin-left:auto;display:flex;gap:5px;align-items:center;flex-wrap:wrap;">' +
                 (c.id === SELID ? '<span class="petit">● ouverte</span>'
                                 : '<button class="btn btn-voir" onclick="voirConv(' + c.id + ')" title="Ouvrir cette conversation dans le fil">Ouvrir →</button>') +
-                '<button class="btn" title="Nouvelle conversation avec ce contact (démo : simule un nouveau message du client)" onclick="lancerNouvelleConv(' + c.id + ')"> Nouvelle</button>' +
+                '<button class="btn" title="Nouvelle conversation avec ce contact (démo : simule un nouveau message du client)" onclick="lancerNouvelleConv(' + c.id + ')">💬 Nouvelle</button>' +
               '</span>' +
             '</div>';
           }).join("");
@@ -4812,7 +4812,7 @@ function rafraichirFiche() {
     '</div>' +
 
     '<div class="fiche-sec">' +
-      fsTete("parc", "fs-orange", "", "Parc & contrats de service") +
+      fsTete("parc", "fs-orange", "🛵", "Parc & contrats de service") +
       fsCorps("parc",
         (function(){
           var sitesParc = {};
@@ -4839,7 +4839,7 @@ function rafraichirFiche() {
     '</div>' +
 
     '<div class="fiche-sec" style="margin-bottom:14px;">' +
-      fsTete("maint", "fs-violet", "", "Maintenances & contrats") +
+      fsTete("maint", "fs-violet", "🔧", "Maintenances & contrats") +
       fsCorps("maint", maintsBloc(s, "petit")) +
     '</div>';
 }
@@ -4998,10 +4998,10 @@ function appelerContact(cid) {
      des appels) viendra remplacer ce lien plus tard. */
   if (VRAIES_DONNEES && d) {
     window.location.href = "tel:+" + d;
-    pushNotif(" Appel lancé vers " + nomDe(c.nom) + " au +" + d + " (lien tel: — Ringover viendra plus tard).");
+    pushNotif("📞 Appel lancé vers " + nomDe(c.nom) + " au +" + d + " (lien tel: — Ringover viendra plus tard).");
     return;
   }
-  alert(" Appeler " + nomDe(c.nom) + " au " + t + " ?\n\nLe raccordement téléphonique (Ringover) viendra plus tard — bouton en place, pas encore branché.");
+  alert("📞 Appeler " + nomDe(c.nom) + " au " + t + " ?\n\nLe raccordement téléphonique (Ringover) viendra plus tard — bouton en place, pas encore branché.");
 }
 
 function renduCarnet() {
@@ -5050,7 +5050,7 @@ function renduCarnet() {
     if (CARNET_SEL && CARNET_SEL.type === "contact") socOuverte = (convParId(CARNET_SEL.id) || {}).entreprise;
     var on = socOuverte === s.ent;
     return '<div class="cl-ctc' + (on ? " on" : "") + '" onclick="ouvrirPageSociete(\'' + entEsc + '\')" style="padding:11px 14px;">' +
-      '<span class="avatar" style="background:' + couleur(s.ent) + '"></span>' +
+      '<span class="avatar" style="background:' + couleur(s.ent) + '">🏢</span>' +
       '<span class="infos"><span class="n">' + s.ent + '</span><br/>' +
       '<span class="t">' + s.siege + ' · SIREN ' + s.siren + '</span></span>' +
       '<span class="risque ' + s.classeR + '">' + s.risque + '</span></div>';
@@ -5085,7 +5085,7 @@ function scootersHtml(s) {
     var detail = (x.pack || x.debut || x.fin)
       ? ((x.pack ? 'pack ' + x.pack : '') + ((x.debut || x.fin) ? (x.pack ? ' · ' : '') + x.debut + ' → ' + x.fin : '') + (x.cours ? ((x.pack || x.debut || x.fin) ? ' · ' : '') + (x.cours === 'oui' ? 'contrat en cours' : 'contrat non en cours') : ''))
       : x.contrat;
-    return '<div class="scoot-ligne"><b> ' + x.plaque + '</b> · ' + x.produit +
+    return '<div class="scoot-ligne"><b>🛵 ' + x.plaque + '</b> · ' + x.produit +
       '<span class="petit"> ' + detail + (x.adresse ? ' · ' + x.adresse : '') + '</span></div>';
   }).join("") : '<div class="cl-vide">Aucun scooter sur ce site.</div>');
 }
@@ -5140,20 +5140,20 @@ function ouvrirFormSociete() {
   page.innerHTML =
     '<div class="cp-tete"><span class="avatar" style="background:#1273d1">➕</span>' +
     '<div><h2>Nouvelle fiche entreprise</h2>' +
-    '<div class="sous">Créée avant d\'engager la conversation — le bouton  Lancer apparaîtra sur la fiche.</div></div></div>' +
-    '<div class="cp-section"><h3> Société</h3>' +
+    '<div class="sous">Créée avant d\'engager la conversation — le bouton 💬 Lancer apparaîtra sur la fiche.</div></div></div>' +
+    '<div class="cp-section"><h3>🏢 Société</h3>' +
     '<div class="cp-ligne"><span class="lab">Enseigne *</span><span class="val"><input id="fs-enseigne" style="width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;" placeholder="Ex. SOJOSHI (SUSHIJ TOULON)" /></span></div>' +
     '<div class="cp-ligne"><span class="lab">Adresse</span><span class="val"><input id="fs-adresse" style="width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;" placeholder="Adresse du siège / livraison" /></span></div>' +
     '<div class="cp-ligne"><span class="lab">SIREN</span><span class="val"><input id="fs-siren" style="width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;" placeholder="9 chiffres" /></span></div>' +
     '</div>' +
-    '<div class="cp-section"><h3> Contact</h3>' +
+    '<div class="cp-section"><h3>👤 Contact</h3>' +
     '<div class="cp-ligne"><span class="lab">Nom</span><span class="val"><input id="fs-nom" style="width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;" placeholder="Prénom Nom (fonction)" /></span></div>' +
     '<div class="cp-ligne"><span class="lab">Téléphone</span><span class="val"><input id="fs-tel" style="width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;" placeholder="06 …" /></span></div>' +
     '<div class="cp-ligne"><span class="lab">Email</span><span class="val"><input id="fs-email" style="width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;" placeholder="contact@…" /></span></div>' +
     '<div class="cp-ligne"><span class="lab">Plaque</span><span class="val"><input id="fs-plaque" style="width:100%;padding:5px 8px;border:1px solid #cbd5e1;border-radius:7px;" placeholder="AA-123-BB" /></span></div>' +
     '</div>' +
     '<div class="cp-actions">' +
-    '<button class="cp-btn envoyer" onclick="creerFicheSociete()"> Créer la fiche</button>' +
+    '<button class="cp-btn envoyer" onclick="creerFicheSociete()">💾 Créer la fiche</button>' +
     '<button class="cp-btn ouvrir" onclick="renduPageCarnet()">Annuler</button>' +
     '</div>' +
     '<div id="fs-erreur" style="color:#b91c1c;font-size:12px;margin-top:8px;"></div>';
@@ -5194,10 +5194,10 @@ function creerFicheSociete() {
   renduCarnet();
   renduListe();   /* v124 : la liste principale aussi se re-rend tout de suite */
   ouvrirPageSociete(enseigne);
-  pushLog(" Fiche entreprise créée : " + enseigne + " (aucune conversation lancée — bouton  Lancer sur la fiche).");
-  pushNotif(" Fiche « " + enseigne + " » créée dans le carnet.");
+  pushLog("🏢 Fiche entreprise créée : " + enseigne + " (aucune conversation lancée — bouton 💬 Lancer sur la fiche).");
+  pushNotif("🏢 Fiche « " + enseigne + " » créée dans le carnet.");
 }
-/* v124 : suppression d'une fiche entreprise (bouton  sur la page société).
+/* v124 : suppression d'une fiche entreprise (bouton 🗑️ sur la page société).
    Persistée (action "societe_supprime", clé SOC:<enseigne normalisée>) →
    rejouée sur tous les postes. Les conversations rattachées à l'enseigne
    restent dans la liste (elles perdent juste leur fiche société). */
@@ -5205,7 +5205,7 @@ function supprimerSociete(ent) {
   var s = socParEnt(ent);
   if (!s) { pushNotif("⚠ Fiche introuvable : " + ent); return; }
   var nbSuj = CONVS.filter(function(c){ return c.entreprise === s.ent && !c.archive && !RATTACHE[c.id]; }).length;
-  var msg = " Supprimer la fiche entreprise « " + s.ent + " » ?\n\n" +
+  var msg = "🗑️ Supprimer la fiche entreprise « " + s.ent + " » ?\n\n" +
     (nbSuj ? "⚠ " + nbSuj + " conversation(s) active(s) y sont rattachée(s) — elles resteront dans la liste mais perdront leur fiche société.\n\n" : "") +
     "La suppression est partagée avec toute l'équipe (tous les postes).";
   if (!confirm(msg)) return;
@@ -5214,14 +5214,14 @@ function supprimerSociete(ent) {
   actIndex("SOC:" + normTxt(s.ent)).societe_supprimee = true;
   if (CARNET_SEL && CARNET_SEL.type === "societe" && CARNET_SEL.ent === s.ent) CARNET_SEL = null;
   renduCarnet(); renduListe(); renduFil(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
-  pushLog(" Fiche entreprise supprimée : " + s.ent);
-  pushNotif(" Fiche « " + s.ent + " » supprimée du carnet.");
+  pushLog("🗑️ Fiche entreprise supprimée : " + s.ent);
+  pushNotif("🗑️ Fiche « " + s.ent + " » supprimée du carnet.");
 }
 function renduPageCarnet() {
   var page = document.getElementById("carnet-page");
 
   if (!CARNET_SEL) {
-    page.innerHTML = '<div class="cp-vide"><span class="ico"></span><b>Carnet d\'adresses</b>' +
+    page.innerHTML = '<div class="cp-vide"><span class="ico">📇</span><b>Carnet d\'adresses</b>' +
       '<span>Clique sur un contact ou une société pour ouvrir sa fiche détaillée.</span></div>';
     return;
   }
@@ -5237,18 +5237,18 @@ function renduPageCarnet() {
         '<div><h2>' + nomDe(c.nom) + '</h2>' +
           '<div class="sous">' + fonctionDe(c.nom) + ' — ' + c.entreprise + '</div>' +
           '<div class="chips">' +
-            '<span class="chip2"> ' + c.canal + '</span>' +
+            '<span class="chip2">💬 ' + c.canal + '</span>' +
             '<span class="chip2">' + c.contact.tel + '</span>' +
-            '<span class="chip2"> ' + c.cycle + '</span>' +
+            '<span class="chip2">🔄 ' + c.cycle + '</span>' +
             (s ? '<span class="chip2" style="' + (s.classeR === "impaye" ? "background:#dc2626;" : s.classeR === "risque" ? "background:#f59e0b;" : "background:#16a34a;") + 'font-weight:800;">' + s.risque + '</span>' : '') +
           '</div></div>' +
       '</div>' +
       '<div class="cp-actions">' +
-        '<button class="cp-btn envoyer" onclick="lancerConversation()"> Lancer une conversation</button>' +
-        '<button class="cp-btn appeler" onclick="appelerContact(' + c.id + ')"> Appeler</button>' +
+        '<button class="cp-btn envoyer" onclick="lancerConversation()">💬 Lancer une conversation</button>' +
+        '<button class="cp-btn appeler" onclick="appelerContact(' + c.id + ')">📞 Appeler</button>' +
         '<button class="cp-btn ouvrir" onclick="voirConvCarnet(' + c.id + ')">↗ Ouvrir la conversation</button>' +
       '</div>' +
-      '<div class="cp-section"><h3> Coordonnées</h3>' +
+      '<div class="cp-section"><h3>👤 Coordonnées</h3>' +
         '<div class="cp-ligne"><span class="lab">Téléphone</span><span class="val"><b>' + c.contact.tel + '</b> · canal ' + c.canal + '</span></div>' +
         '<div class="cp-ligne"><span class="lab">Email</span><span class="val">' + (c.contact.email ? '<b><a href="mailto:'+c.contact.email+'" style="color:inherit;">'+c.contact.email+'</a></b>' : '<span style="color:#9aa4b2;">non renseigné</span>') + '</span></div>' +
         '<div class="cp-ligne"><span class="lab">Scooters liés</span><span class="val">' + c.contact.plaque + '</span></div>' +
@@ -5256,7 +5256,7 @@ function renduPageCarnet() {
         '<div class="cp-ligne"><span class="lab">Cycle actuel</span><span class="val"><span class="cy ' + c.classe + '">' + c.cycle + '</span></span></div>' +
       '</div>' +
       (s ?
-      '<div class="cp-section"><h3> Société</h3>' +
+      '<div class="cp-section"><h3>🏢 Société</h3>' +
         '<div class="cp-ligne"><span class="lab">Enseigne</span><span class="val"><b>' + s.ent + '</b> <span class="risque ' + s.classeR + '">' + s.risque + '</span></span></div>' +
         '<div class="cp-ligne"><span class="lab">SIREN</span><span class="val"><b>' + s.siren + '</b></span></div>' +
         '<div class="cp-ligne"><span class="lab">Siège</span><span class="val">' + s.siege + '</span></div>' +
@@ -5264,7 +5264,7 @@ function renduPageCarnet() {
         '<div class="cp-ligne"><span class="lab">Contact SC</span><span class="val">' + s.contact_sc + '</span></div>' +
         '<div style="margin-top:10px;"><button class="cp-retour" style="color:#32373C;background:#F4F7E2;" onclick="ouvrirPageSociete(\'' + s.ent.replace(/'/g, "\\'") + '\')">→ Voir la fiche complète de la société</button></div>' +
       '</div>' +
-      '<div class="cp-section"><h3> Parc de la société</h3>' + scootersHtml(s) + '</div>'
+      '<div class="cp-section"><h3>🛵 Parc de la société</h3>' + scootersHtml(s) + '</div>'
       : "");
     return;
   }
@@ -5285,20 +5285,20 @@ function renduPageCarnet() {
   var nbSuj = CONVS.filter(function(c){ return c.entreprise === ent2 && !c.archive && !RATTACHE[c.id]; }).length;
   page.innerHTML =
     '<div class="fiche-entete">' +
-      '<h2> ' + s2.ent +
+      '<h2>🏢 ' + s2.ent +
         '<span class="risque ' + s2.classeR + '">' + s2.risque + '</span>' +
         (s2.classeR === "impaye" ? '<span style="background:#dc2626;color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:999px;">⚠ NE PAS INTERVENIR AVANT RÉGULARISATION</span>' : '') +
       '</h2>' +
-      '<div class="siren-ligne"> SIREN : <b>' + s2.siren + '</b> ·  ' + s2.siege + '</div>' +
+      '<div class="siren-ligne">🆔 SIREN : <b>' + s2.siren + '</b> · 📍 ' + s2.siege + '</div>' +
     '</div>' +
 
     /* v124 : bouton de suppression de la fiche entreprise (persisté, partagé) */
     '<div class="cp-actions">' +
-      '<button class="cp-btn" style="background:#fee2e2;color:#b91c1c;font-weight:700;" onclick="supprimerSociete(\'' + s2.ent.replace(/'/g, "\\'") + '\')" title="Supprimer cette fiche du carnet (partagé avec toute l\'équipe)"> Supprimer la fiche entreprise</button>' +
+      '<button class="cp-btn" style="background:#fee2e2;color:#b91c1c;font-weight:700;" onclick="supprimerSociete(\'' + s2.ent.replace(/'/g, "\\'") + '\')" title="Supprimer cette fiche du carnet (partagé avec toute l\'équipe)">🗑️ Supprimer la fiche entreprise</button>' +
     '</div>' +
 
     '<div class="fiche-sec">' +
-      carnetTete(ent2, "identite", "fs-bleu", "", "Identité & coordonnées") +
+      carnetTete(ent2, "identite", "fs-bleu", "🏢", "Identité & coordonnées") +
       carnetCorps(ent2, "identite",
         '<div class="fiche-ligne"><span class="k">SIREN</span><b>' + s2.siren + '</b></div>' +
         '<div class="fiche-ligne"><span class="k">Siège</span>' + s2.siege + '</div>' +
@@ -5308,7 +5308,7 @@ function renduPageCarnet() {
     '</div>' +
 
     '<div class="fiche-sec">' +
-      carnetTete(ent2, "contacts", "fs-teal", "", "Contacts de la société",
+      carnetTete(ent2, "contacts", "fs-teal", "📞", "Contacts de la société",
         '<span style="margin-left:auto;font-weight:600;text-transform:none;letter-spacing:0;">' + nbCt + ' contact' + (nbCt > 1 ? 's' : '') + '</span>') +
       carnetCorps(ent2, "contacts",
         (function(){
@@ -5320,9 +5320,9 @@ function renduPageCarnet() {
           return '<div class="cp-contact" onclick="ouvrirPageContact(' + c.id + ')">' +
             '<span class="avatar" style="background:' + couleur(c.nom) + '">' + initiales(c.nom) + '</span>' +
             '<span class="infos"><span class="n">' + nomDe(c.nom) + ' <span class="t">· ' + fonctionDe(c.nom) + ' · ' + c.contact.tel + '</span></span><br/>' +
-            '<span class="t"> ' + c.canal + ' · ' + c.contact.plaque + '</span></span>' +
+            '<span class="t">💬 ' + c.canal + ' · ' + c.contact.plaque + '</span></span>' +
             '<span class="cy ' + c.classe + '">' + c.cycle + '</span>' +
-            '<button class="btn-tel" onclick="event.stopPropagation(); appelerContact(' + c.id + ')" title="Appeler (Ringover à brancher)"></button>' +
+            '<button class="btn-tel" onclick="event.stopPropagation(); appelerContact(' + c.id + ')" title="Appeler (Ringover à brancher)">📞</button>' +
           '</div>';
         }).join("");
           (s2.vraisContacts || []).forEach(function(v, i){
@@ -5331,8 +5331,8 @@ function renduPageCarnet() {
           '<div class="cp-contact">' +
             '<span class="avatar" style="background:' + couleur(v.nom) + '">' + initiales(v.nom) + '</span>' +
             '<span class="infos"><span class="n">' + v.nom + '</span><br/>' +
-            '<span class="t"> WhatsApp · ' + v.tel + (v.email ? ' · ✉ ' + v.email : '') + ' ·  ' + v.plaque + '</span></span>' +
-            '<button class="btn" style="padding:3px 9px;font-size:11px;" onclick="lancerConvVrai(\'' + s2.ent.replace(/'/g, "\\'") + '\',' + i + ')" title="Créer une conversation avec ce contact"> Lancer</button>' +
+            '<span class="t">💬 WhatsApp · ' + v.tel + (v.email ? ' · ✉️ ' + v.email : '') + ' · 🛵 ' + v.plaque + '</span></span>' +
+            '<button class="btn" style="padding:3px 9px;font-size:11px;" onclick="lancerConvVrai(\'' + s2.ent.replace(/'/g, "\\'") + '\',' + i + ')" title="Créer une conversation avec ce contact">💬 Lancer</button>' +
           '</div>';
                   });
           return html;
@@ -5341,22 +5341,22 @@ function renduPageCarnet() {
     '</div>' +
 
     '<div class="fiche-sec">' +
-      carnetTete(ent2, "sujets", "fs-indigo", "", "Conversations par sujet détecté",
+      carnetTete(ent2, "sujets", "fs-indigo", "🗂", "Conversations par sujet détecté",
         (carnetOuvert(ent2, "sujets") ? '<button class="btn" onclick="event.stopPropagation(); toutSujets();" title="Tout réduire ⇄ tout déplier">⇕</button>' : '')) +
       carnetCorps(ent2, "sujets",
         sujetsArbreHtml(ent2) + archivesHtml(ent2) +
-        '<div class="petit" style="margin-top:7px;color:#9aa4b1;font-size:10.5px;"> Sujet détecté automatiquement (✏ pour corriger) ·  rattacher ·  archiver</div>',
+        '<div class="petit" style="margin-top:7px;color:#9aa4b1;font-size:10.5px;">📁 Sujet détecté automatiquement (✏️ pour corriger) · 🔗 rattacher · 🗄 archiver</div>',
         nbSuj + ' conversation' + (nbSuj > 1 ? 's' : '')) +
     '</div>' +
 
     '<div class="fiche-sec">' +
-      carnetTete(ent2, "parc", "fs-orange", "", "Parc & contrats de service",
+      carnetTete(ent2, "parc", "fs-orange", "🛵", "Parc & contrats de service",
         '<span style="margin-left:auto;font-weight:600;text-transform:none;letter-spacing:0;">' + s2.scooters.length + ' scooter' + (s2.scooters.length > 1 ? 's' : '') + '</span>') +
       carnetCorps(ent2, "parc", scootersHtml(s2), s2.scooters.length + ' scooter' + (s2.scooters.length > 1 ? 's' : '')) +
     '</div>' +
 
     '<div class="fiche-sec" style="margin-bottom:14px;">' +
-      carnetTete(ent2, "maint", "fs-violet", "", "Maintenances & contrats") +
+      carnetTete(ent2, "maint", "fs-violet", "🔧", "Maintenances & contrats") +
       carnetCorps(ent2, "maint", maintsBloc(s2, "cl-vide")) +
     '</div>';
 }
@@ -5593,7 +5593,7 @@ function creerNouvelleConv() {
   fermerNouvelleConv();
   renduListe(); renduFil(); renduMesCycles(); rafraichirFiche(); majBadgeNouveaux();
   var inp = document.getElementById("nv-msg"); if (inp) inp.focus();
-  pushNotif(" Conversation créée avec " + dest + " — écris ton premier message, l'envoi est réel (" + NEWCONV_CANAL + ").");
+  pushNotif("💬 Conversation créée avec " + dest + " — écris ton premier message, l'envoi est réel (" + NEWCONV_CANAL + ").");
 }
 function ouvrirDepuisNouveaux(id) {
   fermerNouveaux();
@@ -5604,7 +5604,7 @@ function renduNouveaux() {
   var nl = nonLues();
   var corps = document.getElementById("nv-corps");
   if (!nl.length) {
-    corps.innerHTML = '<div class="cp-vide"><span class="ico"></span><b>Aucun nouveau message</b><span>Toutes les conversations sont lues.</span></div>';
+    corps.innerHTML = '<div class="cp-vide"><span class="ico">🎉</span><b>Aucun nouveau message</b><span>Toutes les conversations sont lues.</span></div>';
     return;
   }
   var parCycle = {};
@@ -5620,10 +5620,10 @@ function renduNouveaux() {
       g.length + ' message' + (g.length > 1 ? "s" : "") + ' non lu' + (g.length > 1 ? "s" : "") + '</span></div>' +
       g.map(function(c) {
         return '<div class="nv-item" onclick="ouvrirDepuisNouveaux(' + c.id + ')">' +
-          '<span class="avatar" style="background:' + couleur(c.entreprise) + '"></span>' +
-          '<span class="infos"><span class="n">' + c.nom + '</span><br/><span class="e"> ' + c.entreprise + '</span></span>' +
+          '<span class="avatar" style="background:' + couleur(c.entreprise) + '">💬</span>' +
+          '<span class="infos"><span class="n">' + c.nom + '</span><br/><span class="e">🏢 ' + c.entreprise + '</span></span>' +
           '<span class="h">' + c.heure + '</span>' +
-          '<span class="nv-bulle"> « ' + c.extrait + ' »</span>' +
+          '<span class="nv-bulle">💬 « ' + c.extrait + ' »</span>' +
         '</div>';
       }).join("");
   }).join("");
@@ -5716,24 +5716,24 @@ document.addEventListener("contextmenu", function(ev) {
    RATTACHEMENT : une conversation peut être rattachée à une
    autre (dossier) — elle quitte la boîte de réception et ses
    messages apparaissent dans le fil de la conversation
-   principale, avec un badge «  rattachée ».
+   principale, avec un badge « 📎 rattachée ».
    ============================================================ */
 var SUJET_MANUEL = {};   /* conv id -> sujet forcé (sinon détection auto) */
 var RATTACHE = {};       /* conv id -> id de la conversation principale */
 
 var SUJET_REGLES = [
-  [" Batterie & démarrage",   ["batterie", "tient plus la charge", "ne démarre plus", "démarre plus", "démarrage", "tourne la clé", "voyant"]],
-  [" Freinage",               ["frein", "freins", "freinage", "plaquette", "grince", "grince fort"]],
-  [" Pneu / crevaison",       ["pneu", "pneus", "crevaison", "crevé", "creve"]],
-  [" Maintenance & révision", ["révision", "revision", "maintenance", "technicien", "intervention", "entretien"]],
+  ["🔋 Batterie & démarrage",   ["batterie", "tient plus la charge", "ne démarre plus", "démarre plus", "démarrage", "tourne la clé", "voyant"]],
+  ["🔧 Freinage",               ["frein", "freins", "freinage", "plaquette", "grince", "grince fort"]],
+  ["🛞 Pneu / crevaison",       ["pneu", "pneus", "crevaison", "crevé", "creve"]],
+  ["🛠️ Maintenance & révision", ["révision", "revision", "maintenance", "technicien", "intervention", "entretien"]],
   ["爵 Rétroviseur & carrosserie", ["rétroviseur", "retroviseur"]],
-  [" Pièces & équipement",    ["béquille", "pièce", "piece", "cassée", "cassé", "s'est détaché", "s'est detache"]],
-  [" Direction / guidon",    ["guidon", "tire vers", "direction", "vibre"]],
-  [" Commercial & devis",    ["devis", "commercial", "flotte", "renouvellement", "supplémentaires", "contrat"]],
-  [" Impayé & comptabilité",  ["impayé", "impaye", "régularisation", "regularisation", "comptabilité", "comptabilite", "facture"]],
-  [" Paiement",               ["paiement", "payer", "prélèvement", "prelevement", "carte"]]
+  ["🔩 Pièces & équipement",    ["béquille", "pièce", "piece", "cassée", "cassé", "s'est détaché", "s'est detache"]],
+  ["🔧 Direction / guidon",    ["guidon", "tire vers", "direction", "vibre"]],
+  ["💼 Commercial & devis",    ["devis", "commercial", "flotte", "renouvellement", "supplémentaires", "contrat"]],
+  ["💰 Impayé & comptabilité",  ["impayé", "impaye", "régularisation", "regularisation", "comptabilité", "comptabilite", "facture"]],
+  ["💳 Paiement",               ["paiement", "payer", "prélèvement", "prelevement", "carte"]]
 ];
-var SUJET_DEFAUT = " Autre demande";
+var SUJET_DEFAUT = "📝 Autre demande";
 
 function sujetDetecte(c) {
   if (SUJET_MANUEL[c.id]) return SUJET_MANUEL[c.id];
@@ -5773,7 +5773,7 @@ function detacher(id) {
 }
 
 /* ===== v119 : rattacher une conversation (ou une adresse email) à une
-   entreprise du carnet — bouton «  Entreprise… » dans l'en-tête du fil.
+   entreprise du carnet — bouton « 🔗 Entreprise… » dans l'en-tête du fil.
    L'email de la conversation est aussi ajouté aux contacts de la société :
    les prochains emails de cette adresse fusionneront dans la conversation. */
 function ouvrirRattacheEnt() {
@@ -5784,8 +5784,8 @@ function ouvrirRattacheEnt() {
   m.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;";
   m.addEventListener("click", function(ev){ if (ev.target === m) fermerRattacheEnt(); });
   m.innerHTML = '<div style="background:#fff;border-radius:14px;width:min(520px,94vw);max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(15,23,42,.25);">'
-    + '<div class="carnet-head"><b> Rattacher à une entreprise</b><span class="carnet-nb">' + escTxt(c.nom) + (c.entreprise ? ' · actuellement : ' + escTxt(c.entreprise) : ' · sans entreprise') + '</span><button class="btn-fermer" onclick="fermerRattacheEnt()">✕ Fermer</button></div>'
-    + '<div style="padding:10px 14px;border-bottom:1px solid #e2e9f1;"><input id="ratt-ent-q" placeholder=" Rechercher une enseigne, un SIREN, une adresse…" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #cbd5e1;border-radius:9px;font-size:13px;" oninput="renduRattacheEnt()"/></div>'
+    + '<div class="carnet-head"><b>🔗 Rattacher à une entreprise</b><span class="carnet-nb">' + escTxt(c.nom) + (c.entreprise ? ' · actuellement : ' + escTxt(c.entreprise) : ' · sans entreprise') + '</span><button class="btn-fermer" onclick="fermerRattacheEnt()">✕ Fermer</button></div>'
+    + '<div style="padding:10px 14px;border-bottom:1px solid #e2e9f1;"><input id="ratt-ent-q" placeholder="🔎 Rechercher une enseigne, un SIREN, une adresse…" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1px solid #cbd5e1;border-radius:9px;font-size:13px;" oninput="renduRattacheEnt()"/></div>'
     + '<div id="ratt-ent-corps" style="overflow-y:auto;padding:10px 14px;"></div>'
     + '</div>';
   document.body.appendChild(m);
@@ -5800,7 +5800,7 @@ function renduRattacheEnt() {
   box.innerHTML = liste.length ? liste.map(function(s){
     var entEsc = s.ent.replace(/'/g, "\\'");
     return '<div class="nv-item" onclick="rattacherEntreprise(\'' + entEsc + '\')">'
-      + '<span class="avatar" style="background:' + couleur(s.ent) + '"></span>'
+      + '<span class="avatar" style="background:' + couleur(s.ent) + '">🏢</span>'
       + '<span class="infos"><span class="n">' + escTxt(s.ent) + '</span><br/><span class="e">' + escTxt(s.siege) + (s.siren ? ' · SIREN ' + escTxt(s.siren) : '') + '</span></span>'
       + '<span class="risque ' + s.classeR + '">' + escTxt(s.risque) + '</span></div>';
   }).join("") : '<div class="cl-vide">Aucune entreprise trouvée pour « ' + escTxt(q) + ' ».</div>';
@@ -5825,34 +5825,34 @@ function rattacherEntreprise(ent) {
   actIndex(cleConv(c)).entreprise = ent;
   fermerRattacheEnt();
   renduListe(); renduFil(); renduMesCycles(); rafraichirFiche();
-  pushNotif(" Conversation de " + c.nom + " rattachée à « " + ent + " »" + (avant ? " (avant : « " + avant + " »)" : ""));
+  pushNotif("🔗 Conversation de " + c.nom + " rattachée à « " + ent + " »" + (avant ? " (avant : « " + avant + " »)" : ""));
 }
 function convsDeSociete(ent) { return CONVS.filter(function(c){ return c.entreprise === ent; }); }
 function convsArchivees(ent) { return convsDeSociete(ent).filter(function(c){ return c.archive; }); }
 
 /* ----- Arbre par sujet détecté (fiche client + carnet d'adresses) ----- */
 function convLigneSujet(c) {
-  return '<div class="suj-conv" id="cvj-' + c.id + '"><span>' + (c.canal === "WhatsApp" ? "" : "✉") + '</span>' +
+  return '<div class="suj-conv" id="cvj-' + c.id + '"><span>' + (c.canal === "WhatsApp" ? "💬" : "✉️") + '</span>' +
     '<span class="qui">' + c.nom + '</span>' +
     '<span class="cy ' + c.classe + '">' + c.cycle + '</span>' +
-    '<span class="tag" title="Sujet principal détecté automatiquement" style="' + (SUJET_MANUEL[c.id] ? "background:#fff7ed;color:#c2410c;" : "") + '"> ' + sujetDetecte(c) + '</span>' +
-    '<span class="tag" title="Date du dernier message" style="background:#eef1f5;color:#475569;"> ' + (c.dateLbl || c.heure) + '</span>' +
+    '<span class="tag" title="Sujet principal détecté automatiquement" style="' + (SUJET_MANUEL[c.id] ? "background:#fff7ed;color:#c2410c;" : "") + '">📁 ' + sujetDetecte(c) + '</span>' +
+    '<span class="tag" title="Date du dernier message" style="background:#eef1f5;color:#475569;">📅 ' + (c.dateLbl || c.heure) + '</span>' +
     '<span class="sp">' +
       '<button class="btn" style="padding:2px 8px;" title="Corriger le sujet détecté" onclick="sujetEditer(' + c.id + ')">✏</button>' +
       '<button class="btn" style="padding:2px 8px;" title="Voir la conversation" onclick="voirConv(' + c.id + ')">Voir →</button>' +
-      '<button class="btn" style="padding:2px 8px;" title="Rattacher cette conversation à une autre (dossier)" onclick="ouvrirRattache(' + c.id + ')"></button>' +
-      '<button class="btn" style="padding:2px 8px;" title="Archiver" onclick="archiverConv(' + c.id + ', true)"></button>' +
+      '<button class="btn" style="padding:2px 8px;" title="Rattacher cette conversation à une autre (dossier)" onclick="ouvrirRattache(' + c.id + ')">🔗</button>' +
+      '<button class="btn" style="padding:2px 8px;" title="Archiver" onclick="archiverConv(' + c.id + ', true)">🗄️</button>' +
     '</span></div>' +
     enfantsRattaches(c.id).map(function(e){
-      return '<div class="suj-conv suj-enfant" style="background:#f8fafc;"><span></span>' +
+      return '<div class="suj-conv suj-enfant" style="background:#f8fafc;"><span>📎</span>' +
         '<span class="qui">' + e.nom + '</span>' +
         '<span class="cy ' + e.classe + '">' + e.cycle + '</span>' +
-        '<span class="tag"> ' + sujetDetecte(e) + '</span>' +
-        '<span class="tag" title="Date du dernier message" style="background:#eef1f5;color:#475569;"> ' + (e.dateLbl || e.heure) + '</span>' +
+        '<span class="tag">📁 ' + sujetDetecte(e) + '</span>' +
+        '<span class="tag" title="Date du dernier message" style="background:#eef1f5;color:#475569;">📅 ' + (e.dateLbl || e.heure) + '</span>' +
         '<span class="sp">' +
           '<button class="btn" style="padding:2px 8px;" onclick="voirConv(' + e.id + ')">Voir →</button>' +
           '<button class="btn" style="padding:2px 8px;" title="Détacher cette conversation du dossier" onclick="detacher(' + e.id + '); rafraichirTout(); renduFil();">↩ Détacher</button>' +
-          '<button class="btn" style="padding:2px 8px;" title="Archiver" onclick="archiverConv(' + e.id + ', true)"></button>' +
+          '<button class="btn" style="padding:2px 8px;" title="Archiver" onclick="archiverConv(' + e.id + ', true)">🗄️</button>' +
         '</span></div>';
     }).join("");
 }
@@ -5899,19 +5899,19 @@ function sujetsArbreHtml(ent) {
 function archivesHtml(ent) {
   var arch = convsArchivees(ent);
   if (!arch.length) return "";
-  return '<div class="suj-titre" style="color:#64707f;margin-top:14px;"> Archives <span class="tag">' + arch.length + '</span></div>' +
+  return '<div class="suj-titre" style="color:#64707f;margin-top:14px;">🗄️ Archives <span class="tag">' + arch.length + '</span></div>' +
     arch.map(function(c){
       var enfs = enfantsRattaches(c.id);
-      return '<div class="suj-conv suj-arch"><span></span><span class="qui">' + c.nom + '</span>' +
+      return '<div class="suj-conv suj-arch"><span>📦</span><span class="qui">' + c.nom + '</span>' +
         '<span class="cy ' + c.classe + '">' + c.cycle + '</span>' +
-        '<span class="tag" title="Date du dernier message" style="background:#eef1f5;color:#475569;"> ' + (c.dateLbl || c.heure) + '</span>' +
+        '<span class="tag" title="Date du dernier message" style="background:#eef1f5;color:#475569;">📅 ' + (c.dateLbl || c.heure) + '</span>' +
         '<span class="sp"><button class="btn" style="padding:2px 8px;" onclick="voirConv(' + c.id + ')">Voir →</button>' +
         '<button class="btn" style="padding:2px 8px;" title="Désarchiver : la conversation revient dans la boîte de réception" onclick="archiverConv(' + c.id + ', false)">↩ Désarchiver</button></span></div>' +
         enfs.map(function(e){
-          return '<div class="suj-conv suj-enfant" style="background:#f8fafc;"><span></span><span class="qui">' + e.nom + '</span>' +
+          return '<div class="suj-conv suj-enfant" style="background:#f8fafc;"><span>📎</span><span class="qui">' + e.nom + '</span>' +
             '<span class="cy ' + e.classe + '">' + e.cycle + '</span>' +
-            '<span class="tag"> ' + sujetDetecte(e) + '</span>' +
-            '<span class="tag" title="Date du dernier message" style="background:#eef1f5;color:#475569;"> ' + (e.dateLbl || e.heure) + '</span>' +
+            '<span class="tag">📁 ' + sujetDetecte(e) + '</span>' +
+            '<span class="tag" title="Date du dernier message" style="background:#eef1f5;color:#475569;">📅 ' + (e.dateLbl || e.heure) + '</span>' +
             '<span class="sp"><button class="btn" style="padding:2px 8px;" onclick="voirConv(' + e.id + ')">Voir →</button>' +
             '<button class="btn" style="padding:2px 8px;" title="Détacher du dossier archivé" onclick="detacher(' + e.id + '); rafraichirTout(); renduFil();">↩ Détacher</button></span></div>';
         }).join("");
@@ -5972,7 +5972,7 @@ function fermerRattache() { document.getElementById("rattache").classList.remove
 
 function renduRattache() {
   var c = convParId(RATT_SEL); if (!c) return;
-  document.getElementById("rattache-titre").textContent = " " + c.nom + " · " + sujetDetecte(c);
+  document.getElementById("rattache-titre").textContent = "💬 " + c.nom + " · " + sujetDetecte(c);
 
   /* candidats : uniquement les autres conversations du MÊME client (même société), y compris archivées */
   var exclus = {}; exclus[c.id] = true;
@@ -5984,13 +5984,13 @@ function renduRattache() {
   var cand = CONVS.filter(function(x){ return x.entreprise === c.entreprise && !RATTACHE[x.id] && !exclus[x.id]; });
 
   document.getElementById("rattache-corps").innerHTML =
-    '<div style="font-size:12px;color:#64707f;margin-bottom:10px;">Sélectionne la conversation <b>principale</b> du même client à laquelle rattacher <b>' + c.nom + '</b> — les conversations archivées  sont proposées aussi. La conversation rattachée quittera la boîte de réception (désattachable à tout moment).</div>' +
+    '<div style="font-size:12px;color:#64707f;margin-bottom:10px;">Sélectionne la conversation <b>principale</b> du même client à laquelle rattacher <b>' + c.nom + '</b> — les conversations archivées 📦 sont proposées aussi. La conversation rattachée quittera la boîte de réception (désattachable à tout moment).</div>' +
     (cand.length ? cand.map(function(x){
       return '<div class="nv-item" onclick="rattacherEtFermer(' + c.id + ', ' + x.id + ')">' +
-        '<span class="avatar" style="background:' + couleur(x.entreprise) + '">' + (x.archive ? "" : "") + '</span>' +
+        '<span class="avatar" style="background:' + couleur(x.entreprise) + '">' + (x.archive ? "📦" : "💬") + '</span>' +
         '<span class="infos"><span class="n">' + x.nom + '</span><br/>' +
-        '<span class="e"> ' + sujetDetecte(x) + ' · <span class="cy ' + x.classe + '">' + x.cycle + '</span>' + (x.archive ? ' <span class="tag"> archivée</span>' : '') + '</span></span>' +
-        '<span class="h"> ' + (x.dateLbl || x.heure) + '</span></div>';
+        '<span class="e">📁 ' + sujetDetecte(x) + ' · <span class="cy ' + x.classe + '">' + x.cycle + '</span>' + (x.archive ? ' <span class="tag">📦 archivée</span>' : '') + '</span></span>' +
+        '<span class="h">📅 ' + (x.dateLbl || x.heure) + '</span></div>';
     }).join("") : '<div class="cl-vide">Aucune autre conversation pour ce client.</div>');
 }
 function rattacherEtFermer(id, parentId) {
@@ -6023,14 +6023,14 @@ function majBadgeAuth() {
   var b = document.getElementById("btn-auth");
   var s = sessionDe();
   if (s && s.utilisateur) {
-    b.textContent = " " + s.utilisateur.nom + (s.utilisateur.role === "admin" ? " (admin)" : "");
+    b.textContent = "👤 " + s.utilisateur.nom + (s.utilisateur.role === "admin" ? " (admin)" : "");
     b.classList.add("conncte");
     b.title = "Connecté : " + s.utilisateur.email + " — clique pour te déconnecter";
     appliquerMoiSession(s.utilisateur.nom);
     var bc = document.getElementById("btn-comptes");
     if (bc) bc.style.display = s.utilisateur.role === "admin" ? "" : "none";
   } else {
-    b.textContent = " Connexion";
+    b.textContent = "👤 Connexion";
     b.classList.remove("conncte");
     b.title = "Connexion équipe C6 (compte agent_sav.utilisateurs)";
     var bc0 = document.getElementById("btn-comptes");
@@ -6202,7 +6202,7 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
         } else if (typ === "cycle" || typ === "assigne") {
           /* C34-NOTIF-SPAM : « < » strict — ne rejouer que si strictement plus
              récent, sinon chaque refresh auto recomptait toutes les actions
-             existantes (<=) et renvoyait une notif «  » toutes les 60 s. */
+             existantes (<=) et renvoyait une notif « 🔄 » toutes les 60 s. */
           if (!ix[typ + "_a"] || ix[typ + "_a"] < h) {
             ix[typ] = String(d.valeur === null ? "" : (d.valeur || ""));
             ix[typ + "_a"] = h;
@@ -6270,7 +6270,7 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
             }
           } catch (e3) {}
         } else if (typ === "societe_supprime") {
-          /* v124 : fiche entreprise supprimée par un collègue (bouton ) →
+          /* v124 : fiche entreprise supprimée par un collègue (bouton 🗑️) →
              retirée du carnet ici aussi (dédup par enseigne normalisée). */
           var entSup = String(d.valeur || cle.replace(/^SOC:/, ""));
           var avLen = SOCIETES.length;
@@ -6282,7 +6282,7 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
         }
       });
       /* C18-RT : re-rendu dès qu'une action équipe change (même un simple
-         « vu » → les  se mettent à jour tout seuls). En mode "auto", on
+         « vu » → les 👁️ se mettent à jour tout seuls). En mode "auto", on
          n'annonce que les commentaires des autres (pas de bruit). */
       if (n || nVu) {
         renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
@@ -6291,7 +6291,7 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
           nouveaux.forEach(function(x) {
             var cN = convParCle(x.cle);
             /* C34-NOTIF-NAV : la notif porte la conversation (id + clé) → le
-               clic dans le panneau  ouvre directement le bon fil. */
+               clic dans le panneau 🔔 ouvre directement le bon fil. */
             /* C36-NOTIF-DEDUP : dédoublonnage persistant (localStorage) — un
                commentaire ne notifie qu'une fois par appareil, même avec
                plusieurs onglets ouverts ou après rechargement. */
@@ -6299,12 +6299,12 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
             var vusC = notifsVues();
             if (vusC.indexOf(keyC) >= 0) return;
             vusC.push(keyC); sauverNotifsVues(vusC);
-            pushNotif(" Nouveau commentaire de " + x.a + (cN && cN.nom ? " — " + cN.nom : ""), cN ? cN.id : null, x.cle);
+            pushNotif("💬 Nouveau commentaire de " + x.a + (cN && cN.nom ? " — " + cN.nom : ""), cN ? cN.id : null, x.cle);
           });
-          if (!nouveaux.length && n) pushNotif(" " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe mise(s) à jour");
+          if (!nouveaux.length && n) pushNotif("🔄 " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe mise(s) à jour");
 
         } else if (n) {
-          pushLog(" " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe restaurée(s)");
+          pushLog("📨 " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe restaurée(s)");
         }
       }
       if (cb) cb();
@@ -6343,7 +6343,7 @@ function cycleManuelDe(tel, email) {
 /* ===== C17-VU : accusés de vue équipe ======================================
    À l'ouverture d'une conversation, on enregistre QUI l'a ouverte (action
    'vu' persistée → rejouée sur tous les appareils). Un commentaire @mention
-   affiche «  vu par X » si X a ouvert la conversation APRÈS le commentaire. */
+   affiche « 👁️ vu par X » si X a ouvert la conversation APRÈS le commentaire. */
 function marquerVu(c) {
   if (!c || !VRAIES_DONNEES) return;
   var ix = actIndex(cleConv(c));
@@ -6375,7 +6375,7 @@ function vuTagConv(c) {
   return '<span class="tag" title="Consultée en dernier par : ' + ps.map(function(p) {
     var ix = (ACT_BAS[cleConv(c)] || {}).vu || {};
     return p + (ix[p] ? ' — ' + heureWa(ix[p]).t : '');
-  }).join(', ') + '"> vu par ' + ps.slice(0, 2).join(", ") + (ps.length > 2 ? " +" + (ps.length - 2) : '') + '</span>';
+  }).join(', ') + '">👁️ vu par ' + ps.slice(0, 2).join(", ") + (ps.length > 2 ? " +" + (ps.length - 2) : '') + '</span>';
 }
 
 /* ==================== C16-KPI : console de contrôle ========================
@@ -6384,7 +6384,7 @@ function vuTagConv(c) {
    réelles déjà synchronisées). Rejouable à volonté via le bouton Fermer/ouvrir
    ou le bouton Actualiser dans la fenêtre. */
 function ouvrirConsole() {
-  if (!VRAIES_DONNEES) { pushNotif(" La console est disponible une fois les vraies conversations chargées."); return; }
+  if (!VRAIES_DONNEES) { pushNotif("📊 La console est disponible une fois les vraies conversations chargées."); return; }
   document.getElementById("kpi").classList.add("ouvert");
   renduConsole();
 }
@@ -6464,8 +6464,8 @@ function renduConsole() {
   /* cartes : 2 héro (conversations, réponse médiane) en dégradé bleu plein */
   html += '<div class="kpi-grille">' +
     kpiCarte(actives.length, "Conversations actives", true) +
-    kpiCarte(nonLues, "Non lues ") +
-    kpiCarte(nonAssign, "Non assignées ") +
+    kpiCarte(nonLues, "Non lues 💬") +
+    kpiCarte(nonAssign, "Non assignées 👤") +
     kpiCarte(nbComms, "Commentaires internes") +
     kpiCarte(ent.reduce(function(a, b) { return a + b; }, 0), "Messages reçus (7 j)") +
     kpiCarte(medDelai === null ? "—" : fmtDelaiKpi(medDelai), "Réponse médiane ⏱", true) +
@@ -6474,13 +6474,13 @@ function renduConsole() {
   var totalCanaux = nbWa + nbMail;
   var pcWa = totalCanaux ? Math.round(100 * nbWa / totalCanaux) : 0;
   html += '<div class="kpi-duo">' +
-    '<div class="kpi-boite"><div class="kpi-sec" style="margin-top:0;"> Canaux</div>' +
+    '<div class="kpi-boite"><div class="kpi-sec" style="margin-top:0;">📡 Canaux</div>' +
     '<div class="kpi-donut" style="background:conic-gradient(#0e5aa7 0 ' + pcWa + '%, #37b97c ' + pcWa + '% 100%);"><b>' + totalCanaux + '</b></div>' +
     '<div class="kpi-legende">' +
-    '<span><i style="background:#0e5aa7;"></i> WhatsApp : ' + nbWa + '</span>' +
+    '<span><i style="background:#0e5aa7;"></i>💬 WhatsApp : ' + nbWa + '</span>' +
     '<span><i style="background:#37b97c;"></i>✉ Email : ' + nbMail + '</span>' +
     '</div></div>' +
-    '<div class="kpi-boite" style="flex:2;"><div class="kpi-sec" style="margin-top:0;"> Activité 7 jours</div>' +
+    '<div class="kpi-boite" style="flex:2;"><div class="kpi-sec" style="margin-top:0;">📈 Activité 7 jours</div>' +
     '<div class="kpi-graphe">';
   for (var j4 = 0; j4 < 7; j4++) {
     var hE = maxJour ? Math.round(78 * ent[j4] / maxJour) : 0;
@@ -6498,13 +6498,13 @@ function renduConsole() {
   CYCLES_LISTE.forEach(function(cy) {
     if (cy !== "tous") html += barreKpi(cy, parCycle[cy], maxCycle);
   });
-  html += '<div class="kpi-sec"> Charge par personne</div>';
+  html += '<div class="kpi-sec">👤 Charge par personne</div>';
   Object.keys(parPers).forEach(function(p) {
     html += barreKpi(p, parPers[p], maxPers, p === "Non assignées");
   });
-  html += '<div class="kpi-sec"> Top sujets</div>';
+  html += '<div class="kpi-sec">📁 Top sujets</div>';
   sujetsTries.forEach(function(s) { html += barreKpi(s, parSujet[s], parSujet[sujetsTries[0]]); });
-  html += '<div style="margin-top:12px;"><button class="btn" onclick="renduConsole()"> Recalculer</button> ' +
+  html += '<div style="margin-top:12px;"><button class="btn" onclick="renduConsole()">🔄 Recalculer</button> ' +
     '<span class="petit" style="color:#8a93a3;font-size:10.5px;">KPI calculés sur les conversations chargées dans cette page — non lues = jamais ouvertes ici, réponse médiane = écart entre un message client et la réponse agent qui suit.</span></div>';
   el.innerHTML = html;
 }
@@ -6524,7 +6524,7 @@ function escCpt(t) {
 function ouvrirComptes() {
   var s = sessionDe();
   if (!s || !s.utilisateur || s.utilisateur.role !== "admin") {
-    pushNotif(" Panneau Comptes réservé aux admins — connecte-toi avec un compte admin.");
+    pushNotif("🛡️ Panneau Comptes réservé aux admins — connecte-toi avec un compte admin.");
     return;
   }
   document.getElementById("comptes").classList.add("ouvert");
@@ -6560,7 +6560,7 @@ function renduComptes() {
       '<span class="cpt-infos"><span class="n">' + escCpt(u.nom || u.email) + (estMoi ? " <span style=\"color:#0e5aa7\">(toi)</span>" : "") + '</span><br/>' +
       '<span class="e">' + escCpt(u.email) + " · dernière connexion : " + (u.derniere_connexion ? escCpt(String(u.derniere_connexion).substring(0, 16)).replace("T", " à ") : "jamais") + '</span></span>' +
       '<span class="cpt-badge ' + (u.role === "admin" ? "admin" : "collab") + '">' + (u.role === "admin" ? "admin" : "collaborateur") + '</span>' +
-      '<button class="cpt-btn" title="Réinitialiser le mot de passe — un nouveau mot de passe aléatoire sera généré et affiché UNE SEULE FOIS (les mots de passe existants ne sont jamais stockés en clair, ils ne peuvent pas être relus)" onclick="reinitCompte(' + i + ')"></button>' +
+      '<button class="cpt-btn" title="Réinitialiser le mot de passe — un nouveau mot de passe aléatoire sera généré et affiché UNE SEULE FOIS (les mots de passe existants ne sont jamais stockés en clair, ils ne peuvent pas être relus)" onclick="reinitCompte(' + i + ')">🔑</button>' +
       '<button class="cpt-btn ' + (actif ? "desact" : "actif") + '" onclick="basculerCompte(' + i + ')">' + (actif ? "Désactiver" : "Réactiver") + '</button>' +
       '</div>';
   }).join("");
@@ -6579,7 +6579,7 @@ function basculerCompte(i) {
     if (!rep.ok) { alert(rep.erreur || "échec"); return; }
     COMPTES_LISTE[i].actif = u.actif !== true;
     renduComptes();
-    pushNotif((u.actif === true ? " Compte désactivé : " : " Compte réactivé : ") + u.nom);
+    pushNotif((u.actif === true ? "🛡️ Compte désactivé : " : "🛡️ Compte réactivé : ") + u.nom);
   }).catch(function(e){ alert("Réseau : " + e); });
 }
 /* ===== C6-AUTH-2 : réinitialisation ADMIN d'un mot de passe =====
@@ -6600,7 +6600,7 @@ function reinitCompte(i) {
   }).then(function(r){ return r.json(); }).then(function(rep){
     if (!rep.ok) { alert("Échec : " + (rep.erreur || "erreur")); return; }
     afficherNouveauMdp(u, rep.mot_de_passe || "");
-    pushNotif(" Mot de passe réinitialisé pour " + (u.nom || u.email) + " — nouveau mot de passe affiché.");
+    pushNotif("🔑 Mot de passe réinitialisé pour " + (u.nom || u.email) + " — nouveau mot de passe affiché.");
   }).catch(function(e){ alert("Réseau : " + e); });
 }
 function afficherNouveauMdp(u, mdp) {
@@ -6610,12 +6610,12 @@ function afficherNouveauMdp(u, mdp) {
   d.id = "mdp-modal";
   d.style.cssText = "position:fixed;inset:0;background:rgba(16,28,44,.45);backdrop-filter:blur(2px);z-index:9999;display:flex;align-items:center;justify-content:center;";
   d.innerHTML = '<div style="background:#fff;border-radius:14px;max-width:400px;width:92%;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,.3);">' +
-    '<div style="background:linear-gradient(135deg,#0e5aa7,#1c7ed6);color:#fff;padding:14px 20px;"><h3 style="margin:0;font-size:15px;font-weight:800;"> Nouveau mot de passe</h3></div>' +
+    '<div style="background:linear-gradient(135deg,#0e5aa7,#1c7ed6);color:#fff;padding:14px 20px;"><h3 style="margin:0;font-size:15px;font-weight:800;">🔑 Nouveau mot de passe</h3></div>' +
     '<div style="padding:16px 20px;">' +
     '<p style="margin:0 0 12px;font-size:12px;color:#5A626B;">Compte : <b>' + escCpt(u.nom || u.email) + '</b> · ' + escCpt(u.email) + '<br/>⚠ Affiché <b>une seule fois</b> — copie-le maintenant et transmets-le à la personne.</p>' +
     '<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">' +
     '<code id="mdp-nouveau" style="flex:1;background:#f1f4f8;border:1px solid #d7dde5;border-radius:8px;padding:10px 12px;font-size:15px;font-weight:bold;letter-spacing:1px;user-select:all;">' + escCpt(mdp) + '</code>' +
-    '<button class="cpt-btn actif" onclick="copierNouveauMdp(this)"> Copier</button>' +
+    '<button class="cpt-btn actif" onclick="copierNouveauMdp(this)">📋 Copier</button>' +
     '</div>' +
     '<button class="cpt-btn actif" style="background:#0e5aa7;color:#fff;width:100%;padding:8px 0;" onclick="var m=document.getElementById(\'mdp-modal\');if(m&&m.parentNode)m.parentNode.removeChild(m);">Fermer</button>' +
     '</div></div>';
@@ -6659,7 +6659,7 @@ function creerCompte() {
 /* C6.2 : MOI suit le compte connecté — le prénom du compte devient le
    profil actif (messages envoyés, commentaires, « Mes conversations »).
    Si le prénom n'existe pas encore dans PROFILS, on l'ajoute (icône/couleur
-   par défaut, modifiable via  Profils). */
+   par défaut, modifiable via 👥 Profils). */
 function appliquerMoiSession(nomComplet) {
   var prenom = String(nomComplet || "").trim().split(/\s+/)[0] || "";
   if (!prenom) return;
@@ -6694,7 +6694,7 @@ function seConnecter() {
     fermerConnexion();
     document.getElementById("auth-mdp").value = "";
     apresConnexion();
-    pushNotif(" Connecté : " + rep.utilisateur.nom + " (" + rep.utilisateur.role + ")");
+    pushNotif("👤 Connecté : " + rep.utilisateur.nom + " (" + rep.utilisateur.role + ")");
   }).catch(function(e){
     msg.textContent = "Réseau injoignable : " + e;
   });
@@ -6704,7 +6704,7 @@ function seDeconnecter() {
   arreterAuto();
   majBadgeAuth(); majBadgeAuto();
   afficherPorte();
-  pushNotif(" Déconnecté.");
+  pushNotif("👤 Déconnecté.");
 }
 function verifierSession() {
   var s = sessionDe();
@@ -6794,7 +6794,7 @@ function porteConnexion() {
     }
     localStorage.setItem("umob_session", JSON.stringify({ jeton: rep.jeton, utilisateur: rep.utilisateur }));
     apresConnexion();
-    pushNotif(" Connecté : " + rep.utilisateur.nom + " (" + rep.utilisateur.role + ")");
+    pushNotif("👤 Connecté : " + rep.utilisateur.nom + " (" + rep.utilisateur.role + ")");
   }).catch(function(e){
     if (msg) msg.textContent = "Réseau injoignable : " + e;
     if (btn) { btn.disabled = false; btn.textContent = "Se connecter"; }
@@ -6802,7 +6802,7 @@ function porteConnexion() {
 }
 
 /* ==================== C8-ASSIST-1 : Assistant IA (bulle bas droite) ======= */
-var IA_MSGS = [{ de: "ia", txt: "Bonjour  Je suis l'assistant de la plateforme SAV U'mob.\n\n- Questions sur le FONCTIONNEMENT de la plateforme : je connais le guide complet (cycles, filtres, envois, outils…).\n- Questions sur les DONNÉES : « les derniers échanges avec PIZZA COSY », « où en est le dossier de tel client ? », etc.\n\nSi une conversation est ouverte, je sais de quel client on parle." }];
+var IA_MSGS = [{ de: "ia", txt: "Bonjour 👋 Je suis l'assistant de la plateforme SAV U'mob.\n\n- Questions sur le FONCTIONNEMENT de la plateforme : je connais le guide complet (cycles, filtres, envois, outils…).\n- Questions sur les DONNÉES : « les derniers échanges avec PIZZA COSY », « où en est le dossier de tel client ? », etc.\n\nSi une conversation est ouverte, je sais de quel client on parle." }];
 var IA_ENVOI = false;
 function iaBasculer() {
   var f = document.getElementById("ia-fen");
@@ -6864,7 +6864,7 @@ function iaEnvoyer() {
 function themeCourant() { return document.body.classList.contains("umob") ? "umob" : (document.body.classList.contains("sombre") ? "sombre" : "bleu"); }
 function majBoutonTheme() {
   var b = document.getElementById("btn-theme");
-  if (b) b.innerHTML = { bleu: " Thème : Bleu", umob: " Thème : U'mob", sombre: " Thème : Sombre" }[themeCourant()];
+  if (b) b.innerHTML = { bleu: "🎨 Thème : Bleu", umob: "🎨 Thème : U'mob", sombre: "🎨 Thème : Sombre" }[themeCourant()];
 }
 function basculerThemeUmob() {
   var t = themeCourant();
@@ -6882,12 +6882,12 @@ var DING_ACTIF = (function () { try { return localStorage.getItem("umob_ding") !
 var DERNIER_NB_NONLUS = -1;
 function majBoutonDing() {
   var b = document.getElementById("btn-ding");
-  if (b) { b.textContent = DING_ACTIF ? "" : ""; b.title = DING_ACTIF ? "Notification sonore activée — un « ding » retentit à l'arrivée d'un nouveau message. Clique pour couper." : "Notification sonore coupée. Clique pour réactiver."; }
+  if (b) { b.textContent = DING_ACTIF ? "🔊" : "🔇"; b.title = DING_ACTIF ? "Notification sonore activée — un « ding » retentit à l'arrivée d'un nouveau message. Clique pour couper." : "Notification sonore coupée. Clique pour réactiver."; }
 }
 function basculerDing() {
   DING_ACTIF = !DING_ACTIF;
   try { localStorage.setItem("umob_ding", DING_ACTIF ? "1" : "0"); } catch (e) {}
-  /* C8-NOTIF-2 : le clic sur  (geste utilisateur) sert aussi à demander
+  /* C8-NOTIF-2 : le clic sur 🔊 (geste utilisateur) sert aussi à demander
      l'autorisation de notification système — sans geste, le navigateur
      peut la refuser. */
   if (DING_ACTIF && typeof Notification !== "undefined" && Notification.permission === "default") {
@@ -6918,7 +6918,7 @@ majBoutonDing();
    Le badge + le ding ne servent à rien si l'onglet est en arrière-plan :
    la Notification du navigateur (et mobile, si installée en PWA) prend le
    relais — un clic dessus rouvre la première conversation concernée.
-   Permission demandée au clic sur  (geste utilisateur requis). */
+   Permission demandée au clic sur 🔊 (geste utilisateur requis). */
 var DERNIERES_NONLUES = [];
 function notifierSysteme(convs) {
   if (!convs || !convs.length) return;
@@ -6929,12 +6929,12 @@ function notifierSysteme(convs) {
     var corps = convs.slice(0, 3).map(function(c) {
       return c.nom + " : " + String(c.extrait || "").slice(0, 60);
     }).join("\n") + (convs.length > 3 ? "\n… +" + (convs.length - 3) + " autre" + (convs.length - 3 > 1 ? "s" : "") : "");
-    var n = new Notification(" " + convs.length + " nouveau" + pl + " message" + pl, { body: corps, tag: "umob-nouveau" });
+    var n = new Notification("💬 " + convs.length + " nouveau" + pl + " message" + pl, { body: corps, tag: "umob-nouveau" });
     n.onclick = function() { try { window.focus(); } catch (e) {} voirConv(convs[0].id); try { n.close(); } catch (e) {} };
   } catch (e) {}
 }
 
-var VER_FRONT = 'v143 · C43-PJ-WA : pièces jointes WhatsApp (même principe que le mail) — upload bucket wa-media + envoi par lien';
+var VER_FRONT = 'v144 · C44-EMOJI : restauration des emoji · C43-PJ-WA : pièces jointes WhatsApp (même principe que le mail) — upload bucket wa-media + envoi par lien';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
