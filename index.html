@@ -5229,7 +5229,13 @@ function renduPageCarnet() {
   var s2 = socParEnt(CARNET_SEL.ent);
   if (!s2) { CARNET_SEL = null; return renduPageCarnet(); }
   var ent2 = s2.ent;
-  var nbCt = s2.convs.length || (s2.vraisContacts || []).length;
+  var nbCt = (function(){
+    var tels = {};
+    s2.convs.forEach(function(id){ var c = convParId(id); if (c && c.contact && c.contact.tel) tels[String(c.contact.tel).replace(/\D/g, "")] = 1; });
+    var n = s2.convs.length;
+    (s2.vraisContacts || []).forEach(function(v){ if (!tels[String(v.tel || "").replace(/\D/g, "")]) n++; });
+    return n;
+  })();
   var nbSuj = CONVS.filter(function(c){ return c.entreprise === ent2 && !c.archive && !RATTACHE[c.id]; }).length;
   page.innerHTML =
     '<div class="fiche-entete">' +
@@ -5259,7 +5265,10 @@ function renduPageCarnet() {
       carnetTete(ent2, "contacts", "fs-teal", "", "Contacts de la société",
         '<span style="margin-left:auto;font-weight:600;text-transform:none;letter-spacing:0;">' + nbCt + ' contact' + (nbCt > 1 ? 's' : '') + '</span>') +
       carnetCorps(ent2, "contacts",
-        (s2.convs.length ? s2.convs.map(function(id) {
+        (function(){
+          var html = "", telsConv = {};
+          s2.convs.forEach(function(id){ var c = convParId(id); if (c && c.contact && c.contact.tel) telsConv[String(c.contact.tel).replace(/\D/g, "")] = 1; });
+          html += s2.convs.map(function(id) {
           var c = convParId(id);
           if (!c) return "";
           return '<div class="cp-contact" onclick="ouvrirPageContact(' + c.id + ')">' +
@@ -5269,14 +5278,19 @@ function renduPageCarnet() {
             '<span class="cy ' + c.classe + '">' + c.cycle + '</span>' +
             '<button class="btn-tel" onclick="event.stopPropagation(); appelerContact(' + c.id + ')" title="Appeler (Ringover à brancher)"></button>' +
           '</div>';
-        }).join("") : (s2.vraisContacts || []).map(function(v, i) {
-          return '<div class="cp-contact">' +
+        }).join("");
+          (s2.vraisContacts || []).forEach(function(v, i){
+            if (telsConv[String(v.tel || "").replace(/\D/g, "")]) return;
+            html += 
+          '<div class="cp-contact">' +
             '<span class="avatar" style="background:' + couleur(v.nom) + '">' + initiales(v.nom) + '</span>' +
             '<span class="infos"><span class="n">' + v.nom + '</span><br/>' +
             '<span class="t"> WhatsApp · ' + v.tel + (v.email ? ' · ✉ ' + v.email : '') + ' ·  ' + v.plaque + '</span></span>' +
             '<button class="btn" style="padding:3px 9px;font-size:11px;" onclick="lancerConvVrai(\'' + s2.ent.replace(/'/g, "\\'") + '\',' + i + ')" title="Créer une conversation avec ce contact"> Lancer</button>' +
           '</div>';
-        }).join("")),
+                  });
+          return html;
+        })(),
         nbCt + ' contact' + (nbCt > 1 ? 's' : '')) +
     '</div>' +
 
@@ -6874,7 +6888,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v138 · Synchro Sheet « Clients Complets » : statut/facturation/sites/alertes, pack+dates par scooter, filtre par site, contacts secondaires parsés';
+var VER_FRONT = 'v139 · Synchro Sheet « Clients Complets » : statut/facturation/sites/alertes, pack+dates par scooter, filtre par site, contacts secondaires parsés';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
