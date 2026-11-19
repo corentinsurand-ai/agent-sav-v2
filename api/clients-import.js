@@ -533,8 +533,16 @@ module.exports = async function handler(req, res) {
         var limite = parseInt(paramDe(req, 'limite'), 10) || 1000;
         if (limite < 1) limite = 1;
         if (limite > 5000) limite = 5000;
-        var lignesListe = await supabaseGet('clients',
-          'select=telephone,enseigne,plaque,statut_risque,brut&order=maj_a.desc&limit=' + limite);
+        // v136 : PostgREST plafonne à max-rows=1000 par requête → pagination par offset
+        var lignesListe = [];
+        while (lignesListe.length < limite) {
+          var want = Math.min(1000, limite - lignesListe.length);
+          var chunk = await supabaseGet('clients',
+            'select=telephone,enseigne,plaque,statut_risque,brut&order=maj_a.desc&limit=' + want + '&offset=' + lignesListe.length);
+          if (!Array.isArray(chunk) || chunk.length === 0) break;
+          lignesListe = lignesListe.concat(chunk);
+          if (chunk.length < want) break;
+        }
         var nbComptages = await fusionMaintenances(lignesListe);
         return res.status(200).json({
           ok: true, brique: 'C1-IMP', version: VERSION,
