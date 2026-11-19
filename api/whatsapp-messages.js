@@ -31,7 +31,7 @@
 // Réponses : 200 ; 401 secret ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C4-AUTEUR-1';
+var VERSION = 'C4-INCR-1';
 var SCHEMA = 'agent_sav';
 
 // null tant que la présence des colonnes C2 n'est pas confirmée ;
@@ -88,7 +88,7 @@ function urlSupabase(table, params) {
 // le média téléchargé par le webhook (null si absent — aucun repli requis).
 // C4-AUTEUR-1 : brut->>envoye_par expose aussi (repli 'Plateforme' cote front
 // quand un vieux message envoye depuis la plateforme n'a pas de sender_nom).
-var SELECT_BASE = 'wa_id,nom_profil,texte,type,wamid,recu_a,brut->>sender_nom,brut->>sender,brut->>sender_id,brut->>envoye_par,brut->_media';
+var SELECT_BASE = 'id,wa_id,nom_profil,texte,type,wamid,recu_a,brut->>sender_nom,brut->>sender,brut->>sender_id,brut->>envoye_par,brut->_media';
 var SELECT_C2 = SELECT_BASE + ',sens,statut_reception';
 
 // Lecture avec repli : tente d'abord select avec les colonnes C2
@@ -325,20 +325,40 @@ module.exports = async function handler(req, res) {
     var limite = parseInt(paramDe(req, 'limite'), 10) || 1000;
     if (limite < 1) limite = 1;
     if (limite > 5000) limite = 5000;
+    // C4-INCR-1 : depuis_id > 0 → chargement INCRÉMENTAL (id > depuis_id, ordre
+    // croissant) + statuts des sortants récents (48 h) pour rafraîchir ✓/✓✓
+    // (le PATCH de statut ne change pas l'id de la ligne).
+    var depuisId = parseInt(paramDe(req, 'depuis_id'), 10) || 0;
     try {
       // fenêtre des N plus récents, renvoyés en ordre chronologique croissant
       // v112 (Disk IO) : order=id.desc (PK indexée) au lieu de recu_a.desc
       // (pas d'index sur recu_a seul → seq scan + sort à chaque appel)
-      var derniers = await supabaseGetAvecC2(
-        'select=SELECT&order=id.desc&limit=' + limite);
-      derniers.reverse();
+      var derniers, mode = 'complet';
+      if (depuisId > 0) {
+        derniers = await supabaseGetAvecC2(
+          'select=SELECT&id=gt.' + depuisId + '&order=id.asc&limit=' + limite);
+        mode = 'incremental';
+      } else {
+        derniers = await supabaseGetAvecC2(
+          'select=SELECT&order=id.desc&limit=' + limite);
+        derniers.reverse();
+      }
       var parTel = {};
       derniers.forEach(function(m) { parTel[m.wa_id] = (parTel[m.wa_id] || 0) + 1; });
-      return res.status(200).json({
-        ok: true, brique: 'C4', version: VERSION, limite: limite,
+      var corpsRep = {
+        ok: true, brique: 'C4', version: VERSION, limite: limite, mode: mode,
+        depuis_id: depuisId,
+        dernier_id: derniers.length ? (derniers[derniers.length - 1].id || 0) : depuisId,
         messages: derniers, conversations: Object.keys(parTel).length,
         total: derniers.length
-      });
+      };
+      if (depuisId > 0) {
+        var ilYa48h = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+        corpsRep.statuts = await supabaseGetAvecC2(
+          'select=wamid,wa_id,statut_reception&sens=eq.sortant&recu_a=gte.' +
+          encodeURIComponent(ilYa48h) + '&order=id.desc&limit=400');
+      }
+      return res.status(200).json(corpsRep);
     } catch (e) {
       return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
     }
