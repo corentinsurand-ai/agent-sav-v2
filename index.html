@@ -2107,12 +2107,14 @@ function estTelAffiche(s) {
   return t.replace(/\D/g, "").length >= 9 && /^\+?[\d .-]+$/.test(t);
 }
 // meilleur nom affichable : jamais une seule lettre ni un n de tel -> partie locale de l'email, sinon l'enseigne
-function nomContactMieux(nom, email, ent) {
+function nomContactMieux(nom, email, ent, principal) {
   var n = String(nom || "").trim();
+  var p = String(principal || "").trim();
   if (n.length <= 1 || estTelAffiche(n)) {
+    if (n.length === 1 && p && p.charAt(0).toUpperCase() === n.toUpperCase()) return p;
     var mel = String(email || "").trim();
     if (mel.indexOf("@") !== -1) return mel.split("@")[0];
-    return String(ent || "").trim() || "Contact";
+    return p || String(ent || "").trim() || "Contact";
   }
   return n;
 }
@@ -2176,6 +2178,13 @@ function appliquerVraisClients(liste) {
     /* PAS de conversation créée : les fiches/carnet se remplissent de vrais
        contacts ; une conversation naîtra quand un vrai message arrivera
        (brique C4) ou quand un agent en lancera une depuis une fiche. */
+    /* C47-NOM-PRINCIPAL : meilleur nom de contact principal de l’enseigne =
+       le plus long trouvé dans brut.client + les lignes. */
+    var principalNom = String((bc && bc.contact_principal) || "").trim();
+    lignes.forEach(function(l){
+      var cp = String((l && l.contact_principal) || "").trim();
+      if (cp.length > principalNom.length) principalNom = cp;
+    });
     /* C46-CONTACTS : dedup par telephone DES le contact propre de la ligne
        (avant : pousse sans dedup -> « Manager » en double quand 2 lignes de la
        meme enseigne portent le meme contact) + meilleurs noms (fin du « R »)
@@ -2185,7 +2194,7 @@ function appliquerVraisClients(liste) {
     function pousserContact(nom, fonction, email, telBrut, plaque) {
       var d = String(telE164(telBrut || "")).replace(/\D/g, "");
       var fn = estTelAffiche(fonction) ? "" : String(fonction || "").trim();
-      var entree = { nom: nomContactMieux(nom, email, ent) + (fn ? " (" + fn + ")" : ""),
+      var entree = { nom: nomContactMieux(nom, email, ent, principalNom) + (fn ? " (" + fn + ")" : ""),
         tel: telE164(telBrut), plaque: plaque || "", email: String(email || "").trim() };
       if (!d) { s.vraisContacts.push(entree); return; }
       if (telVus[d]) {
@@ -2208,7 +2217,7 @@ function appliquerVraisClients(liste) {
        On remonte ici TOUS les contacts du client : mobile principal (colonne
        téléphone des lignes) + « Autres contacts » parsés dans brut.client.contacts. */
     lignes.forEach(function(l){
-      pousserContact(nomContact || bc.contact_principal || "", "", emailContact || bc.email || "", l.telephone, "");
+      pousserContact(nomContact || principalNom || "", "", emailContact || bc.email || "", l.telephone, "");
     });
     (bc.contacts || []).forEach(function(ct){
       pousserContact(ct.nom || "", ct.fonction || "", ct.email || "", ct.tel, "");
@@ -6952,7 +6961,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v146 · C46-CONTACTS : dedup contacts par tel, meilleurs noms (fin du R, du Manager en double, fonction = n de tel) · C45-INCR · C44-EMOJI · C43-PJ-WA';
+var VER_FRONT = 'v147 · C47-NOM-PRINCIPAL : une initiale (R) réutilise le contact principal du Sheet (Radoine BEN DAHMANE) · C46-CONTACTS · C45-INCR · C44-EMOJI · C43-PJ-WA';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
