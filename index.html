@@ -2183,6 +2183,24 @@ function appliquerVraisClients(liste) {
     var vc = (cl.brut && cl.brut.contact) || cl.contact || {};
     s.vraisContacts.push({ nom: vc.nom ? (vc.nom + (vc.fonction ? " (" + vc.fonction + ")" : "")) : (nomContact || ent),
       tel: telE164(vc.tel || cl.telephone), plaque: cl.plaque || "", email: vc.email || emailContact || "" });
+    /* v137 : le miroir est clé par téléphone, donc un contact partagé entre
+       plusieurs enseignes (ex. Domino's) n'a de ligne que sous UNE enseigne.
+       On remonte ici TOUS les contacts du client : mobile principal (colonne
+       téléphone des lignes) + « Autres contacts » parsés dans brut.client.contacts. */
+    var telVus = {};
+    s.vraisContacts.forEach(function(v){ telVus[String(v.tel || "").replace(/\D/g, "")] = 1; });
+    lignes.forEach(function(l){
+      var d = String(telE164(l.telephone || "")).replace(/\D/g, "");
+      if (!d || telVus[d]) return;
+      telVus[d] = 1;
+      s.vraisContacts.push({ nom: nomContact || bc.contact_principal || ent, tel: telE164(l.telephone), plaque: "", email: emailContact || bc.email || "" });
+    });
+    (bc.contacts || []).forEach(function(ct){
+      var d = String(telE164(ct.tel || "")).replace(/\D/g, "");
+      if (!d || telVus[d]) return;
+      telVus[d] = 1;
+      s.vraisContacts.push({ nom: ct.nom + (ct.fonction ? " (" + ct.fonction + ")" : ""), tel: telE164(ct.tel), plaque: "", email: ct.email || "" });
+    });
   });
   CONVS = []; SOCIETES = socs; VRAIES_DONNEES = true;
   SELID = null; SELSENT = null;
@@ -6840,7 +6858,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v136 · Synchro Sheet « Clients Complets » : statut/facturation/sites/alertes, pack+dates par scooter, filtre par site, contacts secondaires parsés';
+var VER_FRONT = 'v137 · Synchro Sheet « Clients Complets » : statut/facturation/sites/alertes, pack+dates par scooter, filtre par site, contacts secondaires parsés';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
@@ -6849,6 +6867,7 @@ renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); ma
 </script>
 </body>
 </html>
+
 
 
 
