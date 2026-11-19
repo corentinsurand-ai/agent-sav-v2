@@ -753,51 +753,7 @@
   .conv + .conv { border-top: none; }
   .conv:hover { background: #F1F6FC; box-shadow: 0 1px 4px rgba(15,35,70,.05); }
 
-  .conv.on { background: #E8F1FB; box-shadow: inset 3px 0 0 var(--lime), 0 1px 4px rgba(15,35,70,.05); }
-  .conv .conv-c { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-  .conv .conv-l1 { display: flex; align-items: baseline; gap: 8px; }
-  .conv .conv-l1 .nom { flex: 1; min-width: 0; font-weight: 700; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .conv .heure { grid-column: auto; grid-row: auto; font-size: 11px; color: var(--mut); flex: none; }
-  .conv .extrait, .conv .sousnom { grid-column: auto; }
-  .grp-bloc .conv { margin: 0 2px; }
-  .grp-bloc { margin: 0 8px; border-radius: 0 0 12px 12px; }
-  .convs { padding: 6px 0 10px; }
-  .liste-head { padding: 14px 16px; }
 
-  /* --- fil : en-tête avec avatar, texture discrète, bulles aérées --- */
-  .fil-head { padding: 14px 20px; }
-  .fil-head .l1 { gap: 12px; }
-  .fil-head .l1 b { font-size: 16px; font-weight: 800; letter-spacing: .1px; }
-  .fil-head .l2 { gap: 7px; row-gap: 5px; padding-top: 8px; margin-top: 8px; border-top: 1px solid #EDF2F8; }
-  .fil-head .l2 .tag { background: #F0F5FA; color: #4a5a6e; border-radius: 999px; padding: 3px 10px; }
-  .messages { background-image: radial-gradient(rgba(14,90,167,.05) 1px, transparent 1px); background-size: 20px 20px; padding: 18px 22px; gap: 13px; }
-  .bulle { font-size: 13.5px; line-height: 1.5; padding: 10px 14px; }
-  .bulle .h { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; }
-  .tag { background: #F0F5FA; }
-  .rech-fil { padding: 9px 20px; }
-
-  /* --- saisie : carte blanche avec zone d'outils --- */
-  .saisie { padding: 12px 16px 14px; background: #fff; }
-  .saisie .barre { border-radius: 999px; padding: 7px 7px 7px 18px; }
-  #btn-env { border-radius: 999px; font-weight: 700; letter-spacing: .2px; }
-  .outil-btn { border-radius: 999px; padding: 2px 9px 2px 2px; font-size: 11px; }
-
-  /* --- chips cycles : version pastille pleine, lisible --- */
-  .cy { padding: 3px 10px; font-weight: 700; letter-spacing: .1px; border-radius: 999px; }
-
-  /* --- filtres : sections aérées, chips pills --- */
-  .filters-corps { padding: 16px 14px; }
-  aside.filters h3 { font-size: 11px; letter-spacing: .8px; }
-  .chip { border-radius: 999px; padding: 7px 12px; margin-bottom: 2px; }
-  .f-sec h3 { padding: 8px 2px 7px; border-bottom: 2px solid #cfe0f2; }
-  .toggle button.on { border-radius: 999px; }
-
-  /* --- topbar : plus affirmée --- */
-  header.topbar { padding: 10px 20px; box-shadow: 0 3px 14px rgba(10,40,80,.3), inset 0 1px 0 rgba(255,255,255,.15); }
-  header.topbar .crumb { border: 1px solid rgba(255,255,255,.25); }
-  /* C8-THEME-3 : anti-compression — les boutons gardent leur taille, la topbar
-     passe sur 2 lignes proprement si la fenêtre est étroite (plus de collage) */
-  header.topbar { flex-wrap: wrap; row-gap: 8px; }
   header.topbar .logo, header.topbar .crumb, header.topbar .btn-nouv,
 
   header.topbar .badge-ver, header.topbar select { flex: 0 0 auto; white-space: nowrap; }
@@ -1597,7 +1553,7 @@ var SOCIETES = [
     ], "convs": [8]},
     {"ent": "BIARRITZ PIZZA", "siren": "482224573", "siege": "65 Avenue de Verdun, 64200 Biarritz", "livraison": "Même adresse", "contact_sc": "Thomas DEVEAUX (Gérant) — 06 71 97 11 44", "risque": "A risque", "classeR": "risque", "scooters": [
       {"plaque": "HE-739-GP", "produit": "DAILY PRO CHASSIS BLANC", "contrat": "Modèle Confort + 48 — CO01995, 01/07/2025 → 30/08/2029"},
-      {"plaque": "HE-833-GP", "produit": "DAILY PRO CHASSIS BLANC", "contrat": "Modèle Confort + 48 — CO01995, 01/07/2025 → 30/08/2029"},
+
       {"plaque": "HE-669-GP", "produit": "COMPACT PRO CHASSIS BLANC", "contrat": "Modèle Confort + 48 — CO01995, 01/07/2025 → 30/08/2029"}
     ], "convs": [9]},
     {"ent": "SPAO (L'ANTICA)", "siren": "821651981", "siege": "48 RUE CHANZY, 51100 Reims", "livraison": "Même adresse", "contact_sc": "Anas (Gérant) — 06 27 47 29 86", "risque": "RAS", "classeR": "ok", "scooters": [
@@ -2144,6 +2100,22 @@ function statutRisqueDe(txt) {
   if (r === "sain") return { classe: "ok", label: "Sain" };
   return { classe: "ok", label: t || "RAS" };
 }
+/* ===== C46-CONTACTS : helpers noms/contacts ===== */
+// true si la chaine ressemble a un numero de telephone affiche (ex. 07 81 43 87 83)
+function estTelAffiche(s) {
+  var t = String(s || "").trim();
+  return t.replace(/\D/g, "").length >= 9 && /^\+?[\d .-]+$/.test(t);
+}
+// meilleur nom affichable : jamais une seule lettre ni un n de tel -> partie locale de l'email, sinon l'enseigne
+function nomContactMieux(nom, email, ent) {
+  var n = String(nom || "").trim();
+  if (n.length <= 1 || estTelAffiche(n)) {
+    var mel = String(email || "").trim();
+    if (mel.indexOf("@") !== -1) return mel.split("@")[0];
+    return String(ent || "").trim() || "Contact";
+  }
+  return n;
+}
 function appliquerVraisClients(liste) {
   if (!CONVS_DEMO) { CONVS_DEMO = CONVS; SOCIETES_DEMO = SOCIETES; }
   var parEnt = {}, socs = [], convs = [], nid = 1, ignoresTest = 0;
@@ -2196,7 +2168,7 @@ function appliquerVraisClients(liste) {
       if (!s.siren && l.siren) s.siren = l.siren;
       if (!nomContact) {
         var nc = [l.prenom, l.nom_contact].filter(String).join(" ");
-        if (nc) nomContact = nc + (l.fonction ? " (" + l.fonction + ")" : "");
+        if (nc) nomContact = nc + ((l.fonction && !estTelAffiche(l.fonction)) ? " (" + l.fonction + ")" : "");
       }
       if (!s.contact_sc && nomContact) s.contact_sc = nomContact + " — " + telE164(cl.telephone);
       if (!emailContact && l.email) emailContact = String(l.email).trim();
@@ -2204,26 +2176,42 @@ function appliquerVraisClients(liste) {
     /* PAS de conversation créée : les fiches/carnet se remplissent de vrais
        contacts ; une conversation naîtra quand un vrai message arrivera
        (brique C4) ou quand un agent en lancera une depuis une fiche. */
+    /* C46-CONTACTS : dedup par telephone DES le contact propre de la ligne
+       (avant : pousse sans dedup -> « Manager » en double quand 2 lignes de la
+       meme enseigne portent le meme contact) + meilleurs noms (fin du « R »)
+       + une fonction qui est un n° de tel est ignoree. */
+    var telVus = {};
+    s.vraisContacts.forEach(function(v){ telVus[String(v.tel || "").replace(/\D/g, "")] = 1; });
+    function pousserContact(nom, fonction, email, telBrut, plaque) {
+      var d = String(telE164(telBrut || "")).replace(/\D/g, "");
+      var fn = estTelAffiche(fonction) ? "" : String(fonction || "").trim();
+      var entree = { nom: nomContactMieux(nom, email, ent) + (fn ? " (" + fn + ")" : ""),
+        tel: telE164(telBrut), plaque: plaque || "", email: String(email || "").trim() };
+      if (!d) { s.vraisContacts.push(entree); return; }
+      if (telVus[d]) {
+        /* deja vu (meme contact sur une autre ligne) -> on fusionne juste l'email */
+        for (var i = 0; i < s.vraisContacts.length; i++) {
+          if (String(s.vraisContacts[i].tel || "").replace(/\D/g, "") === d) {
+            if (entree.email && !s.vraisContacts[i].email) s.vraisContacts[i].email = entree.email;
+            break;
+          }
+        }
+        return;
+      }
+      telVus[d] = 1;
+      s.vraisContacts.push(entree);
+    }
     var vc = (cl.brut && cl.brut.contact) || cl.contact || {};
-    s.vraisContacts.push({ nom: vc.nom ? (vc.nom + (vc.fonction ? " (" + vc.fonction + ")" : "")) : (nomContact || ent),
-      tel: telE164(vc.tel || cl.telephone), plaque: cl.plaque || "", email: vc.email || emailContact || "" });
+    pousserContact(vc.nom || nomContact || "", vc.fonction || "", vc.email || emailContact || "", vc.tel || cl.telephone, cl.plaque || "");
     /* v137 : le miroir est clé par téléphone, donc un contact partagé entre
        plusieurs enseignes (ex. Domino's) n'a de ligne que sous UNE enseigne.
        On remonte ici TOUS les contacts du client : mobile principal (colonne
        téléphone des lignes) + « Autres contacts » parsés dans brut.client.contacts. */
-    var telVus = {};
-    s.vraisContacts.forEach(function(v){ telVus[String(v.tel || "").replace(/\D/g, "")] = 1; });
     lignes.forEach(function(l){
-      var d = String(telE164(l.telephone || "")).replace(/\D/g, "");
-      if (!d || telVus[d]) return;
-      telVus[d] = 1;
-      s.vraisContacts.push({ nom: nomContact || bc.contact_principal || ent, tel: telE164(l.telephone), plaque: "", email: emailContact || bc.email || "" });
+      pousserContact(nomContact || bc.contact_principal || "", "", emailContact || bc.email || "", l.telephone, "");
     });
     (bc.contacts || []).forEach(function(ct){
-      var d = String(telE164(ct.tel || "")).replace(/\D/g, "");
-      if (!d || telVus[d]) return;
-      telVus[d] = 1;
-      s.vraisContacts.push({ nom: ct.nom + (ct.fonction ? " (" + ct.fonction + ")" : ""), tel: telE164(ct.tel), plaque: "", email: ct.email || "" });
+      pousserContact(ct.nom || "", ct.fonction || "", ct.email || "", ct.tel, "");
     });
   });
   CONVS = []; SOCIETES = socs; VRAIES_DONNEES = true;
@@ -2398,6 +2386,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
       if (dv && dv.slice(-9) === d.slice(-9) && v.email) m = v.email;
     }); });
     return m;
+
   }
   fetch(base + "/api/whatsapp-messages?jeton=" + encodeURIComponent(secret) + "&liste=1&limite=1000" + (WA_DERNIER_ID > 0 ? "&depuis_id=" + WA_DERNIER_ID : ""))
     .then(function(r) { return r.json(); })
@@ -3198,6 +3187,7 @@ document.addEventListener("keydown", function(ev) {
     ev.preventDefault();
     var r = document.getElementById("rech-conv");
     if (r) { r.focus(); r.select(); }
+
     return;
   }
   if (ev.key === "Escape") {
@@ -3998,6 +3988,7 @@ function editerComm(uid) {
   r.k.txt = v;
   r.k.mod = true;
   persisterAction("comm_edite", cleConv(r.c), v, { uid: uid });
+
   renduFil();
 }
 function supprimerComm(uid) {
@@ -4798,6 +4789,7 @@ function rafraichirFiche() {
           archivesHtml(s.ent) +
           '<div class="petit" style="margin-top:7px;color:#9aa4b1;font-size:10.5px;">📁 Sujet détecté automatiquement (✏️ pour corriger) · 🔗 rattacher · 🗄 archiver</div>'
           : '<div class="petit" style="color:#8a93a3;">▶ ' + convs.filter(function(c){ return !c.archive && !RATTACHE[c.id]; }).length + ' conversation(s) — clique pour dérouler</div>') +
+
       '</div>' +
     '</div>' +
 
@@ -5598,6 +5590,7 @@ function creerNouvelleConv() {
   var wa = NEWCONV_CANAL === "WhatsApp";
   if (wa && (!tel || tel.replace(/[^+0-9]/g, "").length < 8)) { alert("Renseigne un numéro WhatsApp valide (ex : +33 6 12 34 56 78)."); return; }
   if (!wa && (mail.indexOf("@") < 1 || mail.indexOf(".") < 3)) { alert("Renseigne une adresse email valide (ex : client@exemple.fr)."); return; }
+
   var dest = nom || (wa ? tel : mail);
   var id = (CONVS.length ? Math.max.apply(null, CONVS.map(function(c) { return c.id; })) + 1 : 1);
   var h = new Date().toTimeString().slice(0, 5);
@@ -6398,6 +6391,7 @@ function vuTagConv(c) {
   if (!ps.length) return '';
   return '<span class="tag" title="Consultée en dernier par : ' + ps.map(function(p) {
     var ix = (ACT_BAS[cleConv(c)] || {}).vu || {};
+
     return p + (ix[p] ? ' — ' + heureWa(ix[p]).t : '');
   }).join(', ') + '">👁️ vu par ' + ps.slice(0, 2).join(", ") + (ps.length > 2 ? " +" + (ps.length - 2) : '') + '</span>';
 }
@@ -6958,7 +6952,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v145 · C45-INCR : chargement WhatsApp incrémental (depuis_id) · C44-EMOJI : restauration des emoji · C43-PJ-WA : pièces jointes WhatsApp (même principe que le mail) — upload bucket wa-media + envoi par lien';
+var VER_FRONT = 'v146 · C46-CONTACTS : dedup contacts par tel, meilleurs noms (fin du R, du Manager en double, fonction = n de tel) · C45-INCR · C44-EMOJI · C43-PJ-WA';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
@@ -6967,6 +6961,7 @@ renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); ma
 </script>
 </body>
 </html>
+
 
 
 
