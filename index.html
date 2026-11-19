@@ -2385,6 +2385,9 @@ function qualifierCycleRio(c, cy) {
   c.cycle = cy;
   c.classe = classeCycle(cy) || "nouvelle";
 }
+/* C45-INCR : dernier id wa_messages vu par ce navigateur — chargement
+   incrémental (depuis_id) au lieu des 1000 derniers messages à chaque tick. */
+var WA_DERNIER_ID = 0;
 function chargerMessagesWhatsApp(base, secret, cb) {
   /* email du carnet correspondant à un numéro (repli : 9 derniers chiffres) */
   function emailParTel(tel) {
@@ -2396,10 +2399,29 @@ function chargerMessagesWhatsApp(base, secret, cb) {
     }); });
     return m;
   }
-  fetch(base + "/api/whatsapp-messages?jeton=" + encodeURIComponent(secret) + "&liste=1&limite=1000")
+  fetch(base + "/api/whatsapp-messages?jeton=" + encodeURIComponent(secret) + "&liste=1&limite=1000" + (WA_DERNIER_ID > 0 ? "&depuis_id=" + WA_DERNIER_ID : ""))
     .then(function(r) { return r.json(); })
     .then(function(rep) {
       if (!rep || rep.ok !== true || !Array.isArray(rep.messages)) return;  // brique C4 absente → silencieux
+      /* C45-INCR : maj du curseur id + application des statuts frais (✓/✓✓)
+         renvoyés en mode incrémental (sortants des 48 dernières heures). */
+      var statutsMaj = 0;
+      rep.messages.forEach(function(m) { if (m.id && m.id > WA_DERNIER_ID) WA_DERNIER_ID = m.id; });
+      if (Array.isArray(rep.statuts) && rep.statuts.length) {
+        var stMap = { sent: "envoye", delivered: "distribue", read: "lu" };
+        CONVS.forEach(function(c) {
+          (c.fil || []).forEach(function(msg) {
+            if (!msg.wamid) return;
+            for (var i = 0; i < rep.statuts.length; i++) {
+              if (rep.statuts[i].wamid === msg.wamid) {
+                var ns = stMap[rep.statuts[i].statut_reception] || null;
+                if (ns && ns !== msg.st) { msg.st = ns; statutsMaj++; }
+                break;
+              }
+            }
+          });
+        });
+      }
       var parWa = {};
       rep.messages.forEach(function(m) {
         var d = String(m.wa_id || "").replace(/\D/g, "");
@@ -2496,10 +2518,11 @@ function chargerMessagesWhatsApp(base, secret, cb) {
         creees += nProsp;
         pushLog("📞 " + nProsp + " prospect(s) respond.io importé(s) — contacts assignés hors carnet.");
       }
-      if (creees) {
+      if (creees || statutsMaj) {
         majLusDepuisStockage();
         renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
-        pushLog("💬 " + creees + " conversation(s) WhatsApp réelle(s)" + (inconnus ? " (" + inconnus + " numéro(s) hors carnet ignorés)" : "") + ".");
+        if (creees) pushLog("💬 " + creees + " conversation(s) WhatsApp réelle(s)" + (inconnus ? " (" + inconnus + " numéro(s) hors carnet ignorés)" : "") + ".");
+        else if (statutsMaj) pushLog("✓ " + statutsMaj + " statut(s) WhatsApp mis à jour.");
       }
       /* C40-PHOTOS backfill (v100) : médias reçus AVANT le déploiement C40 —
          rattrapage auto une fois par chargement de page (les media id Meta
@@ -2514,6 +2537,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
               if (!rep || !rep.ok) return;
               if (rep.stockes > 0) {
                 pushLog("🖼 " + rep.stockes + " média(s) rattrapé(s) (reçus avant C40-PHOTOS).");
+                WA_DERNIER_ID = 0;   // C45-INCR : le backfill PATCH des vieux ids → recharge COMPLÈTE
                 chargerMessagesWhatsApp(base, secret, null);   // v102: recharge immediate pour afficher les photos
               } else if (rep.a_traiter > 0 && rep.traites > 0 && n < 10) {
                 setTimeout(function() { backfillMedia(n + 1); }, 1200);
@@ -6934,7 +6958,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v144 · C44-EMOJI : restauration des emoji · C43-PJ-WA : pièces jointes WhatsApp (même principe que le mail) — upload bucket wa-media + envoi par lien';
+var VER_FRONT = 'v145 · C45-INCR : chargement WhatsApp incrémental (depuis_id) · C44-EMOJI : restauration des emoji · C43-PJ-WA : pièces jointes WhatsApp (même principe que le mail) — upload bucket wa-media + envoi par lien';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
