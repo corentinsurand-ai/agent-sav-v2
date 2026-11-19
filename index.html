@@ -1241,6 +1241,7 @@
       <input class="carnet-recherche" id="carnet-q" placeholder="Rechercher une société, un contact, un numéro, une plaque…" oninput="renduCarnet()" />
       <span class="carnet-nb" id="carnet-nb"></span>
       <button class="btn" style="padding:5px 12px;font-size:12px;font-weight:700;" onclick="ouvrirFormSociete()" title="Créer une fiche entreprise avant d'engager une conversation">➕ Nouvelle fiche entreprise</button>
+      <button class="btn" id="btn-resync-carnet" style="padding:5px 12px;font-size:12px;font-weight:700;" onclick="resynchroCarnet()" title="Recharger sociétés + contacts depuis le miroir Supabase (dernière synchro Sheet « Clients Complets »)">⟳ Resynchro</button>
       <button class="btn-fermer" onclick="fermerCarnet()">✕ Fermer</button>
     </div>
     <div class="carnet-corps">
@@ -2090,11 +2091,27 @@ function chargerVraisClients() {
             restaurerSelection();
             majSaisieC2();   /* v118: avertissement 24 h aussi après restauration */
             AUTO_DERNIERE = Date.now(); majBadgeAuto(); demarrerAuto();
+            majCarnetSiOuvert(); finResyncCarnet();   /* v141 : resynchro manuelle → carnet re-rendu si ouvert */
           });
         });
       });
     })
-    .catch(function(e) { pushNotif("⚠ Chargement impossible (" + e.message + ") — vérifie ta connexion et recharge la page."); });
+    .catch(function(e) { pushNotif("⚠ Chargement impossible (" + e.message + ") — vérifie ta connexion et recharge la page."); finResyncCarnet(); });
+}
+/* v141 : resynchro manuelle du carnet depuis le bouton ⟳ Resynchro —
+   recharge le miroir complet (mêmes données que le chargement initial :
+   clients + WhatsApp + emails + actions équipe). */
+function finResyncCarnet() {
+  var b = document.getElementById("btn-resync-carnet");
+  if (b) { b.disabled = false; b.innerHTML = "⟳ Resynchro"; }
+}
+function resynchroCarnet() {
+  var s = sessionDe();
+  if (!s || !s.jeton) { afficherPorte(); return; }
+  var b = document.getElementById("btn-resync-carnet");
+  if (b) { b.disabled = true; b.innerHTML = "⟳ Synchronisation…"; }
+  pushLog("⟳ Resynchro manuelle du carnet (miroir Supabase)…");
+  chargerVraisClients();
 }
 /* Téléphone des vrais clients → format E.164 WhatsApp (+33620476040) :
    la synchro/API renvoie des chiffres nus avec indicatif (33620476040) ;
@@ -6910,7 +6927,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v140 · Carnet : compteur contacts réel (convs + vrais contacts dédupliqués) + alerte liste tronquée (umob_api_nb)';
+var VER_FRONT = 'v141 · Carnet : bouton ⟳ Resynchro manuelle (miroir Supabase) + compteur contacts réel + alerte liste tronquée';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
