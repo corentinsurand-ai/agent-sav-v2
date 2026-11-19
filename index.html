@@ -2057,10 +2057,10 @@ function chargerVraisClients() {
   var s = sessionDe();
   if (!s || !s.jeton) { afficherPorte(); return; }   // v32 : session obligatoire
   var base = (localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app").replace(/\/+$/, "");
-  /* C13-CARNET : défaut 1000 (la base a 991 clients ; l'API plafonne à 1000) —
-     l'ancien défaut 300 donnait un carnet amputé (291 sociétés) sur tout
-     navigateur sans umob_api_nb personnalisé, ex. Nicolas. */
-  var nb = parseInt(localStorage.getItem("umob_api_nb") || "1000", 10) || 1000;
+  /* C13-CARNET : défaut 5000 — v136 : l'API pagine par 1000 (max-rows PostgREST),
+     le front peut donc recevoir jusqu'à 5000 clients (2 616 téléphones après la
+     synchro « Clients Complets »). Un umob_api_nb personnalisé reste prioritaire. */
+  var nb = parseInt(localStorage.getItem("umob_api_nb") || "5000", 10) || 5000;
   if (nb > 5000) nb = 5000;
   pushLog(" Chargement des vraies conversations…");
   fetch(base + "/api/clients-import?jeton=" + encodeURIComponent(s.jeton) + "&liste=1&limite=" + nb)
@@ -2180,7 +2180,7 @@ function appliquerVraisClients(liste) {
     /* PAS de conversation créée : les fiches/carnet se remplissent de vrais
        contacts ; une conversation naîtra quand un vrai message arrivera
        (brique C4) ou quand un agent en lancera une depuis une fiche. */
-    var vc = cl.contact || {};
+    var vc = (cl.brut && cl.brut.contact) || cl.contact || {};
     s.vraisContacts.push({ nom: vc.nom ? (vc.nom + (vc.fonction ? " (" + vc.fonction + ")" : "")) : (nomContact || ent),
       tel: telE164(vc.tel || cl.telephone), plaque: cl.plaque || "", email: vc.email || emailContact || "" });
   });
@@ -4731,30 +4731,35 @@ function rafraichirFiche() {
     '<div class="fiche-sec">' +
       fsTete("contacts", "fs-teal", "", "Contacts de la société") +
       fsCorps("contacts",
-        (convs.length ? convs.map(function(c){
-          return '<div class="ligne-ctc">' +
-            '<span>' + (c.canal==="WhatsApp"?"":"✉") + '</span>' +
-            '<span class="qui">' + c.nom + '</span>' +
-            '<span class="num">' + c.contact.tel + '</span>' +
-            (c.contact.email ? '<span class="num">✉ ' + c.contact.email + '</span>' : '') +
-            '<span class="cy ' + c.classe + '">' + c.cycle + '</span>' +
-            '<span style="margin-left:auto;display:flex;gap:5px;align-items:center;flex-wrap:wrap;">' +
-              (c.id === SELID ? '<span class="petit">● ouverte</span>'
-                              : '<button class="btn btn-voir" onclick="voirConv(' + c.id + ')" title="Ouvrir cette conversation dans le fil">Ouvrir →</button>') +
-              '<button class="btn" title="Nouvelle conversation avec ce contact (démo : simule un nouveau message du client)" onclick="lancerNouvelleConv(' + c.id + ')"> Nouvelle</button>' +
-            '</span>' +
-          '</div>';
-        }).join("") : ((s.vraisContacts && s.vraisContacts.length)
-          ? s.vraisContacts.map(function(v, i){
-              return '<div class="ligne-ctc">' +
-                '<span></span>' +
-                '<span class="qui">' + v.nom + '</span>' +
-                '<span class="num">' + v.tel + '</span>' +
-                '<span class="num" title="Adresse email du contact">' + (v.email ? '✉ ' + v.email : '') + '</span>' +
-                '<span style="margin-left:auto;"><button class="btn btn-voir" onclick="lancerConvVrai(\'' + s.ent.replace(/'/g, "\\'") + '\',' + i + ')" title="Créer une conversation avec ce contact — elle apparaîtra dans la boîte de réception"> Lancer</button></span>' +
-              '</div>';
-            }).join("")
-          : '<div class="petit" style="color:#8a93a3;">Aucun contact.</div>'))) +
+        (function(){
+          var html = "", telsConv = {};
+          convs.forEach(function(c){ if (c.contact && c.contact.tel) telsConv[String(c.contact.tel).replace(/\D/g, "")] = 1; });
+          html += convs.map(function(c){
+            return '<div class="ligne-ctc">' +
+              '<span>' + (c.canal==="WhatsApp"?"":"✉") + '</span>' +
+              '<span class="qui">' + c.nom + '</span>' +
+              '<span class="num">' + c.contact.tel + '</span>' +
+              (c.contact.email ? '<span class="num">✉ ' + c.contact.email + '</span>' : '') +
+              '<span class="cy ' + c.classe + '">' + c.cycle + '</span>' +
+              '<span style="margin-left:auto;display:flex;gap:5px;align-items:center;flex-wrap:wrap;">' +
+                (c.id === SELID ? '<span class="petit">● ouverte</span>'
+                                : '<button class="btn btn-voir" onclick="voirConv(' + c.id + ')" title="Ouvrir cette conversation dans le fil">Ouvrir →</button>') +
+                '<button class="btn" title="Nouvelle conversation avec ce contact (démo : simule un nouveau message du client)" onclick="lancerNouvelleConv(' + c.id + ')"> Nouvelle</button>' +
+              '</span>' +
+            '</div>';
+          }).join("");
+          (s.vraisContacts || []).forEach(function(v, i){
+            if (telsConv[String(v.tel || "").replace(/\D/g, "")]) return;
+            html += '<div class="ligne-ctc">' +
+              '<span></span>' +
+              '<span class="qui">' + v.nom + '</span>' +
+              '<span class="num">' + v.tel + '</span>' +
+              '<span class="num" title="Adresse email du contact">' + (v.email ? '✉ ' + v.email : '') + '</span>' +
+              '<span style="margin-left:auto;"><button class="btn btn-voir" onclick="lancerConvVrai(\'' + s.ent.replace(/'/g, "\\'") + '\',' + i + ')" title="Créer une conversation avec ce contact — elle apparaîtra dans la boîte de réception"> Lancer</button></span>' +
+            '</div>';
+          });
+          return html || '<div class="petit" style="color:#8a93a3;">Aucun contact.</div>';
+        })()) +
     '</div>' +
 
     '<div class="fiche-sec">' +
@@ -6835,7 +6840,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v135 · Synchro Sheet « Clients Complets » : statut/facturation/sites/alertes, pack+dates par scooter, filtre par site, contacts secondaires parsés';
+var VER_FRONT = 'v136 · Synchro Sheet « Clients Complets » : statut/facturation/sites/alertes, pack+dates par scooter, filtre par site, contacts secondaires parsés';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
