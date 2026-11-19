@@ -5023,11 +5023,27 @@ function ouvrirPageSociete(ent) {
 }
 
 function scootersHtml(s) {
-  return s.scooters.map(function(x) {
+  /* v138 : même rendu que la fiche conversation — filtre par site + pack/dates/état/adresse */
+  var sitesParc = {};
+  s.scooters.forEach(function(x){ if (x.adresse) sitesParc[normAdrSite(x.adresse)] = x.adresse; });
+  var filtre = Object.keys(sitesParc).length
+    ? '<select onchange="filtrerParcCarnet(this.value)" style="width:100%;margin-bottom:7px;padding:5px 8px;border:1px solid var(--bord2);border-radius:8px;font-size:12px;background:#fff;">' +
+      '<option value=""> Tous les sites (' + s.scooters.length + ')</option>' +
+      Object.keys(sitesParc).map(function(k){
+        var n = s.scooters.filter(function(x){ return normAdrSite(x.adresse) === k; }).length;
+        return '<option value="' + k + '"' + (FILTRE_PARC === k ? ' selected' : '') + '> ' + sitesParc[k] + ' (' + n + ')</option>';
+      }).join("") + '</select>'
+    : '';
+  var sc = FILTRE_PARC ? s.scooters.filter(function(x){ return normAdrSite(x.adresse) === FILTRE_PARC; }) : s.scooters;
+  return (sc.length ? filtre + sc.map(function(x) {
+    var detail = (x.pack || x.debut || x.fin)
+      ? ((x.pack ? 'pack ' + x.pack : '') + ((x.debut || x.fin) ? (x.pack ? ' · ' : '') + x.debut + ' → ' + x.fin : '') + (x.cours ? ((x.pack || x.debut || x.fin) ? ' · ' : '') + (x.cours === 'oui' ? 'contrat en cours' : 'contrat non en cours') : ''))
+      : x.contrat;
     return '<div class="scoot-ligne"><b> ' + x.plaque + '</b> · ' + x.produit +
-      '<span class="petit"> ' + x.contrat + '</span></div>';
-  }).join("") || '<div class="cl-vide">Aucun scooter au parc.</div>';
+      '<span class="petit"> ' + detail + (x.adresse ? ' · ' + x.adresse : '') + '</span></div>';
+  }).join("") : '<div class="cl-vide">Aucun scooter sur ce site.</div>');
 }
+function filtrerParcCarnet(v) { FILTRE_PARC = v; renduPageCarnet(); }
 
 /* page société du carnet : sections dépliables au même modèle que la fiche
    conversation (FICHE_OUVERTS) — pliées par défaut, mémorisées par enseigne */
@@ -6858,7 +6874,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v137 · Synchro Sheet « Clients Complets » : statut/facturation/sites/alertes, pack+dates par scooter, filtre par site, contacts secondaires parsés';
+var VER_FRONT = 'v138 · Synchro Sheet « Clients Complets » : statut/facturation/sites/alertes, pack+dates par scooter, filtre par site, contacts secondaires parsés';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
