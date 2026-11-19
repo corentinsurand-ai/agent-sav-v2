@@ -1204,7 +1204,7 @@
         <button class="outil-btn ob-vert" onclick="ouvrirBoiteOutils('wa')" title="Modèles WhatsApp Business approuvés, avec champs automatiquement remplis"><span class="ob-ico"></span>Modèles WA</button>
         <button class="outil-btn ob-bleu" onclick="ouvrirBoiteOutils('sig')" title="Signature des emails : logo, coordonnées, activée/désactivée à la demande"><span class="ob-ico">✉</span>Signature</button>
 
-        <button class="outil-btn ob-orange" onclick="document.getElementById('pj-input').click()" title="Joindre un fichier (photo, PDF…) — en canal Email, il s'ajoute au mail en cours de rédaction"><span class="ob-ico"></span>Joindre</button>
+        <button class="outil-btn ob-orange" onclick="document.getElementById('pj-input').click()" title="Joindre un fichier (photo, PDF…) — il s'ajoute au message en cours (Email ou WhatsApp)"><span class="ob-ico"></span>Joindre</button>
         <input type="file" id="pj-input" style="display:none;" onchange="joindreFichier(this)" />
 
       </div>
@@ -3252,7 +3252,7 @@ function renduPJsBrouillon() {
   box.innerHTML = PJ_BROUILLON.map(function (p, i) {
     return '<span style="display:inline-flex;align-items:center;gap:6px;background:#FFF4E5;border:1px solid #F5C98A;color:#7A4A00;border-radius:999px;padding:3px 6px 3px 10px;font-size:11.5px;font-weight:600;"> ' + escTxt(p.nom) +
       ' <span style="color:#a06a1a;font-weight:500;">(' + tailleFmt(p.taille) + ')</span>' +
-      '<button onclick="retirerPjBrouillon(' + i + ')" title="Retirer cette pièce jointe du mail" style="border:none;background:#f3d9a8;color:#7A4A00;border-radius:50%;width:17px;height:17px;line-height:1;cursor:pointer;font-size:11px;padding:0;">✕</button></span>';
+      '<button onclick="retirerPjBrouillon(' + i + ')" title="Retirer cette pièce jointe du message" style="border:none;background:#f3d9a8;color:#7A4A00;border-radius:50%;width:17px;height:17px;line-height:1;cursor:pointer;font-size:11px;padding:0;">✕</button></span>';
   }).join("");
 }
 function joindreFichier(inp) {  try {
@@ -3262,8 +3262,8 @@ function joindreFichier(inp) {  try {
     if (!c || !ACTIF) { inp.value = ""; alert("Active d\\'abord le MODE ÉCRITURE (C2) et ouvre une conversation."); return; }
     /* v127 : canal Email en vraies données → la PJ s'ajoute au mail en cours
        de rédaction (lu en base64, envoyé avec le POST /api/email-send). */
-    if (CANAL_ENVOI === "Email" && VRAIES_DONNEES) {
-      if (PJ_BROUILLON.length >= 5) { inp.value = ""; pushNotif("⚠ 5 pièces jointes max par email."); return; }
+    if ((CANAL_ENVOI === "Email" || CANAL_ENVOI === "WhatsApp") && VRAIES_DONNEES) {   /* v143 C43-PJ-WA : PJ aussi en canal WhatsApp */
+      if (PJ_BROUILLON.length >= 5) { inp.value = ""; pushNotif("⚠ 5 pièces jointes max par message."); return; }
       var reader = new FileReader();
       reader.onload = function () {
         var dataUrl = String(reader.result || "");
@@ -3272,7 +3272,7 @@ function joindreFichier(inp) {  try {
         PJ_BROUILLON.push({ nom: f.name, type: f.type || "application/octet-stream", taille: f.size, donnees: b64 });
         inp.value = "";
         renduPJsBrouillon();
-        pushNotif(" « " + f.name + " » ajouté au mail en cours de rédaction.");
+        pushNotif(" « " + f.name + " » ajouté au message en cours de rédaction.");
       };
       reader.onerror = function () { inp.value = ""; pushNotif("⚠ Lecture de « " + f.name + " » impossible."); };
       reader.readAsDataURL(f);
@@ -3553,7 +3553,7 @@ function envoyerMessage() {
   if (!ACTIF || ENVOI_EN_COURS) return;
   var c = convParId(SELID); if (!c) return;
   var inp = document.getElementById("nv-msg");
-  var v = ((inp && inp.value) || "").trim(); if (!v) return;
+  var v = ((inp && inp.value) || "").trim(); if (!v && !PJ_BROUILLON.length) return;   /* v143 : envoi possible avec PJ seule */
   // Brique C2 : conversation WhatsApp réelle → envoi via la Cloud API
   if (VRAIES_DONNEES && c.wa && CANAL_ENVOI === "WhatsApp") {
     envoyerMessageWaReel(c, inp, v);
@@ -3591,7 +3591,10 @@ function envoyerMessageWaReel(c, inp, v) {
   fetch(base + "/api/whatsapp-send", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-jeton": secret },
-    body: JSON.stringify({ jeton: secret, tel: (c.contact && c.contact.tel) || "", texte: v })
+    body: JSON.stringify(Object.assign(
+      { jeton: secret, tel: (c.contact && c.contact.tel) || "", texte: v },
+      PJ_BROUILLON.length ? { pj: PJ_BROUILLON.map(function (p) { return { nom: p.nom, type: p.type, donnees: p.donnees }; }) } : {}   /* v143 C43-PJ-WA : PJ → upload wa-media + 1 message média par lien */
+    ))
   })
   .then(function(r) {
     return r.json().then(function(j) { return { okHttp: r.ok, j: j }; })
@@ -3603,12 +3606,16 @@ function envoyerMessageWaReel(c, inp, v) {
       finEnvoi();
       return;  // le message n'est PAS ajouté au fil, le champ est conservé
     }
-    c.fil.push({ qui: "agent", de: MOI, t: h, txt: v, canal: "WhatsApp", wa: true, st: "envoye", wamid: (rep.j.wamid || ""), ts: new Date().toISOString() });   /* v106: wamid pour dédup + maj statut · v121: ts → remonte en haut */
-    c.extrait = v; c.lu = true; c.heure = h; c.delai = "à l'instant";
+    var wamids = rep.j.wamids || (rep.j.wamid ? [rep.j.wamid] : []);
+    var nomsPj = PJ_BROUILLON.map(function (p) { return p.nom; }).join(", ");
+    if (v) c.fil.push({ qui: "agent", de: MOI, t: h, txt: v, canal: "WhatsApp", wa: true, st: "envoye", wamid: (wamids[0] || ""), pj: nomsPj || undefined, ts: new Date().toISOString() });   /* v106: wamid dédup · v121: ts · v143: pj */
+    else PJ_BROUILLON.forEach(function (p, i) { c.fil.push({ qui: "agent", de: MOI, t: h, txt: "📎 " + p.nom, canal: "WhatsApp", wa: true, st: "envoye", wamid: (wamids[i] || ""), pj: p.nom, taille: tailleFmt(p.taille), ts: new Date().toISOString() }); });
+    c.extrait = v || ("📎 " + nomsPj); c.lu = true; c.heure = h; c.delai = "à l'instant";
     c.dateLbl = dateLblDe(c, 0);
     marquerLecture(c);   /* v129 : envoyer = lu */
     if (inp) inp.value = ""; majHauteurSaisie();
     finEnvoi();
+    PJ_BROUILLON = []; renduPJsBrouillon();   /* v143 : brouillon PJ vidé après envoi WA réussi */
     renduFil(); renduListe(); rafraichirFiche(); majBadgeNouveaux();
     pushNotif("✅ Message WhatsApp envoyé" + (rep.j.wamid ? " (" + rep.j.wamid + ")" : ""));
   })
@@ -6927,7 +6934,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v142 · C42-AUTEUR-WA : vrai auteur des messages WhatsApp envoyés depuis la plateforme (sender_nom), repli Plateforme';
+var VER_FRONT = 'v143 · C43-PJ-WA : pièces jointes WhatsApp (même principe que le mail) — upload bucket wa-media + envoi par lien';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();

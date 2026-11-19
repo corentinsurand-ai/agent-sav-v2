@@ -29,8 +29,9 @@
 // 500 config manquante ; 502 erreur Meta.
 // ============================================================================
 
-var VERSION = 'C42-AUTEUR-WA-1';
+var VERSION = 'C43-PJ-WA-1';
 var SCHEMA = 'agent_sav';
+var mediaLib = require('../lib/media');   // C43-PJ-WA : bucket public wa-media (upload des PJ)
 
 function env(nom) { return process.env[nom] || ''; }
 
@@ -86,6 +87,42 @@ async function journaliser(texte, detail) {
   } catch (e) { return false; }
 }
 
+function baseStorage() {
+  return env('SUPABASE_URL').replace(/\/+$/, '').replace(/\/rest\/v1$/, '');
+}
+
+// C43-PJ-WA : type de message média selon le mime.
+function kindDeMime(mime) {
+  var m = String(mime || '').toLowerCase();
+  if (m.indexOf('image/') === 0) return 'image';
+  if (m.indexOf('video/') === 0) return 'video';
+  if (m.indexOf('audio/') === 0) return 'audio';
+  return 'document';
+}
+
+// C43-PJ-WA : upload d'une PJ (base64) dans le bucket public wa-media → URL publique.
+async function uploaderPj(p, i) {
+  try {
+    var buf = Buffer.from(String(p.donnees || ''), 'base64');
+    if (!buf.length) return null;
+    if (!(await mediaLib.assurerBucketMedia())) return null;
+    var nomF = String(p.nom || 'fichier').replace(/[^\w.\-]+/g, '_').slice(-80);
+    var chemin = 'wa-out/' + Date.now() + '-' + i + '-' + nomF + '.' + mediaLib.mediaExt(p.type);
+    var r = await fetch(baseStorage() + '/storage/v1/object/' + mediaLib.BUCKET_MEDIA + '/' + chemin, {
+      method: 'POST',
+      headers: {
+        'apikey': env('SUPABASE_SERVICE_KEY'),
+        'Authorization': 'Bearer ' + env('SUPABASE_SERVICE_KEY'),
+        'Content-Type': String(p.type || 'application/octet-stream'),
+        'x-upsert': 'true'
+      },
+      body: buf
+    });
+    if (!r.ok) return null;
+    return baseStorage() + '/storage/v1/object/public/' + mediaLib.BUCKET_MEDIA + '/' + chemin;
+  } catch (e) { return null; }
+}
+
 module.exports = async function handler(req, res) {
   // CORS — le canvas (navigateur) appelle cette route en direct.
   try { res.setHeader('Access-Control-Allow-Origin', '*'); } catch (e) {}
@@ -128,12 +165,38 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ ok: false, erreur: 'tel requis (chiffres seuls, ex 33620476040)' });
   }
 
+  // ---- C43-PJ-WA : PIÈCES JOINTES (même principe que /api/email-send C5-ENV-4)
+  // pj = [{nom, type, donnees(base64)}] → upload bucket public wa-media puis
+  // envoi WhatsApp par LIEN (link) — 1 message média par PJ (max 5, ~2,2 Mo).
+  var pjBrut = (corps && corps.pj) || [];
+  var pj = [];
+  if (Array.isArray(pjBrut)) {
+    var totalB64 = 0;
+    for (var i = 0; i < pjBrut.length; i++) {
+      var p = pjBrut[i];
+      if (!p || typeof p !== 'object') continue;
+      var nom = String(p.nom || '').replace(/[\r\n"\\/]/g, '_').trim().slice(0, 200);
+      var donnees = String(p.donnees || '').replace(/\s+/g, '');
+      if (!nom || !donnees) continue;
+      if (!/^[A-Za-z0-9+/]*={0,2}$/.test(donnees)) {
+        return res.status(400).json({ ok: false, erreur: 'pj[' + i + '].donnees doit etre du base64 valide' });
+      }
+      totalB64 += donnees.length;
+      pj.push({ nom: nom, type: String(p.type || 'application/octet-stream').slice(0, 120), donnees: donnees });
+    }
+    if (pj.length > 5) return res.status(400).json({ ok: false, erreur: 'trop de pieces jointes (max 5)' });
+    if (totalB64 > 3000000) return res.status(400).json({ ok: false, erreur: 'pieces jointes trop volumineuses (max ~2,2 Mo au total, limite corps Vercel 4,5 Mo)' });
+  }
+
   // ---- C7-PROP-1 : MODE MODÈLE WHATSAPP (template approuvé) -----------------
   // Un message PROACTIF (hors fenêtre de 24 h après un message du client) doit
   // impérativement partir d'un MODÈLE APPROUVÉ par WhatsApp (règle Meta).
   //   { tel, template: { nom: 'passage_secteur', langue: 'fr', params: ['Marine', '2 passages'] } }
   // → Meta : type='template', components[body] avec les paramètres en texte.
   var tpl = (corps && corps.template && typeof corps.template === 'object') ? corps.template : null;
+  if (tpl && pj.length) {
+    return res.status(400).json({ ok: false, erreur: 'pj non supporte avec un modele (template WhatsApp)' });
+  }
   var params = [];
   var message = null;
   if (tpl) {
@@ -166,8 +229,8 @@ module.exports = async function handler(req, res) {
     // aperçu lisible côté historique (wa_messages) — le corps réel vit chez Meta
     texte = '[modèle ' + nomTpl + '] ' + params.join(' | ');
   } else {
-    if (!texte) {
-      return res.status(400).json({ ok: false, erreur: 'texte requis' });
+    if (!texte && !pj.length) {   /* C43-PJ-WA : un envoi peut ne contenir que des PJ */
+      return res.status(400).json({ ok: false, erreur: 'texte requis (ou au moins une piece jointe)' });
     }
     if (texte.length > 4096) {
       return res.status(400).json({ ok: false, erreur: 'texte trop long (max 4096 caracteres)' });
@@ -191,63 +254,100 @@ module.exports = async function handler(req, res) {
   var version = env('WA_API_VERSION') || 'v26.0';
   var url = 'https://graph.facebook.com/' + version + '/' + env('WA_PHONE_NUMBER_ID') + '/messages';
 
-  var rep, corpsRep = '';
-  try {
-    rep = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + env('WA_TOKEN'),
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(message)
-    });
-  } catch (e) {
-    await journaliser('wa_send ERREUR reseau Meta', { tel: d, erreur: String((e && e.message) || e) });
-    return res.status(502).json({ ok: false, erreur: 'Meta inaccessible' });
-  }
-  try { corpsRep = await rep.text(); } catch (e) { corpsRep = ''; }
-
-  if (!rep.ok) {
-    await journaliser('wa_send ERREUR Meta ' + rep.status, { tel: d, detail: corpsRep.substring(0, 300) });
-    return res.status(502).json({ ok: false, erreur: 'Meta ' + rep.status, detail: corpsRep.substring(0, 300) });
-  }
-
-  var j = {};
-  try { j = JSON.parse(corpsRep) || {}; } catch (e) { j = {}; }
-  var wamid = j.messages && j.messages[0] && j.messages[0].id ? String(j.messages[0].id) : '';
-  if (!wamid) {
-    await journaliser('wa_send ERREUR reponse Meta sans wamid', { tel: d, detail: corpsRep.substring(0, 300) });
-    return res.status(502).json({ ok: false, erreur: 'reponse Meta sans wamid', detail: corpsRep.substring(0, 300) });
+  // C43-PJ-WA : liste des envois — le texte (ou modèle) d'abord, puis 1 message
+  // média par pièce jointe (lien vers le bucket public wa-media).
+  var envois = [{ message: message, texte: texte, type: 'text', media: null }];
+  if (!tpl) {
+    for (var ipj = 0; ipj < pj.length; ipj++) {
+      var urlPj = await uploaderPj(pj[ipj], ipj);
+      if (!urlPj) {
+        await journaliser('wa_send PJ upload echoue (PJ ignoree)', { tel: d, nom: pj[ipj].nom });
+        continue;   // la PJ est sautée, le reste part quand même
+      }
+      var kind = kindDeMime(pj[ipj].type);
+      var bloc = { link: urlPj };
+      if (kind === 'document') bloc.filename = pj[ipj].nom;
+      else if (!texte && ipj === 0) bloc.caption = pj[ipj].nom;
+      var msgM = { messaging_product: 'whatsapp', recipient_type: 'individual', to: d, type: kind };
+      msgM[kind] = bloc;
+      var ph = { image: '🖼 Photo', video: '🎬 Vidéo', audio: '🔊 Audio', document: '📄 Document' }[kind] || '📎 Fichier';
+      envois.push({
+        message: msgM, type: kind,
+        texte: ph + ' ' + pj[ipj].nom,
+        media: { kind: kind, mime: pj[ipj].type, nom: pj[ipj].nom, url: urlPj, caption: '' }
+      });
+    }
   }
 
-  // Enregistrement côté wa_messages (sens sortant) — best effort : l'envoi a
-  // RÉUSSI, une panne Supabase ne doit pas faire échouer la réponse.
-  try {
-    await fetch(urlSupabase('wa_messages', 'on_conflict=wamid'), {
-      method: 'POST',
-      headers: {
-        'apikey': env('SUPABASE_SERVICE_KEY'),
-        'Authorization': 'Bearer ' + env('SUPABASE_SERVICE_KEY'),
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=ignore-duplicates,return=minimal',
-        'Content-Profile': SCHEMA
-      },
-      body: JSON.stringify([{
-        wa_id: d,
-        nom_profil: null,
-        texte: texte,
-        type: 'text',
-        wamid: wamid,
-        brut: { envoye_par: 'plateforme-c2', sender_nom: prenomEnvoi || null, meta: j },
-        recu_a: new Date().toISOString(),
-        sens: 'sortant',
-        statut_reception: 'sent'
-      }])
-    });
-  } catch (e) {
-    await journaliser('wa_send : envoi OK mais enregistrement echoue', { tel: d, wamid: wamid });
+  var wamids = [];
+  var echecs = 0;
+  for (var ie = 0; ie < envois.length; ie++) {
+    var ev = envois[ie];
+    var rep, corpsRep = '';
+    try {
+      rep = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + env('WA_TOKEN'),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(ev.message)
+      });
+    } catch (e) {
+      echecs++;
+      await journaliser('wa_send ERREUR reseau Meta', { tel: d, erreur: String((e && e.message) || e) });
+      continue;
+    }
+    try { corpsRep = await rep.text(); } catch (e) { corpsRep = ''; }
+    if (!rep.ok) {
+      echecs++;
+      await journaliser('wa_send ERREUR Meta ' + rep.status, { tel: d, detail: corpsRep.substring(0, 300) });
+      if (!wamids.length) {
+        return res.status(502).json({ ok: false, erreur: 'Meta ' + rep.status, detail: corpsRep.substring(0, 300) });
+      }
+      continue;   // envois précédents déjà partis → partiel
+    }
+    var j = {};
+    try { j = JSON.parse(corpsRep) || {}; } catch (e) { j = {}; }
+    var wamid = j.messages && j.messages[0] && j.messages[0].id ? String(j.messages[0].id) : '';
+    if (!wamid) {
+      echecs++;
+      await journaliser('wa_send ERREUR reponse Meta sans wamid', { tel: d, detail: corpsRep.substring(0, 300) });
+      continue;
+    }
+    wamids.push(wamid);
+    // Enregistrement côté wa_messages (sens sortant) — best effort : l'envoi a
+    // RÉUSSI, une panne Supabase ne doit pas faire échouer la réponse.
+    try {
+      await fetch(urlSupabase('wa_messages', 'on_conflict=wamid'), {
+        method: 'POST',
+        headers: {
+          'apikey': env('SUPABASE_SERVICE_KEY'),
+          'Authorization': 'Bearer ' + env('SUPABASE_SERVICE_KEY'),
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=ignore-duplicates,return=minimal',
+          'Content-Profile': SCHEMA
+        },
+        body: JSON.stringify([{
+          wa_id: d,
+          nom_profil: null,
+          texte: ev.texte,
+          type: ev.type,
+          wamid: wamid,
+          brut: { envoye_par: 'plateforme-c2', sender_nom: prenomEnvoi || null, _media: ev.media || undefined, meta: j },
+          recu_a: new Date().toISOString(),
+          sens: 'sortant',
+          statut_reception: 'sent'
+        }])
+      });
+    } catch (e) {
+      await journaliser('wa_send : envoi OK mais enregistrement echoue', { tel: d, wamid: wamid });
+    }
   }
 
-  await journaliser('wa_send : message envoye a ' + d, { wamid: wamid, tel: d });
-  return res.status(200).json({ ok: true, brique: 'C2', version: VERSION, wamid: wamid, statut: 'envoye' });
+  if (!wamids.length) {
+    return res.status(502).json({ ok: false, erreur: 'Meta inaccessible ou tous les envois ont echoue' });
+  }
+  await journaliser('wa_send : message(s) envoye(s) a ' + d, { wamids: wamids, tel: d, pj: pj.length });
+  return res.status(200).json({ ok: true, brique: 'C2', version: VERSION, wamid: wamids[0], wamids: wamids, medias: pj.length, echecs: echecs, statut: 'envoye' });
 };
