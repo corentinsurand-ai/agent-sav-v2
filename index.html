@@ -2346,7 +2346,7 @@ function creerConvsProspects(parWa) {
       if (m.sens === "sortant") {
         var sr = m.statut_reception;
         var st = sr === "sent" ? "envoye" : sr === "delivered" ? "distribue" : sr === "read" ? "lu" : null;
-        return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
+        return { qui: "agent", de: m.sender_nom || (m.envoye_par ? 'Plateforme' : MOI), t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
       }
       return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
     });
@@ -2422,7 +2422,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
             /* C8-IMP-2 : vrai expéditeur respond.io (brut sender_nom — l'API
                n'exposait pas l'expéditeur avant) ; source api → « Agent IA ». */
             if (m.sens === "sortant") {
-              return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
+              return { qui: "agent", de: m.sender_nom || (m.envoye_par ? 'Plateforme' : MOI), t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
             }
             return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
           });
@@ -2466,7 +2466,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
             var st = sr === "sent" ? "envoye" : sr === "delivered" ? "distribue" : sr === "read" ? "lu" : null;
             /* C8-IMP-2 : vrai expéditeur (branche TEST_WA aussi — leçon v21 :
                les 2 branches dupliquées évoluent ENSEMBLE). */
-            return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
+            return { qui: "agent", de: m.sender_nom || (m.envoye_par ? 'Plateforme' : MOI), t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
           }
           return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
         });
@@ -2751,7 +2751,7 @@ function chargerHistoriqueConv(c) {
         var sr = m.statut_reception;
         var st = sr === "sent" ? "envoye" : sr === "delivered" ? "distribue" : sr === "read" ? "lu" : null;
         if (m.sens === "sortant") {
-          return { qui: "agent", de: m.sender_nom || MOI, t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
+          return { qui: "agent", de: m.sender_nom || (m.envoye_par ? 'Plateforme' : MOI), t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, st: st, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
         }
         return { qui: "client", t: h.t, txt: String(m.texte || ""), canal: "WhatsApp", wa: true, ts: m.recu_a, wamid: m.wamid, photo: waPhotoDe(m), _media: m._media };
       });
@@ -6927,7 +6927,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v141 · Carnet : bouton ⟳ Resynchro manuelle (miroir Supabase) + compteur contacts réel + alerte liste tronquée';
+var VER_FRONT = 'v142 · C42-AUTEUR-WA : vrai auteur des messages WhatsApp envoyés depuis la plateforme (sender_nom), repli Plateforme';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();

@@ -31,7 +31,7 @@
 // Réponses : 200 ; 401 secret ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C4-MEDIA-3';
+var VERSION = 'C4-AUTEUR-1';
 var SCHEMA = 'agent_sav';
 
 // null tant que la présence des colonnes C2 n'est pas confirmée ;
@@ -86,7 +86,9 @@ function urlSupabase(table, params) {
 // expéditeur des messages importés respond.io (léger — pas le brut entier).
 // C4-MEDIA-1 : brut->_media (jsonb → objet {kind,id,mime,caption,url}) expose
 // le média téléchargé par le webhook (null si absent — aucun repli requis).
-var SELECT_BASE = 'wa_id,nom_profil,texte,type,wamid,recu_a,brut->>sender_nom,brut->>sender,brut->>sender_id,brut->_media';
+// C4-AUTEUR-1 : brut->>envoye_par expose aussi (repli 'Plateforme' cote front
+// quand un vieux message envoye depuis la plateforme n'a pas de sender_nom).
+var SELECT_BASE = 'wa_id,nom_profil,texte,type,wamid,recu_a,brut->>sender_nom,brut->>sender,brut->>sender_id,brut->>envoye_par,brut->_media';
 var SELECT_C2 = SELECT_BASE + ',sens,statut_reception';
 
 // Lecture avec repli : tente d'abord select avec les colonnes C2

@@ -29,7 +29,7 @@
 // 500 config manquante ; 502 erreur Meta.
 // ============================================================================
 
-var VERSION = 'C7-PROP-1';
+var VERSION = 'C42-AUTEUR-WA-1';
 var SCHEMA = 'agent_sav';
 
 function env(nom) { return process.env[nom] || ''; }
@@ -103,9 +103,19 @@ module.exports = async function handler(req, res) {
   }
 
   var authA = require('../lib/auth');
-  if (!authA.authentifierRequete(secretDe(req, corps), jetonDe(req, corps)).ok) {
+  var authR = authA.authentifierRequete(secretDe(req, corps), jetonDe(req, corps));
+  if (!authR.ok) {
     return res.status(401).json({ ok: false, erreur: 'secret invalide' });
   }
+  // C42-AUTEUR-WA-1 : prenom de l'expediteur (lu dans le jeton de session)
+  // pour enregistrer le VRAI auteur du message envoye depuis la plateforme.
+  var prenomEnvoi = '';
+  try {
+    if (authR.utilisateur && authR.utilisateur.nom) {
+      prenomEnvoi = String(authR.utilisateur.nom).trim().split(/\s+/)[0];
+    }
+  } catch (e) {}
+
 
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, erreur: 'methode non autorisee' });
@@ -228,7 +238,7 @@ module.exports = async function handler(req, res) {
         texte: texte,
         type: 'text',
         wamid: wamid,
-        brut: { envoye_par: 'plateforme-c2', meta: j },
+        brut: { envoye_par: 'plateforme-c2', sender_nom: prenomEnvoi || null, meta: j },
         recu_a: new Date().toISOString(),
         sens: 'sortant',
         statut_reception: 'sent'
