@@ -29,7 +29,7 @@
 // explicite).
 // ============================================================================
 
-var VERSION = 'B2.3';
+var VERSION = 'B2.4';
 
 var clients = require('../lib/clients.js');
 var auth = require('../lib/auth.js');
