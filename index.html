@@ -2020,16 +2020,21 @@ function chargerVraisClients() {
   var nb = parseInt(localStorage.getItem("umob_api_nb") || "5000", 10) || 5000;
   if (nb > 5000) nb = 5000;
   pushLog("🔌 Chargement des vraies conversations…");
-  fetch(base + "/api/clients-import?jeton=" + encodeURIComponent(s.jeton) + "&liste=1&limite=" + nb)
+  /* v153 : si la liste demandée est tronquée (trouves >= limite) et qu'on peut
+     monter jusqu'à 5000, on RELANCE AUTOMATIQUEMENT avec limite=5000 — un
+     umob_api_nb périmé dans le localStorage ne tronque plus le carnet. */
+  var tentative = function(limite) {
+  fetch(base + "/api/clients-import?jeton=" + encodeURIComponent(s.jeton) + "&liste=1&limite=" + limite)
     .then(function(r) { return r.json(); })
     .then(function(rep) {
       if (!rep || rep.ok !== true || !Array.isArray(rep.clients)) throw new Error((rep && rep.erreur) || "réponse invalide");
-      /* v140 : détection de liste tronquée — si l'API renvoie autant de fiches
-         que la limite demandée, il en existe probablement davantage : un
-         umob_api_nb périmé dans le localStorage écrasait le défaut 5000. */
-      if (typeof rep.trouves === "number" && rep.trouves >= nb) {
-        pushLog("⚠ liste possiblement tronquée : trouves=" + rep.trouves + " = limite=" + nb + " (umob_api_nb=" + nb + ")");
-        pushNotif("⚠ Liste possiblement tronquée (" + rep.trouves + " fiches = limite demandée " + nb + "). Si des sociétés manquent : console (F12) → localStorage.removeItem('umob_api_nb') → Ctrl+Maj+R.");
+      /* v140/v153 : détection de liste tronquée — escalade auto vers 5000 */
+      if (typeof rep.trouves === "number" && rep.trouves >= limite && limite < 5000) {
+        pushLog("⚠ liste tronquée à " + limite + " (trouves=" + rep.trouves + ") → rechargement automatique limite=5000…");
+        return tentative(5000);
+      }
+      if (typeof rep.trouves === "number" && rep.trouves >= limite) {
+        pushLog("⚠ liste au plafond 5000 (trouves=" + rep.trouves + ") — l'API paginne par 1000 (max-rows PostgREST), des fiches peuvent manquer au-delà.");
       }
       appliquerVraisClients(rep.clients);
       /* Emails chargés APRÈS WhatsApp (chained) : la fusion multi-canal
@@ -2053,6 +2058,8 @@ function chargerVraisClients() {
       });
     })
     .catch(function(e) { pushNotif("⚠ Chargement impossible (" + e.message + ") — vérifie ta connexion et recharge la page."); finResyncCarnet(); });
+  };
+  tentative(nb);
 }
 /* v141 : resynchro manuelle du carnet depuis le bouton ⟳ Resynchro —
    recharge le miroir complet (mêmes données que le chargement initial :
@@ -7020,7 +7027,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v152 · bouton ⟳ Resynchro du carnet resynchronise VRAIMENT le Sheet (Google Sheet → Supabase) avant de recharger · v151 · v150 · v149 · v148 C47-CONV · v147 C47-NOM-PRINCIPAL · C46-CONTACTS';
+var VER_FRONT = 'v153 · resynchro : si la liste est tronquée, rechargement AUTO avec limite=5000 (umob_api_nb périmé ne tronque plus) · v152 · v151 · v150 · v149 · v148 C47-CONV · v147 C47-NOM-PRINCIPAL · C46-CONTACTS';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
