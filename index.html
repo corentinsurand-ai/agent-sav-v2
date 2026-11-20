@@ -754,6 +754,250 @@
   /* --- conversations : ligne avatar + contenu --- */
   .conv { display: flex; align-items: flex-start; gap: 11px; padding: 12px 14px 12px 12px; margin: 0 6px; border-radius: 12px; transition: background .13s, box-shadow .13s; }
   .conv + .conv { border-top: none; }
+  .conv:hover { background: #F1F6FC; box-shadow: 0 1px 4px rgba(15,35,70,.05); }
+
+
+  header.topbar .logo, header.topbar .crumb, header.topbar .btn-nouv,
+
+  header.topbar .badge-ver, header.topbar select { flex: 0 0 auto; white-space: nowrap; }
+
+
+
+  /* --- volet fil : pas de double bord --- */
+  section.fil { background: transparent; }
+  #volet-fil { background: #fff; }
+  .volet-corps { min-height: 0; }
+  .commentaires { border-top: 1px solid #EDF2F8; }
+
+  /* ============================================================
+     C8-DESIGN-3 : bulles sortantes bleu plein, états vides, glass,
+     focus accessibles, barre de recherche du fil.
+     ============================================================ */
+
+  /* --- bulles sortantes : dégradé bleu plein, texte blanc (look messagerie) --- */
+  .bulle.agent { background: linear-gradient(135deg, #1273d1 0%, #0e5aa7 60%, #0a3f77 100%); border: none; border-top-right-radius: 4px; color: #fff; box-shadow: 0 3px 10px rgba(14,90,167,.3); }
+  .bulle.agent .h { color: #cfe3f8; }
+  .bulle.agent .mail-obj { background: rgba(255,255,255,.16); border-left-color: rgba(255,255,255,.7); color: #fff; }
+  .bulle.agent .exp-lib { color: #bcd8f2; border-top-color: rgba(255,255,255,.25); }
+  .bulle.agent .pj { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.25); color: #eaf3fd; }
+  .bulle.agent .mini { background: rgba(255,255,255,.18); color: #eaf3fd; }
+  .bulle.agent .mail-frame { border-color: rgba(255,255,255,.3); }
+  .bulle.agent .mail-cite summary { color: #bcd8f2; }
+  .bulle.agent .mail-cite > *:not(summary) { color: #d7e8fa; border-left-color: rgba(255,255,255,.35); }
+  .bulle.agent mark { background: rgba(255,255,255,.35); color: #0a3f77; }
+  .bulle.agent a { color: #d7ecff; }
+
+  /* --- bulles entrantes : carte blanche franche --- */
+  .bulle.entrant { box-shadow: 0 1px 4px rgba(15,35,70,.08); }
+
+  /* --- états vides illustrés --- */
+  .vide-etat { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 42px 24px; text-align: center; color: var(--mut); }
+  .vide-etat .ve-tit { font-weight: 700; color: #3a4a60; font-size: 14px; }
+  .vide-etat .ve-txt { font-size: 12.5px; line-height: 1.55; max-width: 340px; }
+  .vide-etat svg { opacity: .8; }
+
+  /* --- menu de cycle : carte verre dépoli --- */
+  .ctx { backdrop-filter: blur(8px); background: rgba(255,255,255,.92); border: 1px solid rgba(255,255,255,.8); padding: 6px; }
+
+  /* --- barre de recherche du fil : capsule avec loupe --- */
+  .rech-fil { position: relative; }
+  .rech-fil::before { content: "🔍"; position: absolute; left: 32px; top: 50%; transform: translateY(-50%); font-size: 12px; opacity: .6; pointer-events: none; }
+  .rech-fil input { border-radius: 999px; padding: 7px 14px 7px 34px; border: 1.5px solid var(--bord2); background: #FAFCFE; }
+  .rech-fil input:focus { background: #fff; }
+
+  /* --- focus clavier visible et élégant partout --- */
+  button:focus-visible, .chip:focus-visible, .conv:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+    outline: 2px solid #1273d1; outline-offset: 2px; }
+
+  /* --- badge nouveaux messages : pastille vive --- */
+  .badge-new { background: #1273d1; box-shadow: 0 1px 4px rgba(14,90,167,.4); }
+  .btn-nouv .n { background: #ffd166; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+
+  /* --- compteur non-lus du volet liste --- */
+  .liste-head b { font-weight: 800; letter-spacing: .2px; }
+
+  /* --- commentaires internes : cadre plus doux --- */
+  .commentaires h4 { color: #a08430; letter-spacing: .7px; }
+  .comm-saisie input { border-radius: 999px; }
+
+  /* ============================================================
+     C8-VOLET-1 : bouton réduire/agrandir les volets Filtres et
+     Conversations (état mémorisé par navigateur, comme les largeurs).
+     ============================================================ */
+  .volet-pli { border: none; background: #EEF4FB; color: #3a4a60; width: 20px; height: 20px; border-radius: 6px; cursor: pointer; font-size: 13px; line-height: 1; display: flex; align-items: center; justify-content: center; flex: none; transition: background .15s, transform .2s; }
+  .volet-pli:hover { background: #DDEBF9; }
+  .volet.replie { flex: 0 0 46px !important; width: 46px !important; min-width: 46px !important; }
+  .volet.replie .volet-corps, .volet.replie .rz, .volet.replie .vt, .volet.replie .aide { display: none; }
+  .volet.replie .volet-bar { flex-direction: column; padding: 10px 0; justify-content: flex-start; gap: 0; cursor: default; }
+  .volet.replie .volet-pli { transform: rotate(180deg); width: 26px; height: 26px; font-size: 15px; }
+  .volet.replie .volet-bar::before { content: ""; margin-right: 0; }
+  .volet.replie aside.filters, .volet.replie section.liste { border-right: none; }
+  .volet-pli:focus-visible { outline: 2px solid #1273d1; outline-offset: 1px; }
+  /* C23-MOB-3 : bouton retour du volet fil — MÊME style que .volet-pli (sinon
+     chrome par défaut du navigateur en desktop = « bordure bizarre ») */
+  .btn-ret { border: none; background: #EEF4FB; color: #3a4a60; width: 20px; height: 20px; border-radius: 6px; cursor: pointer; font-size: 13px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .btn-ret:hover { background: #DDEBF9; }
+
+  /* C8-VOLET-2 : bouton plier les infos client (l2) */
+  .l2-pli { width: 30px; padding: 4px 0 !important; text-align: center; font-size: 12px; flex: none; }
+
+  /* ============================================================
+     C8-VOLET-3 : rail d'icônes du volet Filtres réduit — chaque
+     icône rouvre le volet sur sa section (scroll + flash).
+     ============================================================ */
+  .volet-rail { display: none; }
+  .volet.replie .volet-rail { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 0 16px; flex: 1; }
+  .rail-btn { width: 32px; height: 32px; border: none; background: #F1F6FC; border-radius: 10px; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background .15s, transform .15s, box-shadow .15s; }
+  .rail-btn:hover { background: #DDEBF9; transform: scale(1.08); box-shadow: 0 2px 6px rgba(14,90,167,.18); }
+  .rail-btn:focus-visible { outline: 2px solid #1273d1; outline-offset: 1px; }
+  .f-sec.flash-sec { animation: flashSec 1.4s ease-out; border-radius: 10px; }
+  @keyframes flashSec { 0% { background: #DDEBF9; box-shadow: 0 0 0 3px #cfe3f8; } 100% { background: transparent; box-shadow: none; } }
+
+  /* ============================================================
+     C8-THEME-1 : THÈME U.MOB V55 : vert émeraude #10B981 (remplace le lime #BCCF00 jugé trop jaune) + anthracite
+     #1b2430) — activé par body.umob via le bouton 🎨 topbar, état
+     mémorisé (localStorage umob_theme). LEÇON du 29/10 : vert en
+     accents lisibles (texte SOMBRE sur vert, jamais l'inverse), pas
+     de tints olive étalés, anthracite pour les textes.
+     ============================================================ */
+  body.umob {
+    --lime: #10B981; --lime-hov: #0d9268; --lime-soft: #E6F7F0; --lime-bord: #BFE8D6;
+    --grad-bleu: linear-gradient(135deg, #3ddc97 0%, #10B981 55%, #06865b 100%);
+    --bg: #F1F6F3; --bord: #DCE8E1; --bord2: #C3D5CC;
+  }
+  body.umob header.topbar { background: linear-gradient(135deg, #3ddc97 0%, #10B981 55%, #06865b 100%); color: #1b2430; box-shadow: 0 3px 14px rgba(13,120,88,.35), inset 0 1px 0 rgba(255,255,255,.35); }
+  body.umob header.topbar .logo, body.umob header.topbar .logo span, body.umob header.topbar .logo b { color: #1b2430; }
+  body.umob header.topbar .logo svg { stroke: #1b2430; }
+  body.umob header.topbar .crumb { background: rgba(27,36,48,.12); color: #1b2430; }
+  body.umob .btn-nouv { background: rgba(27,36,48,.10); border-color: rgba(27,36,48,.20); color: #1b2430; }
+  body.umob .btn-nouv:hover { background: rgba(27,36,48,.20); }
+  body.umob .btn-nouv .n { color: #1b2430; }
+  body.umob .badge-ver { background: rgba(27,36,48,.12); border-color: rgba(27,36,48,.22); color: #1b2430; }
+  body.umob #btn-auth.conncte { background: #fff; color: #0b6b4f; }
+  /* texte sombre sur tous les fonds verts (contraste) */
+  body.umob .chip.on, body.umob .toggle button.on, body.umob .btn.primaire, body.umob .grp, body.umob .grp:hover, body.umob .grp.on, body.umob .grp .tri, body.umob .ia-head, body.umob .ia-moi .ia-b, body.umob .ia-env { color: #1b2430; }
+  body.umob .grp .ind { color: rgba(27,36,48,.7); }
+  body.umob .ia-bulle svg, body.umob .ia-head .ia-logo svg, body.umob .ia-msg .ia-av svg { stroke: #1b2430; }
+  body.umob .ia-bulle, body.umob .ia-head, body.umob .ia-moi .ia-b { background: linear-gradient(135deg, #3ddc97 0%, #10B981 55%, #06865b 100%); }
+  body.umob .ia-bulle::after { border-color: rgba(16,185,129,.5); }
+  body.umob .ia-head-st { color: #0b6b4f; }
+  body.umob .ia-env:hover { filter: brightness(1.05); }
+  /* états de sélection : tints verts doux */
+  body.umob .conv.on { background: #DFF3EA; box-shadow: inset 3px 0 0 #10B981, 0 1px 4px rgba(15,35,70,.05); }
+  body.umob .conv.on:hover { background: #CDEBDD; }
+  body.umob .cl-ctc.on { background: #DFF3EA; border-left-color: #10B981; }
+  body.umob .grp-bloc { border-color: #BFE8D6; background: #F2FBF7; }
+  body.umob .dot { background: #10B981; box-shadow: 0 0 0 2px rgba(16,185,129,.3); }
+  body.umob .badge-new { background: #10B981; color: #1b2430; box-shadow: 0 1px 4px rgba(13,120,88,.5); }
+  body.umob .f-sec h3 { border-bottom-color: #a9dcc4; }
+  body.umob .rail-btn:hover, body.umob .volet-pli:hover { background: #DFF3EA; }
+  body.umob .saisie .barre:focus-within, body.umob #ia-saisie:focus, body.umob .rech-fil input:focus, body.umob #auth-corps input:focus { border-color: #10B981; box-shadow: 0 0 0 3px rgba(16,185,129,.2); }
+  body.umob .rz:hover::after, body.umob .rz.actif::after { background: rgba(16,185,129,.6); }
+  body.umob .volet.cible { box-shadow: inset 4px 0 0 #10B981, 0 10px 34px rgba(15,35,70,.1); }
+  body.umob .nv-item:hover, body.umob .bo-item:hover, body.umob .cp-contact:hover, body.umob .outil-btn:hover { border-color: #10B981; background: #E6F7F0; }
+  body.umob ::selection { background: #b8e8d2; }
+  /* bulles sortantes : émeraude plein, texte anthracite */
+  body.umob .bulle.agent { background: linear-gradient(135deg, #3ddc97 0%, #10B981 60%, #0d9268 100%); color: #1b2430; box-shadow: 0 3px 10px rgba(13,120,88,.35); }
+  body.umob .bulle.agent .h { color: #0b6b4f; }
+  body.umob .bulle.agent .mail-obj { background: rgba(27,36,48,.10); border-left-color: rgba(27,36,48,.6); color: #1b2430; }
+  body.umob .bulle.agent .exp-lib { color: #0b6b4f; border-top-color: rgba(27,36,48,.2); }
+  body.umob .bulle.agent .pj { background: rgba(27,36,48,.08); border-color: rgba(27,36,48,.2); color: #123f30; }
+  body.umob .bulle.agent .mail-cite summary { color: #0b6b4f; }
+  body.umob .bulle.agent mark { background: rgba(255,255,255,.5); color: #1b2430; }
+  body.umob .bulle.agent a { color: #123f30; text-decoration: underline; }
+
+  /* ============================================================
+     C8-THEME-6 : MODE SOMBRE (3e thème du cycle 🎨) — anthracite
+     U'mob #32373C, surfaces #262c33, accents verts #10B981,
+     texte clair #e8ebee. Activé par body.sombre, mémorisé
+     (localStorage umob_theme = "sombre").
+     ============================================================ */
+  body.sombre {
+    --bg: #171b1f; --card: #242a31; --bord: #333a43; --bord2: #3f4750;
+    --ink: #e8ebee; --mut: #98a1aa; --grey: #6b747d;
+    --lime: #10B981; --lime-hov: #0d9268; --lime-soft: #1c2f28; --lime-bord: #2b4a3e;
+    --anthra: #cfd6dc;
+    background: #171b1f; color: #e8ebee;
+  }
+  body.sombre header.topbar { background: linear-gradient(135deg, #2a323a 0%, #23292f 55%, #1c2126 100%); box-shadow: 0 3px 14px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.06); }
+  body.sombre header.topbar .logo, body.sombre header.topbar .logo span, body.sombre header.topbar .logo b { color: #e8ebee; }
+  body.sombre header.topbar .logo svg { stroke: #e8ebee; }
+  body.sombre .proto { background: #1c2f28; color: #98a1aa; border-bottom-color: #2b4a3e; }
+  body.sombre .crumb { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); color: #e8ebee; }
+  body.sombre .btn-nouv { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.16); color: #e8ebee; }
+  body.sombre .btn-nouv:hover { background: rgba(255,255,255,.14); }
+  body.sombre .badge-ver { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.2); color: #e8ebee; }
+  body.sombre .grp, body.sombre .grp:hover, body.sombre .grp.on { background: #10B981; color: #12241c; }
+  body.sombre .grp .tri, body.sombre .grp .ind { color: rgba(18,36,28,.75); }
+  body.sombre .grp-bloc { border-color: #2b4a3e; background: #1f262e; }
+  body.sombre .f-sec h3 { color: #e8ebee; border-bottom-color: #2b4a3e; }
+  body.sombre .chip { border-color: #3f4750; }
+  body.sombre .chip:hover { background: #2c333b; }
+  body.sombre .chip .n { background: #171b1f; }
+  body.sombre .chip.on, body.sombre .toggle button.on, body.sombre .btn.primaire { background: #10B981; border-color: #0d9268; color: #12241c; }
+  body.sombre .btn:hover { background: #2c333b; }
+  body.sombre .conv:hover { background: #2b323a; }
+  body.sombre .conv + .conv { border-top-color: #2d343c; }
+  body.sombre .conv.on { background: #1c2f28; box-shadow: inset 3px 0 0 #10B981; }
+  body.sombre .dot.lu { background: #4a525a; }
+  body.sombre section.fil { background: #1a1e23; }
+  body.sombre .bulle { border: 1px solid rgba(255,255,255,.06); }
+  body.sombre .bulle.client, body.sombre .ia-ia .ia-b { background: #2b323a; color: #e8ebee; border-color: #3a424b; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+  body.sombre .bulle.agent { background: linear-gradient(135deg, #3ddc97 0%, #10B981 60%, #0d9268 100%); color: #12241c; }
+  body.sombre .bulle.agent .h, body.sombre .bulle.agent .exp-lib, body.sombre .bulle.agent .mail-cite summary { color: #0b4a37; }
+  body.sombre .bulle .mail-obj { color: #5ee0b0; background: #1c2f28; border-left-color: #10B981; }
+  body.sombre .bulle.agent .mail-obj { background: rgba(18,36,28,.25); }
+  body.sombre .bulle .pj, body.sombre .bulle.agent .pj { background: #1c2f28; border-color: #2b4a3e; color: #b9d8cc; }
+  body.sombre .mail-frame { background: #242a31; }
+  body.sombre .tag { background: #2c333b; color: #b6bfc7; }
+  body.sombre .saisie .barre { background: #1c2126; border-color: #3f4750; }
+  body.sombre .saisie .barre:focus-within { border-color: #10B981; background: #242a31; box-shadow: 0 0 0 3px rgba(16,185,129,.18); }
+  body.sombre .rech-fil input, body.sombre #auth-corps input, body.sombre #ia-saisie { background: #1c2126; color: #e8ebee; border-color: #3f4750; }
+  body.sombre .rech-fil input:focus, body.sombre #auth-corps input:focus, body.sombre #ia-saisie:focus { border-color: #10B981; box-shadow: 0 0 0 3px rgba(16,185,129,.18); }
+  body.sombre .bo-fen { background: #242a31; box-shadow: 0 24px 60px rgba(0,0,0,.65); }
+  body.sombre .bo-tabs button { background: #2c333b; color: #b6bfc7; }
+  body.sombre .bo-tabs button.on { background: #10B981; color: #12241c; }
+  body.sombre .bo-item, body.sombre .nv-item, body.sombre .cp-contact, body.sombre .outil-btn { background: #242a31; }
+  body.sombre .bo-item:hover, body.sombre .nv-item:hover, body.sombre .cp-contact:hover, body.sombre .outil-btn:hover { border-color: #10B981; background: #2b323a; }
+  body.sombre .ia-fen { background: #242a31; }
+  body.sombre .ia-head { background: linear-gradient(135deg, #3ddc97 0%, #10B981 55%, #06865b 100%); color: #12241c; }
+  body.sombre .ia-head .ia-logo svg, body.sombre .ia-msg .ia-av svg { stroke: #12241c; }
+  body.sombre .ia-head-st { color: #0b4a37; }
+  body.sombre .ia-moi .ia-b { background: linear-gradient(135deg, #3ddc97 0%, #10B981 100%); color: #12241c; }
+  body.sombre .dot { background: #10B981; box-shadow: 0 0 0 2px rgba(16,185,129,.3); }
+  body.sombre .badge-new { background: #10B981; color: #12241c; }
+  body.sombre .rail-btn:hover, body.sombre .volet-pli:hover { background: #2c333b; }
+  body.sombre .rz:hover::after, body.sombre .rz.actif::after { background: rgba(16,185,129,.6); }
+  body.sombre .volet.cible { box-shadow: inset 4px 0 0 #10B981, 0 10px 34px rgba(0,0,0,.5); }
+  body.sombre .badge-mode { background: #1c2f28; color: #5ee0b0; }
+  body.sombre ::selection { background: #14523d; }
+  body.sombre ::-webkit-scrollbar-thumb { background: #3f4750; }
+  body.sombre ::-webkit-scrollbar-thumb:hover { background: #4a525a; }
+  body.sombre .volet.deplace { outline-color: #10B981; }
+
+  /* ============================================================
+     C14-MOBILE : couche responsive de la plateforme.
+     ≤ 860 px = un seul volet PLEIN ÉCRAN à la fois, navigation par
+     boutons (☰ filtres / 💬 conversations / ← retour). Le drag &
+     resize et le pliage des volets sont désactivés (souris only).
+     JS associé : estMobile / basculerVueMobile / majMobile.
+     ============================================================ */
+  .btn-mob { display: none; }
+  @media (max-width: 860px) {
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-size: 13px; }
+    /* topbar : une ligne compacte défilable horizontalement */
+    header.topbar { flex-wrap: nowrap; overflow-x: auto; gap: 6px; padding: 8px 10px; scrollbar-width: none; }
+    header.topbar::-webkit-scrollbar { display: none; }
+    header.topbar .crumb, header.topbar .spacer { display: none; }
+    .btn-nouv { padding: 7px 10px; font-size: 11px; white-space: nowrap; flex: none; }
+    .badge-ver { font-size: 10px; padding: 6px 8px; flex: none; }
+    .btn-mob { display: inline-flex; align-items: center; justify-content: center; flex: none; }
+    .btn-ret { display: none; }
+    /* layout : colonne unique, un volet visible à la fois */
+    .layout { height: calc(100vh - 52px); min-height: 0; }
+    .layout > .volet { display: none; width: 100% !important; min-width: 0 !important; flex: 1 1 auto !important; border-radius: 0 !important; border-left: none !important; border-right: none !important; border-top: none !important; }
+    .layout > .volet.vue-mobile { display: flex; }
     .rz { display: none !important; }
     .volet-pli { display: none !important; }
     .volet-bar { padding: 9px 12px; touch-action: manipulation; }
@@ -1554,6 +1798,206 @@ function maintsBloc(s, videCls) {
       out += '<div class="petit" style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
         '<span style="font-weight:700;color:#0e5aa7;">📩 Proposer une maintenance :</span>' +
         '<button class="btn" style="background:#e2f0fc;color:#0e5aa7;border:1px solid #b7d4ee;" onclick="proposerMaintenance(' + idx + ',\'email\')">📧 Email</button>' +
+        '<button class="btn" style="background:#e0f5ec;color:#1d7a4f;border:1px solid #b9e4cd;" onclick="proposerMaintenance(' + idx + ',\'wa\')">🟢 WhatsApp</button>' +
+        '</div>';
+    }
+  }
+  return out;
+}
+
+
+var FX = { canal: "tous", cycle: "tous", ass: "tous" };
+
+/* ===== Équipe, « Qui suis-je », assignation ===== */
+/* ===== Profils équipe : icône + couleur affichées à côté de chaque message envoyé ===== */
+var PROFILS = {
+  "Marine":  { ic: "👩",    col: "#f97316" },
+  "Nicolas": { ic: "🧑‍🔧", col: "#0d9488" },
+  "Corentin":{ ic: "🧔",    col: "#e11d48" },
+  "Agent IA":{ ic: "🤖",    col: "#0e5aa7", ia: true }
+};
+/* ===== v37 : profils persistés (icône/couleur/renom./suppression/création) ====
+   Toute personnalisation du panneau 👥 Profils est gardée au rechargement. */
+var PROFILS_BASE = ["Marine", "Nicolas", "Corentin", "Agent IA"];
+function sauvegarderProfils() {
+  var supprimes = PROFILS_BASE.filter(function(n){ return !PROFILS[n]; });
+  try {
+    localStorage.setItem("umob_profils", JSON.stringify({ profils: PROFILS, supprimes: supprimes }));
+  } catch (e) {}
+}
+function restaurerProfils() {
+  try {
+    var st = JSON.parse(localStorage.getItem("umob_profils") || "null");
+    if (!st || !st.profils) return;
+    Object.keys(st.profils).forEach(function(n) {
+      if (PROFILS_BASE.indexOf(n) >= 0 || st.profils[n]) PROFILS[n] = st.profils[n];
+    });
+    (st.supprimes || []).forEach(function(n) { delete PROFILS[n]; });
+  } catch (e) {}
+}
+restaurerProfils();
+var ICONES_PROFILS = ["👩","🧑","👨","🧔","👩‍🎤","🧑‍🔧","👩‍🔧","🧑‍💻","👩‍💻","🧑‍🏫","👮","🕵️","🦸","🧙","🤖","🦁","🐬","🦊","🦉","🐝"];
+var COULEURS_PROFILS = ["#f97316","#0d9488","#e11d48","#4f46e5","#15803d","#b45309","#7c3aed","#0369a1"];
+var EQUIPE = ["Marine", "Nicolas", "Corentin"];
+var MOI = "Marine";
+CONVS.forEach(function(c){ if (c.assigne === undefined) c.assigne = null; });
+[[3, "Marine"], [4, "Marine"], [5, "Nicolas"], [6, "Nicolas"], [8, "Léa"], [9, "David"]]
+  .forEach(function(p){ convParId(p[0]).assigne = p[1]; });
+
+function profDe(nom) { return PROFILS[nom] || null; }
+function iconeDe(nom) { var p = profDe(nom); return p ? p.ic : "👤"; }
+function colDe(nom) { var p = profDe(nom); return p ? p.col : "#8a93a3"; }
+function avatar(nom, gd) {
+  return '<span class="pav' + (gd ? " gd" : "") + '" style="background:' + colDe(nom) + ';" title="' + nom + '">' + iconeDe(nom) + '</span>';
+}
+function majEquipe() {
+  EQUIPE = Object.keys(PROFILS).filter(function(n){ return !PROFILS[n].ia; });
+  var sel = document.getElementById("sel-moi");
+  if (sel) {
+    if (EQUIPE.indexOf(MOI) < 0) MOI = EQUIPE[0] || "Marine";
+    sel.innerHTML = EQUIPE.map(function(e){ return '<option value="' + e + '">' + iconeDe(e) + ' ' + e + '</option>'; }).join("");
+    sel.value = MOI;
+  }
+}
+/* menu de changement de cycle : clic sur le tag du cycle dans l'en-tête du fil */
+function ouvrirMenuCycles(ev, id) {
+  if (!ACTIF) return;
+  ev.stopPropagation();
+  var m = document.getElementById("menu-cycle");
+  m.innerHTML = '<div style="padding:6px 10px;font-size:10px;font-weight:700;color:#7A8079;text-transform:uppercase;letter-spacing:.4px;">Changer le cycle</div>' +
+    CYCLES_LISTE.filter(function(cy){ return cy !== "tous"; }).map(function(cy){
+      var cl = classeCycle(cy) || "traitee";
+      return '<button onclick="changerCycle(' + id + ',\'' + cy.replace(/'/g, "\\'") + '\'); fermerMenuCycles();"><span class="cy ' + cl + '">' + cy + '</span></button>';
+    }).join("");
+  m.style.left = Math.min(ev.clientX, (window.innerWidth || 1200) - 240) + "px";
+  m.style.top = Math.min(ev.clientY, (window.innerHeight || 800) - 360) + "px";
+  m.style.minWidth = "230px";
+  m.classList.add("ouvert");
+}
+function fermerMenuCycles() { var m = document.getElementById("menu-cycle"); if (m) m.classList.remove("ouvert"); }
+document.addEventListener("click", function(){ fermerMenuCycles(); }, false);
+
+/* ===== Boîte outils d'envoi : raccourcis (CRUD) + modèles WA ===== */
+var MES_RACCOURCIS = (function () {  /* v37 : raccourcis persistés */
+  try { return JSON.parse(localStorage.getItem("umob_raccourcis") || "[]") || []; } catch (e) { return []; }
+})();
+function sauvegarderRaccourcis() {
+  try { localStorage.setItem("umob_raccourcis", JSON.stringify(MES_RACCOURCIS)); } catch (e) {}
+}
+var ONGLET_OUTILS = "racc";
+function ouvrirBoiteOutils(o) { ONGLET_OUTILS = o; document.getElementById("boite-outils").classList.add("ouvert"); renduBoiteOutils(); }
+function fermerBoiteOutils() { document.getElementById("boite-outils").classList.remove("ouvert"); }
+function ongletOutils(o) { ONGLET_OUTILS = o; renduBoiteOutils(); }
+function renduBoiteOutils() {
+  var c = convParId(SELID);
+  var corps = document.getElementById("bo-corps");
+  document.getElementById("bt-racc").classList.toggle("on", ONGLET_OUTILS === "racc");
+  document.getElementById("bt-wa").classList.toggle("on", ONGLET_OUTILS === "wa");
+  document.getElementById("bt-sig").classList.toggle("on", ONGLET_OUTILS === "sig");
+  if (ONGLET_OUTILS === "sig") { renduOngletSignature(); return; }
+  if (ONGLET_OUTILS === "racc") {
+    corps.innerHTML =
+      '<div class="bo-liste">' +
+      RACCOURCIS.concat(MES_RACCOURCIS).map(function(r, i){
+        var perso = i >= RACCOURCIS.length;
+        var idx = perso ? i - RACCOURCIS.length : -1;
+        return '<div class="bo-item">' +
+          '<div class="bo-txt" onclick="insererDepuisOutils(' + JSON.stringify(r).replace(/"/g, "&quot;") + ')" title="Cliquer pour insérer dans le message">💬 ' + r + '</div>' +
+          (perso
+            ? '<div class="bo-sp"><button class="btn" title="Modifier" onclick="editerRaccourci(' + idx + ')">✏️</button><button class="btn" title="Supprimer" onclick="supprimerRaccourci(' + idx + ')">🗑️</button></div>'
+            : '<span class="tag" title="Raccourci standard de l\'équipe">standard</span>') +
+          '</div>';
+      }).join("") + '</div>' +
+      '<div class="bo-nouveau">' +
+        '<div class="lab">➕ Créer un nouveau raccourci</div>' +
+        '<textarea id="nv-racc" placeholder="Texte du raccourci… Astuce : {client} et {plaque} seront remplacés automatiquement par les infos du contact."></textarea>' +
+        '<div style="display:flex;justify-content:flex-end;margin-top:8px;"><button class="btn primaire" onclick="creerRaccourci()">➕ Créer ce raccourci</button></div>' +
+      '</div>';
+  } else {
+    corps.innerHTML = '<div class="bo-liste">' +
+      MODELES_WA.map(function(mo){
+        var txt = remplaceChamps(mo.txt, c || { nom: "", contact: {} });
+        var catCls = mo.categorie === "Marketing" ? "background:#fdeedd;color:#b06a00;" : "background:#e0f5ec;color:#1d7a4f;";
+        var stCls = mo.statut === "Actif" ? "background:#e2f0fc;color:#0e5aa7;" : "background:#fdf0e6;color:#c05621;";
+        return '<div class="bo-item" style="flex-direction:column;align-items:stretch;cursor:pointer;" title="Clique pour ENVOYER ce modèle approuvé au client (mode template WhatsApp — passe même hors fenêtre de 24 h)" onclick="envoyerModeleWa(\'' + mo.nom + '\')">' +
+          '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">' +
+            '<span style="font-weight:700;color:#0e5aa7;font-size:12.5px;">' + mo.nom + '</span>' +
+            '<span style="font-size:9.5px;font-weight:700;padding:1px 7px;border-radius:99px;' + catCls + '">' + mo.categorie + '</span>' +
+            '<span style="font-size:9.5px;font-weight:600;padding:1px 7px;border-radius:99px;' + stCls + '" title="' + (mo.statut === "Actif" ? "Modèle approuvé WhatsApp — envoyable hors fenêtre de 24 h" : "Pas encore approuvé par WhatsApp — envoi impossible en l'état") + '">' + (mo.statut === "Actif" ? "✓ Actif" : "⏳ " + mo.statut) + '</span>' +
+            '<span style="font-size:9.5px;color:#8a94a0;">· ' + mo.langue + '</span>' +
+            '<button class="btn" style="margin-left:auto;font-size:10px;padding:3px 9px;border:1px solid var(--bord2);background:#F3F5F2;border-radius:99px;cursor:pointer;" title="Ne pas envoyer : copie simplement le texte dans la zone de saisie pour le modifier" onclick="event.stopPropagation();insererDepuisOutils(' + JSON.stringify(mo.txt).replace(/"/g, "&quot;") + ')">✏ Insérer</button>' +
+          '</div>' +
+          '<div class="bo-txt" style="cursor:pointer;">' + txt + '</div></div>';
+      }).join("") + '</div>' +
+      '<div style="color:#9aa4b1;font-size:11px;">Vrais modèles du compte WhatsApp Business U\'MOB (relevés au Gestionnaire WhatsApp le 05/11/2026) — <b>cliquer sur un modèle l\'ENVOIE directement</b> en mode template WhatsApp (passe hors fenêtre de 24 h) ; « ✏ Insérer » copie juste le texte dans la zone de saisie.</div>';
+  }
+}
+function insererDepuisOutils(txt) {
+  var c = convParId(SELID);
+  insererTexte(remplaceChamps(txt, c || { nom: "", contact: {} }));
+  fermerBoiteOutils();
+}
+function creerRaccourci() {
+  var t = document.getElementById("nv-racc");
+  var v = ((t && t.value) || "").trim();
+  if (!v) return;
+  MES_RACCOURCIS.push(v);
+  sauvegarderRaccourcis();
+  renduBoiteOutils();
+}
+function editerRaccourci(i) {
+  var v = prompt("Modifier le raccourci :", MES_RACCOURCIS[i]);
+  if (!v) return;
+  MES_RACCOURCIS[i] = v.trim();
+  sauvegarderRaccourcis();
+  renduBoiteOutils();
+}
+function supprimerRaccourci(i) {
+  if (confirm("Supprimer ce raccourci ?")) { MES_RACCOURCIS.splice(i, 1); sauvegarderRaccourcis(); renduBoiteOutils(); }
+}
+
+/* ===== Onglet ✉ Signature (C5-ENV-2) : édition + aperçu + insertion ===== */
+function sigChamp(id, lab, val, ph) {
+  return '<div style="display:flex;align-items:center;gap:8px;margin:6px 0;">' +
+    '<label style="flex:0 0 110px;font-size:11.5px;color:#8a94a0;">' + lab + '</label>' +
+    '<input id="' + id + '" value="' + sigEch(val).replace(/"/g, "&quot;") + '" placeholder="' + (ph || "") + '" style="flex:1;min-width:200px;border:1px solid #cbd5e1;border-radius:7px;padding:5px 9px;font-size:12.5px;" oninput="sigApercuMaj()" />' +
+    '</div>';
+}
+function sigLireChamps() {
+  var g = function (id) { var e = document.getElementById(id); return e ? e.value : ""; };
+  return {
+    actif: (document.getElementById("sig-actif") || {}).checked !== false,
+    nom: g("sig-nom"), role: g("sig-role"), tel: g("sig-tel"),
+    adresse: g("sig-adresse"), site: g("sig-site"), logo: g("sig-logo"),
+    mention: g("sig-mention"), lien: g("sig-lien")
+  };
+}
+function sigApercuMaj() {
+  var ap = document.getElementById("sig-apercu");
+  if (ap) ap.innerHTML = corpsHtmlEmail("Voici un aperçu du message que recevra le client…", sigLireChamps());
+}
+  var s = SIGNATURE;
+function renduOngletSignature() {
+
+
+  var corps = document.getElementById("bo-corps");
+  corps.innerHTML =
+    '<div style="padding:14px 18px;max-height:100%;overflow:auto;">' +
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">' +
+
+        '<label style="display:flex;align-items:center;gap:7px;font-size:13px;font-weight:700;color:#0e5aa7;cursor:pointer;">' +
+          '<input type="checkbox" id="sig-actif" ' + (s.actif ? "checked" : "") + ' style="transform:scale(1.25);accent-color:#0e5aa7;" onchange="sigSauver(sigLireChamps()); renduOngletSignature();" /> Ajouter ma signature aux emails envoyés' +
+        '</label>' +
+        '<span class="tag" style="' + (s.actif ? "background:#e0f5ec;color:#1d7a4f;" : "background:#fdeedd;color:#b06a00;") + '">' + (s.actif ? "✓ active" : "désactivée") + '</span>' +
+
+      '</div>' +
+      '<div class="petit" style="color:#9aa4b1;margin-bottom:10px;">La signature part dans le corps HTML de chaque email (canal ✉ Email) — le client voit le logo et tes coordonnées. Les champs sont enregistrés dans ce navigateur.</div>' +
+      sigChamp("sig-nom", "Nom", s.nom, "Prénom NOM") +
+      sigChamp("sig-role", "Fonction", s.role, "Responsable Commercial") +
+      sigChamp("sig-tel", "Téléphone", s.tel, "06 12 34 56 78") +
+      sigChamp("sig-adresse", "Adresse", s.adresse, "53 avenue Carnot, 69250 Neuville-sur-Saône") +
+      sigChamp("sig-site", "Site web", s.site, "www.umob.fr") +
+      sigChamp("sig-lien", "Lien du site", s.lien, "https://umob.fr") +
       sigChamp("sig-logo", "URL du logo", s.logo, "https://umob.fr/…/Logo-umob.png") +
       sigChamp("sig-mention", "Mention SAV", s.mention, "Une demande technique relative à vos scooters ?") +
       '<div style="display:flex;justify-content:flex-end;gap:8px;margin:10px 0;">' +
