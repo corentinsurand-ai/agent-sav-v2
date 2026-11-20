@@ -21,6 +21,8 @@
 //   GET ?secret=…&journal=1[&etape=wa_send][&tel=…][&depuis=ISO][&jusqua=ISO][&limite=200]
 //        → lecture du journal agent_sav.journal (C4-JOURNAL-1 : logs d'envoi WA,
 //          ERREURS Meta 502, etc. — lisible enfin depuis la plateforme/CLI)
+//   POST ?journal=1 {etape, texte, detail} → écriture d'une ligne journal
+//        (C4-JOURNAL-2 : le front y trace les échecs d'envoi vus côté navigateur)
 //
 // COMPATIBILITÉ : si les colonnes sens/statut_reception n'existent pas
 // encore dans la table (ALTER pas exécuté), on retombe automatiquement sur
@@ -34,7 +36,7 @@
 // Réponses : 200 ; 401 secret ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C4-JOURNAL-1';
+var VERSION = 'C4-JOURNAL-2';
 var SCHEMA = 'agent_sav';
 
 // null tant que la présence des colonnes C2 n'est pas confirmée ;
@@ -165,6 +167,46 @@ module.exports = async function handler(req, res) {
   var authA = require('../lib/auth');
   if (!authA.authentifierRequete(secretDe(req), jetonDe(req)).ok) {
     return res.status(401).json({ ok: false, erreur: 'secret invalide', version: VERSION });
+  }
+
+  // ---- C4-JOURNAL-2 : POST ?journal=1 {etape, texte, detail} → écrit une ligne
+  // dans agent_sav.journal (utilisé par le front pour tracer les échecs d'envoi
+  // WA vus côté navigateur : 401, réseau, 502 — qu'aucun appel serveur ne voit)
+  if (req.method === 'POST' && paramDe(req, 'journal') === '1') {
+    var corpsJ = req.body;
+    if (!corpsJ || typeof corpsJ !== 'object') {
+      try { corpsJ = JSON.parse(String(req.body || '{}')); } catch (e) { corpsJ = null; }
+    }
+    var etapeW = String((corpsJ && corpsJ.etape) || 'wa_send').slice(0, 60);
+    var texteW = String((corpsJ && corpsJ.texte) || '').slice(0, 500);
+    var detailW = (corpsJ && corpsJ.detail && typeof corpsJ.detail === 'object') ? corpsJ.detail : {};
+    if (!texteW) {
+      return res.status(400).json({ ok: false, erreur: 'corps invalide : texte requis' });
+    }
+    if (!env('SUPABASE_URL') || !env('SUPABASE_SERVICE_KEY')) {
+      return res.status(500).json({ ok: false, erreur: 'configuration Supabase manquante' });
+    }
+    try {
+      var resW = await fetch(urlSupabase('journal', ''), {
+        method: 'POST',
+        headers: {
+          'apikey': env('SUPABASE_SERVICE_KEY'),
+          'Authorization': 'Bearer ' + env('SUPABASE_SERVICE_KEY'),
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal',
+          'Content-Profile': SCHEMA
+        },
+        body: JSON.stringify({ etape: etapeW, texte: texteW, detail: detailW })
+      });
+      if (!resW.ok) {
+        var cW = '';
+        try { cW = await resW.text(); } catch (e) { cW = ''; }
+        return res.status(500).json({ ok: false, erreur: 'Supabase journal ' + resW.status + ' — ' + cW.substring(0, 200) });
+      }
+      return res.status(200).json({ ok: true, brique: 'C4', version: VERSION, mode: 'journal_ecriture', etape: etapeW });
+    } catch (e) {
+      return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
+    }
   }
 
   // ---- C4-IMP-2 : POST {importer:[…]} → import de l'historique respond.io
