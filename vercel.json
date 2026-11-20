@@ -17,6 +17,10 @@
     {
       "source": "/api/emails",
       "destination": "/api/mails"
+    },
+    {
+      "source": "/app",
+      "destination": "/index.html"
     }
   ]
 }
