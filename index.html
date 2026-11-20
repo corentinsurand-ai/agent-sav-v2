@@ -2560,7 +2560,10 @@ function chargerMessagesWhatsApp(base, secret, cb) {
         }); });
         if (!vNom) return;
         var n = String(c.nom || "").trim();
-        if (n.length === 1 || /^\+?[\d .-]{9,}$/.test(n)) { c.nom = vNom; renommes++; }
+        /* v150 : on renomme dès que le nom actuel n'est pas un vrai nom
+           (initiale, n° de tel, ou fonction seule « (gérant) ») et que le
+           Sheet propose un vrai nom pour ce téléphone. */
+        if (!nomProfilVrai(n) && nomProfilVrai(vNom)) { c.nom = vNom; renommes++; }
       });
       if (renommes) { renduListe(); renduFil(); pushLog("✏️ " + renommes + " conversation(s) renommée(s) depuis le Sheet."); }
       if (cb) cb();                                // emails ensuite (fusion multi-canal)
@@ -2600,18 +2603,29 @@ function nettoyerMailTxt(txt) {
   t = t.replace(/\n{3,}/g, "\n\n");
   return t.trim();
 }
+/* v150 : un nom de profil WhatsApp n'est un VRAI nom que s'il reste au moins
+   2 caractères AVEC une lettre HORS des parenthèses — une initiale (« R »),
+   un n° de tel ou une fonction seule (« (gérant) ») ne comptent pas. */
+function nomProfilVrai(p) {
+  var base = String(p || "").replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
+  if (base.length <= 1) return false;
+  if (/^\+?[\d .-]{9,}$/.test(base)) return false;
+  if (!/[a-zàâäéèêëîïôöùûüç]/i.test(base)) return false;
+  return true;
+}
 function nomProfilOu(nomProfil, repli) {
   var p = String(nomProfil || "").trim();
-  if (p && !/^\+?\d[\d .-]*$/.test(p)) return p;                  // un vrai nom de profil
+  if (nomProfilVrai(p)) return p;                                 // un vrai nom de profil
   return repli;
 }
 /* v148-C47-CONV : nom de la CONVERSATION WhatsApp — si le nom du profil
-   WhatsApp est une initiale (ex. « R ») ou un n° de tel, la conversation
-   hérite du nom du contact du Sheet (ex. « Radoine BEN DAHMANE »). */
+   WhatsApp n'est pas un vrai nom (initiale « R », n° de tel, ou fonction
+   seule « (gérant) » — v150), la conversation hérite du nom du contact du
+   Sheet (ex. « Radoine BEN DAHMANE »). */
 function nomConvWa(nomProfil, repli) {
   var p = String(nomProfil || "").trim();
   var r = String(repli || "").trim();
-  if (r && (p.length === 1 || /^\+?[\d .-]{9,}$/.test(p))) return r;
+  if (r && !nomProfilVrai(p)) return r;
   return nomProfilOu(p, r);
 }
 /* === Fusion multi-canal : un CONTACT = UNE conversation =================
@@ -6988,7 +7002,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v149 · C47-CONV-SYNC : les conversations existantes renommées depuis le Sheet quand le nom est une initiale (R → Radoine BEN DAHMANE) · v148 C47-CONV · v147 C47-NOM-PRINCIPAL · C46-CONTACTS';
+var VER_FRONT = 'v150 · C47-CONV-SYNC : « (gérant) » aussi remplacé par le nom du Sheet (Radoine BEN DAHMANE) · v149 · v148 C47-CONV · v147 C47-NOM-PRINCIPAL · C46-CONTACTS';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
