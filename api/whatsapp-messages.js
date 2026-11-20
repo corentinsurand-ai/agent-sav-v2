@@ -18,6 +18,9 @@
 //        (toutes les conversations confondues, ordre chronologique croissant,
 //         limité aux plus récents : le canvas groupe par téléphone)
 //   GET ?secret=…&tel=33620476040                  → l'historique d'un numéro
+//   GET ?secret=…&journal=1[&etape=wa_send][&tel=…][&depuis=ISO][&jusqua=ISO][&limite=200]
+//        → lecture du journal agent_sav.journal (C4-JOURNAL-1 : logs d'envoi WA,
+//          ERREURS Meta 502, etc. — lisible enfin depuis la plateforme/CLI)
 //
 // COMPATIBILITÉ : si les colonnes sens/statut_reception n'existent pas
 // encore dans la table (ALTER pas exécuté), on retombe automatiquement sur
@@ -31,7 +34,7 @@
 // Réponses : 200 ; 401 secret ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C4-INCR-1';
+var VERSION = 'C4-JOURNAL-1';
 var SCHEMA = 'agent_sav';
 
 // null tant que la présence des colonnes C2 n'est pas confirmée ;
@@ -126,7 +129,7 @@ async function supabaseGetAvecC2(params) {
   return corps ? JSON.parse(corps) : [];
 }
 
-// Assainit un texte avant écriture Supabase (jsonb n'accepte ni \u0000
+// Assainit un texte avant écriture Supabase (jsonb n'accepte ni  ni
 // ni les contrôles bruts ; surrogats isolés interdits en JSON).
 function nettoyerImport(s) {
   s = String(s == null ? '' : s);
@@ -304,6 +307,46 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  // ---- C4-JOURNAL-1 : lecture du journal agent_sav.journal (logs d'envoi WA,
+  // erreurs Meta, etc.) — GET ?journal=1[&etape=wa_send][&tel=33761182801]
+  // [&depuis=2026-11-19T00:00:00Z][&jusqua=…][&limite=200]
+  if (paramDe(req, 'journal') === '1') {
+    try {
+      var etapeJ = paramDe(req, 'etape') || 'wa_send';
+      var limiteJ = parseInt(paramDe(req, 'limite'), 10) || 200;
+      if (limiteJ < 1) limiteJ = 1;
+      if (limiteJ > 1000) limiteJ = 1000;
+      var paramsJ = 'select=horodatage,etape,texte,detail&etape=eq.' + encodeURIComponent(etapeJ) +
+        '&order=horodatage.desc&limit=' + limiteJ;
+      var telJ = (paramDe(req, 'tel') || '').replace(/\D/g, '');
+      if (telJ) paramsJ += '&detail->>tel=eq.' + encodeURIComponent(telJ);
+      var depuisJ = paramDe(req, 'depuis');
+      if (depuisJ) paramsJ += '&horodatage=gte.' + encodeURIComponent(depuisJ);
+      var jusquaJ = paramDe(req, 'jusqua');
+      if (jusquaJ) paramsJ += '&horodatage=lte.' + encodeURIComponent(jusquaJ);
+      var rJ = await fetch(urlSupabase('journal', paramsJ), {
+        method: 'GET',
+        headers: {
+          'apikey': env('SUPABASE_SERVICE_KEY'),
+          'Authorization': 'Bearer ' + env('SUPABASE_SERVICE_KEY'),
+          'Accept-Profile': SCHEMA
+        }
+      });
+      var cJ = '';
+      try { cJ = await rJ.text(); } catch (e) { cJ = ''; }
+      if (!rJ.ok) {
+        return res.status(500).json({ ok: false, erreur: 'Supabase journal ' + rJ.status + ' — ' + cJ.substring(0, 300) });
+      }
+      var lignesJ = cJ ? JSON.parse(cJ) : [];
+      return res.status(200).json({
+        ok: true, brique: 'C4', version: VERSION, mode: 'journal',
+        etape: etapeJ, trouves: lignesJ.length, lignes: lignesJ
+      });
+    } catch (e) {
+      return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
+    }
+  }
+
   // Historique d'un numéro précis
   var tel = paramDe(req, 'tel');
   if (tel) {
@@ -366,8 +409,9 @@ module.exports = async function handler(req, res) {
 
   return res.status(200).json({
     ok: true, brique: 'C4', version: VERSION,
-    role: 'lecture des messages WhatsApp (recus par /api/whatsapp-webhook + envoyes par /api/whatsapp-send) + médias (brut->_media)',
+    role: 'lecture des messages WhatsApp (recus par /api/whatsapp-webhook + envoyes par /api/whatsapp-send) + médias (brut->_media) + journal (C4-JOURNAL-1)',
     liste: 'GET ?liste=1&limite=1000 — derniers messages (canvas : regroupe par telephone)',
-    tel: 'GET ?tel=33620476040 — historique chronologique d un numero'
+    tel: 'GET ?tel=33620476040 — historique chronologique d un numero',
+    journal: 'GET ?journal=1[&etape=wa_send][&tel=…][&depuis=ISO][&jusqua=ISO] — logs du journal'
   });
 };
