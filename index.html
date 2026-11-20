@@ -1197,7 +1197,7 @@
       <input class="carnet-recherche" id="carnet-q" placeholder="Rechercher une société, un contact, un numéro, une plaque…" oninput="renduCarnet()" />
       <span class="carnet-nb" id="carnet-nb"></span>
       <button class="btn" style="padding:5px 12px;font-size:12px;font-weight:700;" onclick="ouvrirFormSociete()" title="Créer une fiche entreprise avant d'engager une conversation">➕ Nouvelle fiche entreprise</button>
-      <button class="btn" id="btn-resync-carnet" style="padding:5px 12px;font-size:12px;font-weight:700;" onclick="resynchroCarnet()" title="Recharger sociétés + contacts depuis le miroir Supabase (dernière synchro Sheet « Clients Complets »)">⟳ Resynchro</button>
+      <button class="btn" id="btn-resync-carnet" style="padding:5px 12px;font-size:12px;font-weight:700;" onclick="resynchroCarnet()" title="Recharger depuis le Google Sheet « Clients Complets » (synchro miroir Supabase) puis réafficher sociétés + contacts">⟳ Resynchro</button>
       <button class="btn-fermer" onclick="fermerCarnet()">✕ Fermer</button>
     </div>
     <div class="carnet-corps">
@@ -2066,8 +2066,26 @@ function resynchroCarnet() {
   if (!s || !s.jeton) { afficherPorte(); return; }
   var b = document.getElementById("btn-resync-carnet");
   if (b) { b.disabled = true; b.innerHTML = "⟳ Synchronisation…"; }
-  pushLog("⟳ Resynchro manuelle du carnet (miroir Supabase)…");
-  chargerVraisClients();
+  var base = (localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app").replace(/\/+$/, "");
+  /* v152 : le bouton resynchronise VRAIMENT depuis le Sheet (Google Sheet →
+     miroir Supabase via /api/sync-clients, jeton de session accepté — B2.3),
+     PUIS recharge le carnet depuis le miroir. */
+  pushLog("⟳ Resynchro manuelle : Sheet → miroir Supabase…");
+  fetch(base + "/api/sync-clients?jeton=" + encodeURIComponent(s.jeton))
+    .then(function(r) { return r.json(); })
+    .then(function(rep) {
+      if (rep && rep.ok) {
+        pushLog("✅ Sheet resynchronisé : " + (rep.lignes_lues || "?") + " lignes lues, " + (rep.ecrits || 0) + " clients écrits dans le miroir.");
+        pushNotif("✅ Synchro Sheet : " + (rep.ecrits || 0) + " clients écrits dans le miroir.");
+      } else {
+        pushLog("⚠ Synchro Sheet refusée (" + ((rep && rep.erreur) || "401") + ") — rechargement depuis le miroir uniquement.");
+      }
+    })
+    .catch(function() { pushLog("⚠ Synchro Sheet injoignable — rechargement depuis le miroir uniquement."); })
+    .then(function() {
+      pushLog("⟳ Rechargement du carnet depuis le miroir Supabase…");
+      chargerVraisClients();   /* finResyncCarnet() réactive le bouton à la fin */
+    });
 }
 /* Téléphone des vrais clients → format E.164 WhatsApp (+33620476040) :
    la synchro/API renvoie des chiffres nus avec indicatif (33620476040) ;
@@ -7002,7 +7020,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v151 · C47-CONV-SYNC : le nom du Sheet (Radoine BEN DAHMANE) est prioritaire, « (gérant) » ne s\'affiche plus jamais · v150 · v149 · v148 C47-CONV · v147 C47-NOM-PRINCIPAL · C46-CONTACTS';
+var VER_FRONT = 'v152 · bouton ⟳ Resynchro du carnet resynchronise VRAIMENT le Sheet (Google Sheet → Supabase) avant de recharger · v151 · v150 · v149 · v148 C47-CONV · v147 C47-NOM-PRINCIPAL · C46-CONTACTS';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();

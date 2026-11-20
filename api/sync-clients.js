@@ -1,5 +1,5 @@
 // ============================================================================
-// Agent SAV U'mob v2 — B2.2 : /api/sync-clients — synchro Sheet → Supabase
+// Agent SAV U'mob v2 — B2.3 : /api/sync-clients — synchro Sheet → Supabase
 //
 // RÔLE : lire le Google Sheet « Infos Service Client » (onglet fusionné) et
 // écrire son miroir dans agent_sav.clients (upsert par téléphone — idempotent,
@@ -12,22 +12,27 @@
 //       &dry=1     → ANALYSE SANS ÉCRIRE (validation : stats + échantillon
 //                    des 3 premiers clients détectés, aucun écrit Supabase)
 //
-// Authentification (deux canaux) :
+// Authentification (trois canaux) :
 //   - manuelle/testing  : ?secret=<WEBHOOK_SECRET> ou header x-webhook-secret
 //     (mêmes règles exactes que /api/webhook et /api/contexte)
+//   - JETON DE SESSION  : ?jeton=<jeton> ou header x-jeton — B2.3 : un
+//     collaborateur connecté (bouton ⟳ Resynchro du carnet) peut déclencher
+//     la resynchro Sheet sans connaître le secret machine (jamais distribué
+//     aux navigateurs depuis C6-AUTH-2).
 //   - CRON Vercel       : header Authorization: Bearer <CRON_SECRET> — Vercel
 //     l'ajoute automatiquement aux déclenchements cron quand CRON_SECRET
 //     existe (vercel.json : synchro quotidienne 05:00 UTC = 07:00 Paris).
 //     → le secret ne figure JAMAIS dans vercel.json (fichier public GitHub).
 //
-// Réponses : 200 synchro faite ; 401 secret invalide ; 405 non-GET ;
+// Réponses : 200 synchro faite ; 401 secret/jeton invalide ; 405 non-GET ;
 // 500 configuration manquante (GOOGLE_*) ou erreur Google/Supabase (message
 // explicite).
 // ============================================================================
 
-var VERSION = 'B2.2';
+var VERSION = 'B2.3';
 
 var clients = require('../lib/clients.js');
+var auth = require('../lib/auth.js');
 
 function env(nom) { return process.env[nom] || ''; }
 
@@ -47,6 +52,23 @@ function secretDe(req) {
     secret = String(req.headers['x-webhook-secret']);
   }
   return secret;
+}
+
+// Jeton de session : ?jeton= (query) ou header x-jeton — même logique de repli
+function jetonDe(req) {
+  var j = '';
+  try {
+    if (req.query && req.query.jeton) j = String(req.query.jeton);
+  } catch (e) {}
+  if (!j) {
+    var u = (req.url || '').indexOf('?') !== -1 ? req.url.slice(req.url.indexOf('?') + 1) : '';
+    var m = u.match(/(?:^|&)jeton=([^&]*)/);
+    if (m) j = m[1];
+  }
+  if (!j && req.headers && req.headers['x-jeton']) {
+    j = String(req.headers['x-jeton']);
+  }
+  return j;
 }
 
 // Auth cron Vercel : Authorization: Bearer <CRON_SECRET>
@@ -71,9 +93,10 @@ module.exports = async function handler(req, res) {
   }
 
   if (!secretCronOk(req)) {
-    var secret = secretDe(req);
-    if (!env('WEBHOOK_SECRET') || secret !== env('WEBHOOK_SECRET')) {
-      return res.status(401).json({ ok: false, erreur: 'secret invalide' });
+    /* B2.3 : secret machine OU jeton de session valide (bouton ⟳ Resynchro) */
+    var authR = auth.authentifierRequete(secretDe(req), jetonDe(req));
+    if (!authR.ok) {
+      return res.status(401).json({ ok: false, erreur: 'secret ou jeton invalide' });
     }
   }
 
