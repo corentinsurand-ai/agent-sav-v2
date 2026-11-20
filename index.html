@@ -2545,6 +2545,24 @@ function chargerMessagesWhatsApp(base, secret, cb) {
         };
         backfillMedia(0);
       }
+      /* v149-C47-CONV-SYNC : renommage des conversations EXISTANTES — si le
+         nom actuel est une initiale (R) ou un n° de tel et que le carnet
+         connaît un vrai nom pour ce téléphone (Sheet), la conversation
+         prend ce nom (ex. R → Radoine BEN DAHMANE, gérant RICA). */
+      var renommes = 0;
+      CONVS.forEach(function(c) {
+        var d = String((c.contact && c.contact.tel) || "").replace(/\D/g, "");
+        if (!d) return;
+        var vNom = "";
+        SOCIETES.forEach(function(s) { (s.vraisContacts || []).forEach(function(vv) {
+          var dv = String(vv.tel || "").replace(/\D/g, "");
+          if (dv && dv.slice(-9) === d.slice(-9) && vv.nom) vNom = vv.nom;
+        }); });
+        if (!vNom) return;
+        var n = String(c.nom || "").trim();
+        if (n.length === 1 || /^\+?[\d .-]{9,}$/.test(n)) { c.nom = vNom; renommes++; }
+      });
+      if (renommes) { renduListe(); renduFil(); pushLog("✏️ " + renommes + " conversation(s) renommée(s) depuis le Sheet."); }
       if (cb) cb();                                // emails ensuite (fusion multi-canal)
     })
     .catch(function() { if (cb) cb(); /* brique C4 pas encore configurée — silencieux */ });
@@ -6970,7 +6988,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v148 · C47-CONV : une initiale WhatsApp (R) prend le nom du contact Sheet dans la conversation · v147 C47-NOM-PRINCIPAL · C46-CONTACTS · C45-INCR · C44-EMOJI · C43-PJ-WA';
+var VER_FRONT = 'v149 · C47-CONV-SYNC : les conversations existantes renommées depuis le Sheet quand le nom est une initiale (R → Radoine BEN DAHMANE) · v148 C47-CONV · v147 C47-NOM-PRINCIPAL · C46-CONTACTS';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
