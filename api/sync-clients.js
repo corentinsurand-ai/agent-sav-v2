@@ -146,3 +146,5 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ ok: false, erreur: String((e && e.message) || e) });
   }
 };
+
+// redeploy C1.4 fix (clients.js corrigé depuis la source réelle)
