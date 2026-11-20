@@ -2454,7 +2454,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
           var asRio = assignRioTel(v.tel);           /* C12-ASSIGN : assignation respond.io */
           nid++;
           CONVS.push({
-            id: nid, nom: nomConvWa(dernier.nom_profil, v.nom), entreprise: s.ent, canal: "WhatsApp",
+            id: nid, nom: nomConvWa(dernier.nom_profil, v.nom || v.tel), entreprise: s.ent, canal: "WhatsApp",
             cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
             lu: false, wa: true, extrait: String(dernier.texte || ""),
             assigne: asRio || null,
@@ -2560,10 +2560,9 @@ function chargerMessagesWhatsApp(base, secret, cb) {
         }); });
         if (!vNom) return;
         var n = String(c.nom || "").trim();
-        /* v150 : on renomme dès que le nom actuel n'est pas un vrai nom
-           (initiale, n° de tel, ou fonction seule « (gérant) ») et que le
-           Sheet propose un vrai nom pour ce téléphone. */
-        if (!nomProfilVrai(n) && nomProfilVrai(vNom)) { c.nom = vNom; renommes++; }
+        /* v151 : le nom du Sheet (vrai nom) est PRIORITAIRE : on renomme
+           quoi qu'il arrive, même si le nom actuel est « (gérant) ». */
+        if (nomProfilVrai(vNom) && n !== vNom) { c.nom = vNom; renommes++; }
       });
       if (renommes) { renduListe(); renduFil(); pushLog("✏️ " + renommes + " conversation(s) renommée(s) depuis le Sheet."); }
       if (cb) cb();                                // emails ensuite (fusion multi-canal)
@@ -2618,15 +2617,16 @@ function nomProfilOu(nomProfil, repli) {
   if (nomProfilVrai(p)) return p;                                 // un vrai nom de profil
   return repli;
 }
-/* v148-C47-CONV : nom de la CONVERSATION WhatsApp — si le nom du profil
-   WhatsApp n'est pas un vrai nom (initiale « R », n° de tel, ou fonction
-   seule « (gérant) » — v150), la conversation hérite du nom du contact du
-   Sheet (ex. « Radoine BEN DAHMANE »). */
+/* v148-C47-CONV : nom de la CONVERSATION WhatsApp — v151 : le nom du contact
+   du Sheet gagne DÈS QU'il est un vrai nom (ex. « Radoine BEN DAHMANE (Gérant) ») ;
+   sinon vrai nom de profil WhatsApp ; sinon repli (Sheet imparfait, puis profil,
+   puis n° de tel) — jamais une initiale ni une fonction seule « (gérant) ». */
 function nomConvWa(nomProfil, repli) {
   var p = String(nomProfil || "").trim();
   var r = String(repli || "").trim();
-  if (r && !nomProfilVrai(p)) return r;
-  return nomProfilOu(p, r);
+  if (nomProfilVrai(r)) return r;
+  if (nomProfilVrai(p)) return p;
+  return r || p;
 }
 /* === Fusion multi-canal : un CONTACT = UNE conversation =================
    Les chargeurs WhatsApp et Email ajoutent leurs messages dans la conversation
@@ -7002,7 +7002,7 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'v150 · C47-CONV-SYNC : « (gérant) » aussi remplacé par le nom du Sheet (Radoine BEN DAHMANE) · v149 · v148 C47-CONV · v147 C47-NOM-PRINCIPAL · C46-CONTACTS';
+var VER_FRONT = 'v151 · C47-CONV-SYNC : le nom du Sheet (Radoine BEN DAHMANE) est prioritaire, « (gérant) » ne s\'affiche plus jamais · v150 · v149 · v148 C47-CONV · v147 C47-NOM-PRINCIPAL · C46-CONTACTS';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
