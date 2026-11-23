@@ -2161,7 +2161,12 @@ function appliquerVraisClients(liste) {
        déroule chaque société en fiche propre pour TOUTES les importer. */
     var societes = (row.brut && Array.isArray(row.brut.societes) && row.brut.societes.length)
       ? row.brut.societes
-      : [{ client: row.brut && row.brut.client, lignes: row.brut && row.brut.lignes }];
+      : [{ client: row.brut && row.brut.client, lignes: row.brut && row.brut.lignes,
+           /* v161 : on conserve le contact PROPRE à la ligne miroir (ex. le
+              « Superviseur » parsé dans Autres contacts sur son propre n°) —
+              sinon le contact principal de la société était accroché au
+              mauvais numéro. */
+           contact: row.brut && row.brut.contact }];
     societes.forEach(function(sc) {
     var cl = {
       telephone: row.telephone,
@@ -2224,7 +2229,10 @@ function appliquerVraisClients(liste) {
       if (!s.siege && l.adresse_complete) s.siege = l.adresse_complete;
       if (!s.siren && l.siren) s.siren = l.siren;
       if (!nomContact) {
-        var nc = [l.prenom, l.nom_contact].filter(String).join(" ");
+        /* v161 : le nom de la ligne vient de la colonne « Contact principal »
+           (contact_principal) — les champs prenom/nom_contact n'existent pas
+           dans le Sheet et produisaient un nom parasite « (Gérant) ». */
+        var nc = String(l.contact_principal || "").trim() || [l.prenom, l.nom_contact].filter(String).join(" ");
         if (nc) nomContact = nc + ((l.fonction && !estTelAffiche(l.fonction)) ? " (" + l.fonction + ")" : "");
       }
       if (!s.contact_sc && nomContact) s.contact_sc = nomContact + " — " + telE164(cl.telephone);
@@ -7262,11 +7270,11 @@ function notifierSysteme(convs) {
    (c.entreprise), choisie automatiquement (plaque/email) ou via le picker
    « 🏢 N sociétés ▾ » ; l'action manuelle "entreprise" est persistée et
    rejouée au chargement comme les autres actions équipe. */
-/* v160 : nom des contacts — le « Contact principal » du Sheet prime sur la
-   partie locale de l'email (fix « m.dominos » au lieu de « Nicolas BOURBAO »
-   pour un contact partagé entre plusieurs sociétés), et chaque société
-   importée via brut.societes porte son propre contact. */
-var VER_FRONT = 'V160';
+/* v161 : fiche contacts — le contact propre à la ligne miroir (brut.contact,
+   ex. superviseur sur son propre n°) n'est plus écrasé par le contact
+   principal de la société accroché au mauvais téléphone, et le nom de ligne
+   vient de la colonne « Contact principal » du Sheet. */
+var VER_FRONT = 'V161';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
