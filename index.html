@@ -754,7 +754,50 @@
   /* --- conversations : ligne avatar + contenu --- */
   .conv { display: flex; align-items: flex-start; gap: 11px; padding: 12px 14px 12px 12px; margin: 0 6px; border-radius: 12px; transition: background .13s, box-shadow .13s; }
   .conv + .conv { border-top: none; }
+  .conv:hover { background: #F1F6FC; box-shadow: 0 1px 4px rgba(15,35,70,.05); }
 
+
+  header.topbar .logo, header.topbar .crumb, header.topbar .btn-nouv,
+
+  header.topbar .badge-ver, header.topbar select { flex: 0 0 auto; white-space: nowrap; }
+
+
+
+  /* --- volet fil : pas de double bord --- */
+  section.fil { background: transparent; }
+  #volet-fil { background: #fff; }
+  .volet-corps { min-height: 0; }
+  .commentaires { border-top: 1px solid #EDF2F8; }
+
+  /* ============================================================
+     C8-DESIGN-3 : bulles sortantes bleu plein, états vides, glass,
+     focus accessibles, barre de recherche du fil.
+     ============================================================ */
+
+  /* --- bulles sortantes : dégradé bleu plein, texte blanc (look messagerie) --- */
+  .bulle.agent { background: linear-gradient(135deg, #1273d1 0%, #0e5aa7 60%, #0a3f77 100%); border: none; border-top-right-radius: 4px; color: #fff; box-shadow: 0 3px 10px rgba(14,90,167,.3); }
+  .bulle.agent .h { color: #cfe3f8; }
+  .bulle.agent .mail-obj { background: rgba(255,255,255,.16); border-left-color: rgba(255,255,255,.7); color: #fff; }
+  .bulle.agent .exp-lib { color: #bcd8f2; border-top-color: rgba(255,255,255,.25); }
+  .bulle.agent .pj { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.25); color: #eaf3fd; }
+  .bulle.agent .mini { background: rgba(255,255,255,.18); color: #eaf3fd; }
+  .bulle.agent .mail-frame { border-color: rgba(255,255,255,.3); }
+  .bulle.agent .mail-cite summary { color: #bcd8f2; }
+  .bulle.agent .mail-cite > *:not(summary) { color: #d7e8fa; border-left-color: rgba(255,255,255,.35); }
+  .bulle.agent mark { background: rgba(255,255,255,.35); color: #0a3f77; }
+  .bulle.agent a { color: #d7ecff; }
+
+  /* --- bulles entrantes : carte blanche franche --- */
+  .bulle.entrant { box-shadow: 0 1px 4px rgba(15,35,70,.08); }
+
+  /* --- états vides illustrés --- */
+  .vide-etat { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 42px 24px; text-align: center; color: var(--mut); }
+  .vide-etat .ve-tit { font-weight: 700; color: #3a4a60; font-size: 14px; }
+  .vide-etat .ve-txt { font-size: 12.5px; line-height: 1.55; max-width: 340px; }
+  .vide-etat svg { opacity: .8; }
+
+  /* --- menu de cycle : carte verre dépoli --- */
+  .ctx { backdrop-filter: blur(8px); background: rgba(255,255,255,.92); border: 1px solid rgba(255,255,255,.8); padding: 6px; }
 
   /* --- barre de recherche du fil : capsule avec loupe --- */
   .rech-fil { position: relative; }
@@ -1536,7 +1579,25 @@ var SOCIETES = [
       {"plaque": "GQ-416-AJ", "produit": "INFINITY PRO CHASSIS NOIR", "contrat": "Modèle Confort + 48 — CO01159, 07/07/2023 → 30/08/2027"},
       {"plaque": "GQ-485-AJ", "produit": "INFINITY PRO CHASSIS NOIR", "contrat": "Modèle Confort + 48 — CO01159, 07/07/2023 → 30/08/2027"}
     ], "convs": [13]},
+    {"ent": "MASSUSHI (MAS SUSHI)", "siren": "832950687", "siege": "1001 Avenue de la Batterie, 06270 Villeneuve Loubet", "livraison": "Même adresse", "contact_sc": "Andréa (Président) — 07 85 75 23 56", "risque": "Sain", "classeR": "ok", "scooters": [
+      {"plaque": "GX-722-SG", "produit": "INFINITY PRO CHASSIS NOIR", "contrat": "Modèle Confort + 48 — CO01690, 04/07/2024 → 10/08/2028"},
+      {"plaque": "HH-477-JM", "produit": "INFINITY PRO CHASSIS NOIR", "contrat": "Modèle Confort + 48 — CO02114, 06/01/2026 → 10/03/2030"},
+      {"plaque": "HH-440-JM", "produit": "INFINITY PRO CHASSIS NOIR", "contrat": "Modèle Confort + 48 — CO02114, 06/01/2026 → 10/03/2030"}
+    ], "convs": [14]},
+    {"ent": "DORONZO (PULCINELLA)", "siren": "848836755", "siege": "1 Avenue Meissonnier, 06600 Antibes", "livraison": "Même adresse", "contact_sc": "Doronzo (Gérant) — 06 37 37 10 48", "risque": "RAS", "classeR": "ok", "scooters": [
+      {"plaque": "GH-330-XY", "produit": "INFINITY PRO Châssis Noir", "contrat": "Modèle Confort 48 — CO01354, 10/08/2022 → 10/10/2026"},
+      {"plaque": "GR-995-EA", "produit": "INFINITY PRO CHASSIS NOIR", "contrat": "Modèle Confort + 48 — CO01314, 21/09/2023 → 20/09/2027"},
+      {"plaque": "GR-978-EA", "produit": "INFINITY PRO CHASSIS NOIR", "contrat": "Modèle Confort + 48 — CO01314, 21/09/2023 → 20/09/2027"},
+      {"plaque": "HB-630-RK", "produit": "INFINITY PRO CHASSIS NOIR", "contrat": "Modèle Confort + 48 — CO01864, 03/02/2025 → 02/03/2029"}
+    ], "convs": [15]},
+    {"ent": "DEMOZ (DOMINO'S PIZZA POISSY)", "siren": "537568529", "siege": "7 AVENUE DES URSULINES, 78300 Poissy", "livraison": "Même adresse", "contact_sc": "Shaun (Gérant) — 06 23 42 55 26", "risque": "RAS", "classeR": "ok", "scooters": [
+      {"plaque": "GW-288-GA", "produit": "COMPACT PRO CHASSIS BLANC", "contrat": "Modèle Confort + 48 — CO01591, 16/04/2024 → 10/06/2028"},
+      {"plaque": "GW-293-GA", "produit": "COMPACT PRO CHASSIS BLANC", "contrat": "Modèle Confort + 48 — CO01591, 16/04/2024 → 10/06/2028"},
+      {"plaque": "GW-325-GA", "produit": "COMPACT PRO CHASSIS BLANC", "contrat": "Modèle Confort + 48 — CO01591, 16/04/2024 → 10/06/2028"}
+    ], "convs": [16]}
+  ];
 
+/* ============================================================
    MAINTENANCES EFFECTUÉES (EXEMPLES de démonstration) — les vraies
    données arrivent depuis le comptage C7-MAINT (route /api/clients-import
    ?liste=1 : champ maintenances par client, fusion par code_client) ;
@@ -2337,7 +2398,6 @@ function creerConvsProspects(parWa) {
       contact: { tel: "+" + p.tel, plaque: "", email: p.email || "" }, fil: fil, comms: []
     });
     s.convs.push(nid);
-
     n++;
 
   });
@@ -2947,12 +3007,10 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
         var trouve = resoudreContact(addr);
         var inconnu = !trouve;                                     // v54: adresse hors carnet → conversation créée quand même, sans fiche entreprise
 
+
         if (inconnu) {
           var dm0 = parAddr[addr][parAddr[addr].length - 1];
-          /* C29-NOM-CONV : pour un mail SORTANT, from_nom = l'agent U'mob
-             (profil Outlook de la boîte partagée), PAS le client → on ne
-             nomme jamais la conversation d'après l'expéditeur interne.
-             Pour un mail ENTRANT de contact inconnu, from_nom = le client. */
+          /* C29-NOM-CONV : pour un mail SORTANT, from_nom = l'agent U'mob (profil Outlook boîte partagée), PAS le client. Pour un ENTRANT inconnu, from_nom = le client. */
           var nomX = (dm0 && dm0.sens !== "sortant" && dm0.from_nom) ? dm0.from_nom : addr;
           trouve = { s: null, v: { nom: nomX, tel: "", plaque: "", email: addr }, nom: nomX };
         }
@@ -3138,7 +3196,6 @@ function revenirDonneesDemo() {
   SELID = CONVS.length ? CONVS[0].id : null;
   FICHE_OUVERTS = {}; RECH_TXT = ""; RECH_FIL = "";
   renduListe(); renduFil(); renduMesCycles(); majBadgeNouveaux(); majBadgesCycles(); rafraichirFiche();
-
   pushLog("↩ Données de démonstration restaurées.");
 }
 
@@ -3939,7 +3996,6 @@ function proposerMaintenance(idx, canal) {
       corpsModal +
       '<div style="display:flex;justify-content:flex-end;gap:8px;margin-top:14px;">' +
         '<button class="btn" onclick="fermerProposition()">Annuler</button>' +
-
         '<button class="btn primaire" id="prop-env" onclick="envoyerProposition(' + idx + ',\'' + (estWa ? "wa" : "email") + '\')">🚀 Envoyer pour de vrai</button>' +
       '</div>' +
     '</div>';
@@ -4740,7 +4796,6 @@ function renduFilEntreprise(e) {
   var socE = socParEnt(e);
   document.getElementById("filhead").innerHTML =
     '<div class="l1"><span class="cav gd" style="background:linear-gradient(135deg,#1273d1,#0a3f77);">🏢</span><b>' + e + '</b>' +
-
     (socE ? '<span class="risque ' + socE.classeR + '" title="Statut de risque de la société">' + socE.risque + '</span>' : '') +
     '<span class="badge-ver" style="background:#e2e8f0;color:#475569;">fil fusionné · ' + convs.length + ' contact(s)</span>' +
     '<button class="btn" id="btn-fiche" onclick="basculeFiche()" style="margin-left:auto;" title="Afficher/masquer la fiche de cette entreprise">🏢 Fiche entreprise</button>'+filMetaBouton()+'</div>' +
@@ -5539,7 +5594,6 @@ function initVolets() {
       });
     } catch (e) {}
   })();
-
 
 
   /* --- Réordonnancement : glisser la barre de titre, déposer sur un autre volet --- */
@@ -6342,7 +6396,6 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
           /* v131 : archivage persisté — rejoué sur tous les postes (avec ou
              sans entreprise), au rechargement comme au refresh auto */
           if (!ix["archive_a"] || ix["archive_a"] < h) {
-
             ix.archive = String(d.valeur || "");
             ix["archive_a"] = h;
             var cA = convParCle(cle);
@@ -7061,7 +7114,6 @@ renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); ma
 </script>
 </body>
 </html>
-
 
 
 
