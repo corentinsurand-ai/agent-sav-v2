@@ -2150,7 +2150,22 @@ function nomContactMieux(nom, email, ent, principal) {
 function appliquerVraisClients(liste) {
   if (!CONVS_DEMO) { CONVS_DEMO = CONVS; SOCIETES_DEMO = SOCIETES; }
   var parEnt = {}, socs = [], convs = [], nid = 1, ignoresTest = 0;
-  liste.forEach(function(cl) {
+  liste.forEach(function(row) {
+    /* v158 : une ligne du miroir = UN téléphone, mais peut regrouper plusieurs
+       sociétés (contact partagé entre enseignes) dans brut.societes — on
+       déroule chaque société en fiche propre pour TOUTES les importer. */
+    var societes = (row.brut && Array.isArray(row.brut.societes) && row.brut.societes.length)
+      ? row.brut.societes
+      : [{ client: row.brut && row.brut.client, lignes: row.brut && row.brut.lignes }];
+    societes.forEach(function(sc) {
+    var cl = {
+      telephone: row.telephone,
+      plaque: row.plaque,
+      enseigne: (sc.client && sc.client.nom_client) || row.enseigne,
+      statut_risque: row.statut_risque,
+      maintenances: row.maintenances,
+      brut: sc
+    };
     var ent = String(cl.enseigne || "").trim() || "Sans enseigne";
     /* Clients de TEST restés dans la base (imports de démo) : ignorés */
     if (/^test/i.test(ent)) { ignoresTest++; return; }
@@ -2250,6 +2265,7 @@ function appliquerVraisClients(liste) {
     });
     (bc.contacts || []).forEach(function(ct){
       pousserContact(ct.nom || "", ct.fonction || "", ct.email || "", ct.tel, "");
+    });
     });
   });
   CONVS = []; SOCIETES = socs; VRAIES_DONNEES = true;
@@ -7121,7 +7137,11 @@ function notifierSysteme(convs) {
   } catch (e) {}
 }
 
-var VER_FRONT = 'V157';
+/* v158 : toutes les sociétés importées même quand un contact est partagé entre
+   plusieurs enseignes (brut.societes côté miroir, déroulé en fiches distinctes
+   dans le carnet). Le rattachement d'une conversation à UNE société parmi
+   celles du contact sera traité ensuite. */
+var VER_FRONT = 'V158';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
