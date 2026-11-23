@@ -2135,15 +2135,20 @@ function estTelAffiche(s) {
   var t = String(s || "").trim();
   return t.replace(/\D/g, "").length >= 9 && /^\+?[\d .-]+$/.test(t);
 }
-// meilleur nom affichable : jamais une seule lettre ni un n de tel -> partie locale de l'email, sinon l'enseigne
+// meilleur nom affichable : jamais une seule lettre ni un n de tel ->
+// v160 : le contact principal du Sheet (colonne « Contact principal ») prime
+// sur la partie locale de l'email (un contact partagé entre plusieurs
+// sociétés doit s'appeler comme la personne, ex. « Nicolas BOURBAO », et pas
+// « m.dominos »), sinon partie locale de l'email, sinon l'enseigne
 function nomContactMieux(nom, email, ent, principal) {
   var n = String(nom || "").trim();
   var p = String(principal || "").trim();
   if (n.length <= 1 || estTelAffiche(n)) {
     if (n.length === 1 && p && p.charAt(0).toUpperCase() === n.toUpperCase()) return p;
+    if (p) return p;
     var mel = String(email || "").trim();
     if (mel.indexOf("@") !== -1) return mel.split("@")[0];
-    return p || String(ent || "").trim() || "Contact";
+    return String(ent || "").trim() || "Contact";
   }
   return n;
 }
@@ -2164,7 +2169,13 @@ function appliquerVraisClients(liste) {
       enseigne: (sc.client && sc.client.nom_client) || row.enseigne,
       statut_risque: row.statut_risque,
       maintenances: row.maintenances,
-      brut: sc
+      brut: sc,
+      /* v160 : contact propre à cette société (colonne « Contact principal » du
+         Sheet) — sans ça, une entrée brut.societes n'a pas de brut.contact et
+         le contact du carnet retombait sur la partie locale de l'email. */
+      contact: { nom: (sc.client && sc.client.contact_principal) || "",
+        fonction: (sc.client && sc.client.fonction) || "",
+        email: (sc.client && sc.client.email) || "", tel: row.telephone }
     };
     var ent = String(cl.enseigne || "").trim() || "Sans enseigne";
     /* Clients de TEST restés dans la base (imports de démo) : ignorés */
@@ -7251,7 +7262,11 @@ function notifierSysteme(convs) {
    (c.entreprise), choisie automatiquement (plaque/email) ou via le picker
    « 🏢 N sociétés ▾ » ; l'action manuelle "entreprise" est persistée et
    rejouée au chargement comme les autres actions équipe. */
-var VER_FRONT = 'V159';
+/* v160 : nom des contacts — le « Contact principal » du Sheet prime sur la
+   partie locale de l'email (fix « m.dominos » au lieu de « Nicolas BOURBAO »
+   pour un contact partagé entre plusieurs sociétés), et chaque société
+   importée via brut.societes porte son propre contact. */
+var VER_FRONT = 'V160';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
