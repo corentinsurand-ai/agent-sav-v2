@@ -4346,19 +4346,25 @@ var RECH_FIL = "";
 /* Recherche universelle : insensible à la casse, et pour les téléphones
    insensible aux espaces, points et tirets (on compare les chiffres seuls). */
 function normTel(s) { return (s || "").replace(/\D/g, ""); }
-function sansAccents(s) { return (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+/* C29-RECH : normalisation pour la recherche — minuscules + accents dépliés */
+function normTxt(s) {
+  return (s || "").toLowerCase()
+    .replace(/[àâä]/g, "a").replace(/[éèêë]/g, "e").replace(/[îï]/g, "i")
+    .replace(/[ôö]/g, "o").replace(/[ùûü]/g, "u").replace(/[ç]/g, "c")
+    .replace(/œ/g, "oe").replace(/æ/g, "ae");
+}
 function correspondTxt(valeurs, q) {
-  /* C29-RECH : recherche insensible aux accents + multi-mots dans n'importe
-     quel ordre (chaque mot de la requête doit matcher le blob). */
-  var ql = sansAccents(q || "").trim();
+  var ql = normTxt(q || "").trim();
   if (!ql) return true;
-  var blob = sansAccents(valeurs.join ? valeurs.join(" ") : "" + valeurs);
-  var mots = ql.split(/\s+/).filter(Boolean);
+  var blob = normTxt(valeurs.join ? valeurs.join(" ") : "" + valeurs);
+  /* C29-RECH : chaque MOT de la requête doit apparaître (ordre indifférent,
+     ex. « pierre piron » matche « PIRON Pierre ») ; plus matching téléphone. */
+  var mots = ql.split(/\s+/);
   for (var i = 0; i < mots.length; i++) {
-    if (blob.indexOf(mots[i]) >= 0) continue;
-    var qt = normTel(mots[i]);
-    if (qt.length >= 2 && normTel(blob).indexOf(qt) >= 0) continue;
-    return false;
+    if (blob.indexOf(mots[i]) < 0) {
+      var qt = normTel(mots[i]);
+      if (!(qt.length >= 2 && normTel(blob).indexOf(qt) >= 0)) return false;
+    }
   }
   return true;
 }
@@ -5174,8 +5180,9 @@ function renduCarnet() {
     return correspondTxt([s.ent, s.siren, s.siege, s.livraison, s.contact_sc,
       s.scooters.map(function(x) { return x.plaque + " " + x.produit + " " + x.contrat; }).join(" "),
       convs.map(function(c) { return c ? (c.nom + " " + c.contact.tel + " " + c.contact.plaque + " " + (c.contact.email || "")) : ""; }).join(" "),
-      /* C29-RECH : les vrais contacts du Sheet (même sans conversation) sont cherchables */
-      (s.vraisContacts || []).map(function(v) { return (v.nom || "") + " " + (v.tel || "") + " " + (v.email || "") + " " + (v.plaque || ""); }).join(" "),
+      /* C29-RECH : les VRAIS contacts du Sheet (vraisContacts) sont cherchés aussi,
+         même sans conversation ouverte — nom + tel + email + plaque */
+      ((s.vraisContacts) || []).map(function(v) { return (v.nom || "") + " " + (v.tel || "") + " " + (v.email || "") + " " + (v.plaque || ""); }).join(" "),
       (MAINTENANCES[s.ent] || []).map(function(x) { return x.d + " " + x.plaque + " " + x.type + " " + x.tech; }).join(" "),
       ((s.maintenances) || []).map(function(m) {
         var d = (m && m.donnees) || {}, t = (m.nom || "") + " " + (m.code_client || "");
