@@ -2495,7 +2495,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
           /* conversation existante du même contact (ex. créée par un chargement
              Email arrivé avant) → fusion, pas de nouvelle conversation */
           var ex = convDuContact(v.tel);
-          if (ex) { fusionnerFil(ex, fil); qualifierCycleRio(ex, cycleRioTel(v.tel)); qualifierAssignRio(ex, assignRioTel(v.tel)); creees++; return; }
+          if (ex) { fusionnerFil(ex, fil); qualifierCycleRio(ex, cycleRioTel(v.tel)); qualifierAssignRio(ex, assignRioTel(v.tel)); qualifierEntrepriseMulti(ex); creees++; return; }
           var cyRio = cycleManuelDe(v.tel, emailParTel(v.tel)) || cycleRioTel(v.tel);   /* v125 : manuel prioritaire ; C8-CYC-1 : repli respond.io */
           var asRio = assignRioTel(v.tel);           /* C12-ASSIGN : assignation respond.io */
           nid++;
@@ -2507,6 +2507,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
             contact: { tel: v.tel, plaque: v.plaque, email: emailParTel(v.tel) }, fil: fil, comms: []
           });
           s.convs.push(nid);
+          qualifierEntrepriseMulti(CONVS[CONVS.length - 1]);
           creees++;
         });
       });
@@ -3056,7 +3057,7 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
             if (normMel(c.contact && c.contact.email) === addr) existante = c;
           });
         }
-        if (existante) { fusionnerFil(existante, fil); qualifierCycleRio(existante, cycleRioMel(addr)); qualifierAssignRio(existante, assignRioMel(addr)); creees++; return; }
+        if (existante) { fusionnerFil(existante, fil); qualifierCycleRio(existante, cycleRioMel(addr)); qualifierAssignRio(existante, assignRioMel(addr)); qualifierEntrepriseMulti(existante); creees++; return; }
         var cyRio = cycleManuelDe(v.tel, addr) || cycleRioMel(addr);              /* v125 : manuel prioritaire ; C8-CYC-1 : repli respond.io */
         var asRio = assignRioMel(addr);             /* C12-ASSIGN : assignation respond.io */
         nid++;
@@ -3068,6 +3069,7 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
           contact: { tel: v.tel, plaque: v.plaque, email: addr }, fil: fil, comms: []
         });
         if (s) s.convs.push(nid);
+        qualifierEntrepriseMulti(CONVS[CONVS.length - 1]);
         creees++;
       });
       var ignores = Object.keys(parAddr).filter(function(a) { return !parMel[a] && !TEST_MEL[a]; });
@@ -4671,6 +4673,7 @@ function dessinerConv(c, conteneur) {
     '<span class="cy '+c.classe+'">'+c.cycle+'</span>'+
     /* C21-RECH : badges statut quand la conversation est rendue hors de son
        état habituel (visible uniquement via la recherche globale) */
+    (c.socMulti && c.socMulti.length > 1 ? '<span class="tag" title="Contact présent dans '+c.socMulti.length+' sociétés — société concernée : '+escTxt(c.entreprise||'')+'" style="cursor:pointer;" onclick="event.stopPropagation();ouvrirSocMulti('+c.id+')">🏢 '+c.socMulti.length+' stés</span>' : '')+
     (c.archive ? '<span class="tag" title="Conversation archivée">📦 archivée</span>' : '')+
     (RATTACHE[c.id] ? '<span class="tag" title="Rattachée à une autre conversation">📎 rattachée</span>' : '')+
     '</div></div>';
@@ -4713,6 +4716,7 @@ function renduFil() {
     '<button class="btn" id="btn-fiche" onclick="basculeFiche()" style="margin-left:auto;" title="Afficher/masquer la fiche de cette entreprise (comme Coordonnées dans Respond)">🏢 Fiche entreprise</button>' +
     '<button class="btn" onclick="ouvrirRattacheEnt()" title="Rattacher cette conversation (et son adresse email) à une entreprise du carnet">🔗 Entreprise…</button>'+filMetaBouton()+'</div>'+
     '<div'+l2Ouvre()+'><span>🏢 '+c.entreprise+'</span>' +
+    (c.socMulti && c.socMulti.length > 1 ? '<button class="tag" style="cursor:pointer;" title="Ce contact appartient à '+c.socMulti.length+' sociétés — cliquer pour choisir la société concernée par cette conversation" onclick="ouvrirSocMulti('+c.id+')">🏢 '+c.socMulti.length+' sociétés ▾</button>' : '') +
     (function(){ var sc = socParEnt(c.entreprise); return sc ? '<span class="risque '+sc.classeR+'" title="Statut de risque de la société">'+sc.risque+'</span>' : ''; })() +
     '<span class="tag" title="Sujet principal détecté automatiquement — ✏️ sur la fiche client pour corriger">📁 '+sujetDetecte(c)+'</span>'+
     (RATTACHE[c.id] ? '<span class="tag" title="Cette conversation est rattachée à une autre — ses messages apparaissent dans le fil principal">📎 rattachée à '+ (convParId(RATTACHE[c.id])||{nom:"?"}).nom +'</span>' : '')+
@@ -6015,6 +6019,108 @@ function rattacherEntreprise(ent) {
 function convsDeSociete(ent) { return CONVS.filter(function(c){ return c.entreprise === ent; }); }
 function convsArchivees(ent) { return convsDeSociete(ent).filter(function(c){ return c.archive; }); }
 
+/* ===== v159 : contact multi-sociétés — « société concernée » de la conversation =====
+   Une conversation = un contact (téléphone/email), mais le contact peut être
+   rattaché à PLUSIEURS sociétés (brut.societes, v158). La conversation porte
+   alors c.socMulti = [enseignes...] et c.entreprise = la société concernée,
+   choisie automatiquement (plaque du fil / email) ou manuellement (picker). */
+function digitsTel(t) { return String(t || "").replace(/\D/g, ""); }
+function societesDuContact(tel, email) {
+  var d = digitsTel(tel), e = normMel(email || "");
+  var out = [];
+  SOCIETES.forEach(function(s) {
+    var ok = (s.vraisContacts || []).some(function(v) {
+      return (d && digitsTel(v.tel) === d) || (e && normMel(v.email || "") === e);
+    });
+    if (ok) out.push(s.ent);
+  });
+  return out;
+}
+function normPlaque(p) { return String(p || "").toUpperCase().replace(/[^A-Z0-9]/g, ""); }
+function plaquesDeSociete(ent) {
+  var s = socParEnt(ent), out = [];
+  if (s) (s.scooters || []).forEach(function(sc) { if (sc.plaque) out.push(normPlaque(sc.plaque)); });
+  return out;
+}
+/* auto-détection : une plaque citée dans le fil appartient à UNE société du
+   contact → c'est elle ; sinon email rattaché à une seule société du contact */
+function detecterEntrepriseMulti(c, socs) {
+  if (!socs || socs.length < 2) return "";
+  var txt = (c.fil || []).map(function(m) { return String(m.txt || "") + " " + String(m.suj || ""); }).join(" ");
+  var m = txt.match(/[A-Z]{2}\s*-?\s*\d{3}\s*-?\s*[A-Z]{2}/g) || [];
+  var trouves = {};
+  m.forEach(function(p) {
+    var np = normPlaque(p);
+    socs.forEach(function(ent) { if (plaquesDeSociete(ent).indexOf(np) >= 0) trouves[ent] = true; });
+  });
+  var ents = Object.keys(trouves);
+  if (ents.length === 1) return ents[0];
+  var em = normMel((c.contact && c.contact.email) || "");
+  if (em) {
+    var avecMail = socs.filter(function(ent) {
+      var s = socParEnt(ent);
+      return s && (s.vraisContacts || []).some(function(v) { return normMel(v.email || "") === em; });
+    });
+    if (avecMail.length === 1) return avecMail[0];
+  }
+  return "";
+}
+/* applique le rattachement à une entreprise (commun picker v119 + auto v159) */
+function appliquerEntreprise(c, ent, opts) {
+  opts = opts || {};
+  var avant = c.entreprise || "";
+  if (!ent || avant === ent) return;
+  if (avant) { var s0 = socParEnt(avant); if (s0) s0.convs = s0.convs.filter(function(id){ return id !== c.id; }); }
+  c.entreprise = ent;
+  var s = socParEnt(ent);
+  if (s && s.convs.indexOf(c.id) < 0) s.convs.push(c.id);
+  if (opts.persister !== false) { persisterAction("entreprise", cleConv(c), ent, null); actIndex(cleConv(c)).entreprise = ent; }
+  if (opts.notifier) pushNotif("🔗 Conversation de " + c.nom + " rattachée à « " + ent + " »" + (avant ? " (avant : « " + avant + " »)" : ""));
+}
+/* v159 : à la création/fusion d'une conversation, si le contact appartient à
+   plusieurs sociétés → socMulti renseigné + auto-détection (non persistée :
+   elle est recalculée à chaque chargement, et une action manuelle "entreprise"
+   rejouée ensuite a priorité). */
+function qualifierEntrepriseMulti(c) {
+  if (!c || !c.contact) return c;
+  var socs = societesDuContact(c.contact.tel, c.contact.email);
+  if (socs.length > 1) {
+    c.socMulti = socs;
+    var det = detecterEntrepriseMulti(c, socs);
+    if (det && det !== c.entreprise) appliquerEntreprise(c, det, { persister: false });
+    else if (!c.entreprise) c.entreprise = socs[0];
+  }
+  return c;
+}
+/* picker rapide : uniquement les sociétés DU CONTACT */
+function ouvrirSocMulti(id) {
+  var c = convParId(id); if (!c || !c.socMulti || !c.socMulti.length) return;
+  fermerSocMulti();
+  var m = document.createElement("div");
+  m.id = "soc-multi-modal";
+  m.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;";
+  m.addEventListener("click", function(ev){ if (ev.target === m) fermerSocMulti(); });
+  m.innerHTML = '<div style="background:#fff;border-radius:14px;width:min(480px,94vw);overflow:hidden;box-shadow:0 12px 40px rgba(15,23,42,.25);">'
+    + '<div class="carnet-head"><b>🏢 Société concernée</b><span class="carnet-nb">' + escTxt(c.nom) + '</span><button class="btn-fermer" onclick="fermerSocMulti()">✕ Fermer</button></div>'
+    + '<div style="padding:10px 14px;">'
+    + c.socMulti.map(function(ent){
+        var s = socParEnt(ent);
+        var entEsc = String(ent).replace(/'/g, "\\'");
+        return '<div class="nv-item" style="' + (c.entreprise === ent ? "outline:2px solid #0e5aa7;" : "") + '" onclick="choisirSocMulti(' + c.id + ',\'' + entEsc + '\')">'
+          + '<span class="avatar" style="background:' + couleur(ent) + '">🏢</span>'
+          + '<span class="infos"><span class="n">' + escTxt(ent) + (c.entreprise === ent ? ' ✓' : '') + '</span><br/><span class="e">' + escTxt((s && s.siege) || '') + ((s && s.siren) ? ' · SIREN ' + escTxt(s.siren) : '') + '</span></span></div>';
+      }).join("")
+    + '</div></div>';
+  document.body.appendChild(m);
+}
+function fermerSocMulti() { var m = document.getElementById("soc-multi-modal"); if (m && m.parentNode) m.parentNode.removeChild(m); }
+function choisirSocMulti(id, ent) {
+  var c = convParId(id); if (!c || !ent) return;
+  appliquerEntreprise(c, ent, { persister: true, notifier: true });
+  fermerSocMulti();
+  renduListe(); renduFil(); renduMesCycles(); rafraichirFiche();
+}
+
 /* ----- Arbre par sujet détecté (fiche client + carnet d'adresses) ----- */
 function convLigneSujet(c) {
   return '<div class="suj-conv" id="cvj-' + c.id + '"><span>' + (c.canal === "WhatsApp" ? "💬" : "✉️") + '</span>' +
@@ -7141,7 +7247,11 @@ function notifierSysteme(convs) {
    plusieurs enseignes (brut.societes côté miroir, déroulé en fiches distinctes
    dans le carnet). Le rattachement d'une conversation à UNE société parmi
    celles du contact sera traité ensuite. */
-var VER_FRONT = 'V158';
+/* v159 : contact multi-sociétés — la conversation garde UNE société concernée
+   (c.entreprise), choisie automatiquement (plaque/email) ou via le picker
+   « 🏢 N sociétés ▾ » ; l'action manuelle "entreprise" est persistée et
+   rejouée au chargement comme les autres actions équipe. */
+var VER_FRONT = 'V159';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
