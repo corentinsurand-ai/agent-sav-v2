@@ -29,7 +29,7 @@
 // explicite).
 // ============================================================================
 
-var VERSION = 'B2.4';
+var VERSION = 'B2.5'; // v161 : reporte des societes fusionnées quand le winner Actif arrive après un Bloqué (C1887 ARMORYC perdu)
 
 var clients = require('../lib/clients.js');
 var auth = require('../lib/auth.js');
