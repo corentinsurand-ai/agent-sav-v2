@@ -754,6 +754,7 @@
   /* --- conversations : ligne avatar + contenu --- */
   .conv { display: flex; align-items: flex-start; gap: 11px; padding: 12px 14px 12px 12px; margin: 0 6px; border-radius: 12px; transition: background .13s, box-shadow .13s; }
   .conv + .conv { border-top: none; }
+
   .conv:hover { background: #F1F6FC; box-shadow: 0 1px 4px rgba(15,35,70,.05); }
 
 
@@ -1554,6 +1555,7 @@ var SOCIETES = [
       {"plaque": "GT-511-DN", "produit": "COMPACT PRO CHASSIS NOIR", "contrat": "Modèle Zen + 48 — CO01490, 28/12/2023 → 30/01/2028"},
       {"plaque": "HM-129-KS", "produit": "DAILY PRO CHASSIS BLANC", "contrat": "Modèle Zen + 50 — CO02249, 26/08/2026 → 25/10/2030"},
       {"plaque": "HM-116-KS", "produit": "DAILY PRO CHASSIS BLANC", "contrat": "Modèle Zen + 50 — CO02249, 26/08/2026 → 25/10/2030"}
+
     ], "convs": [8]},
     {"ent": "BIARRITZ PIZZA", "siren": "482224573", "siege": "65 Avenue de Verdun, 64200 Biarritz", "livraison": "Même adresse", "contact_sc": "Thomas DEVEAUX (Gérant) — 06 71 97 11 44", "risque": "A risque", "classeR": "risque", "scooters": [
       {"plaque": "HE-739-GP", "produit": "DAILY PRO CHASSIS BLANC", "contrat": "Modèle Confort + 48 — CO01995, 01/07/2025 → 30/08/2029"},
@@ -2264,6 +2266,17 @@ function appliquerVraisClients(liste) {
     s.vraisContacts.forEach(function(v){ telVus[String(v.tel || "").replace(/\D/g, "")] = 1; });
     function pousserContact(nom, fonction, email, telBrut, plaque) {
       var d = String(telE164(telBrut || "")).replace(/\D/g, "");
+      /* v165 : le n° PARTAGÉ de la ligne miroir (row.telephone) n'appartient
+         qu'à la société dont c'est le téléphone PRINCIPAL (1re ligne avec un
+         tél. — cl.contact.tel). Toute autre occurrence de ce n° chez CETTE
+         société (ligne scooter avec le mobile du gérant d'une autre enseigne,
+         « Autres contacts ») est ignorée, quel que soit l'appelant — sinon le
+         nom de l'autre enseigne (ex. « Nassim Haddad » de LE MANS BC) était
+         accroché au n° partagé et revenait à chaque rechargement via le
+         renommage v149. */
+      var telPartageV = String(cl.telephone || "").replace(/\D/g, "");
+      var telSocieteV = String((cl.contact && cl.contact.tel) || "").replace(/\D/g, "");
+      if (d && telPartageV && telSocieteV && d.slice(-9) === telPartageV.slice(-9) && d.slice(-9) !== telSocieteV.slice(-9)) return;
       var fn = estTelAffiche(fonction) ? "" : String(fonction || "").trim();
       var entree = { nom: nomContactMieux(nom, email, ent, principalNom) + (fn ? " (" + fn + ")" : ""),
         tel: telE164(telBrut), plaque: plaque || "", email: String(email || "").trim() };
@@ -2343,6 +2356,7 @@ var RIO_ASSIGNS_TEL = {}, RIO_ASSIGNS_MEL = {};
    (prospects commerciaux) → conversation « Prospect » à part entière. */
 var RIO_PROSPECTS = [], RIO_PROSP_PAR_TEL = {};
 function carnetConnu(d, mel) {
+
   var connu = false;
   SOCIETES.forEach(function(s) { ((s.vraisContacts) || []).forEach(function(v) {
     var dv = String(v.tel || "").replace(/\D/g, "");
@@ -3143,6 +3157,7 @@ function majBadgeAuto() {
     ? '🔄 Auto ✓ · maj ' + (h || 'en cours…')
     : (autoActif() ? '🔄 Auto (attend les vraies données)' : '⏸️ Auto arrêt') + (h ? ' · maj ' + h : '');
   b.style.opacity = (VRAIES_DONNEES && autoActif()) ? "1" : ".55";
+
   b.title = act
     ? "Rafraîchissement automatique actif : toutes les " + Math.round(AUTO_MS / 1000) + " s (onglet visible). Clique pour arrêter."
     : "Rafraîchissement automatique inactif. Clique pour activer (nécessite d'être connecté).";
@@ -3943,6 +3958,7 @@ function donneesMaintSoc(s) {
   /* premier site avec pack : droits/restants/contrat en cours/dernier passage */
   var sites = [];
   (s.maintenances || []).forEach(function(m) {
+
     (((m && m.donnees) || {}).sites || []).forEach(function(st) { sites.push(st); });
   });
   var st = sites.filter(function(x) { return x.pack; })[0] || sites[0] || null;
@@ -4743,6 +4759,7 @@ function renduFil() {
       '<div class="ve-tit">Sélectionne une conversation</div>' +
       '<div class="ve-txt">' + (VRAIES_DONNEES
         ? "Les vrais clients sont chargés — ouvre une conversation dans la liste, ou lance-en une depuis une fiche société (💬 Lancer) ou le carnet d'adresses. Les nouvelles conversations naîtront dès qu'un vrai message arrivera."
+
         : "Ouvre une conversation dans la liste de gauche pour voir le fil complet.") + '</div></div>';
     document.getElementById("commzone").innerHTML = "";
     document.getElementById("rech-fil-nb").textContent = "";
@@ -5543,6 +5560,7 @@ function renduPageCarnet() {
           html += s2.convs.map(function(id) {
           var c = convParId(id);
           if (!c) return "";
+
           return '<div class="cp-contact" onclick="ouvrirPageContact(' + c.id + ')">' +
             '<span class="avatar" style="background:' + couleur(c.nom) + '">' + initiales(c.nom) + '</span>' +
             '<span class="infos"><span class="n">' + nomDe(c.nom) + ' <span class="t">· ' + fonctionDe(c.nom) + ' · ' + c.contact.tel + '</span></span><br/>' +
@@ -6343,6 +6361,7 @@ function ouvrirConnexion() {
   var s = sessionDe();
   if (s) { if (confirm("Déconnecter " + s.utilisateur.nom + " ?")) { seDeconnecter(); } return; }
   document.getElementById("auth-overlay").classList.remove("cache");
+
   document.getElementById("auth-msg").textContent = "";
   setTimeout(function(){ document.getElementById("auth-email").focus(); }, 60);
 }
@@ -7143,6 +7162,7 @@ function porteConnexion() {
     apresConnexion();
     pushNotif("👤 Connecté : " + rep.utilisateur.nom + " (" + rep.utilisateur.role + ")");
   }).catch(function(e){
+
     if (msg) msg.textContent = "Réseau injoignable : " + e;
     if (btn) { btn.disabled = false; btn.textContent = "Se connecter"; }
   });
@@ -7293,7 +7313,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V164';
+var VER_FRONT = 'V165';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
