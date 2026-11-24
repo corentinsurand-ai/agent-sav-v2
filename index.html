@@ -2180,7 +2180,15 @@ function appliquerVraisClients(liste) {
          le contact du carnet retombait sur la partie locale de l'email. */
       contact: { nom: (sc.client && sc.client.contact_principal) || "",
         fonction: (sc.client && sc.client.fonction) || "",
-        email: (sc.client && sc.client.email) || "", tel: row.telephone }
+        email: (sc.client && sc.client.email) || "",
+        /* v162 : le contact principal de CHAQUE société garde SON propre
+           téléphone (1re ligne avec un tél. de cette société dans sc.lignes),
+           pas le téléphone partagé de la ligne miroir — sinon le contact
+           principal d'une autre enseigne (ex. « Nassim Haddad (Nouveau gérant) »
+           de LE MANS BC) se retrouvait accroché au n° partagé (ici le
+           +33768316770 de CITY SLICE) et revenait à chaque rechargement via
+           le renommage v149 depuis vraisContacts. */
+        tel: ((sc.lignes || []).map(function(l){ return l && l.telephone; }).filter(Boolean)[0]) || row.telephone }
     };
     var ent = String(cl.enseigne || "").trim() || "Sans enseigne";
     /* Clients de TEST restés dans la base (imports de démo) : ignorés */
@@ -7274,7 +7282,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V161';
+var VER_FRONT = 'V162';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
@@ -7283,6 +7291,7 @@ renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); ma
 </script>
 </body>
 </html>
+
 
 
 
