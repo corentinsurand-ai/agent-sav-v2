@@ -2154,6 +2154,18 @@ function nomContactMieux(nom, email, ent, principal) {
   }
   return n;
 }
+/* v167 : propriétaire d'un n° de téléphone = la société dont c'est la LIGNE
+   (colonne Mobile du Sheet). Rempli par appliquerVraisClients, lu par les
+   chargeurs de conversations : un n° à propriétaire unique y crée/rattache la
+   conversation (ex. +33768316770 = mobile de CITY SLICE), tout en laissant
+   chaque société voir SON PROPRE contact sur ce n° partagé (sélecteur 🏢). */
+var PROPRIO_TEL_V = {};
+function proprioUniqueTel(tel) {
+  var d = String(tel || "").replace(/\D/g, "");
+  if (d.length < 9) return "";
+  var p = PROPRIO_TEL_V[d.slice(-9)];
+  return (p && p.length === 1) ? p[0] : "";
+}
 function appliquerVraisClients(liste) {
   if (!CONVS_DEMO) { CONVS_DEMO = CONVS; SOCIETES_DEMO = SOCIETES; }
   var parEnt = {}, socs = [], convs = [], nid = 1, ignoresTest = 0;
@@ -2163,7 +2175,7 @@ function appliquerVraisClients(liste) {
      07 68 31 67 70 est le mobile de CITY SLICE (C2504, gérant Ny Aina Harvel
      TOANDROHARIJENA) et n'est listé chez LE MANS BC / AVB que comme contact
      secondaire — il ne doit PAS y créer un contact « Nassim Haddad ». */
-  var proprioTelV = {};
+  PROPRIO_TEL_V = {}; var proprioTelV = PROPRIO_TEL_V;
   liste.forEach(function(row) {
     var socs0 = (row.brut && Array.isArray(row.brut.societes) && row.brut.societes.length)
       ? row.brut.societes
@@ -2292,25 +2304,27 @@ function appliquerVraisClients(liste) {
     function pousserContact(nom, fonction, email, telBrut, plaque) {
       var d = String(telE164(telBrut || "")).replace(/\D/g, "");
       var telSocieteV = String((cl.contact && cl.contact.tel) || "").replace(/\D/g, "");
-      /* v166 : un n° appartenant à une AUTRE société (téléphone de LIGNE d'un
-         autre code client — voir proprioTelV) est ignoré chez CETTE société,
-         quel que soit l'appelant (contact principal de la ligne miroir ou
-         « Autres contacts »). C'est la règle Corentin : un téléphone partagé
-         entre sociétés montre chez chacune le nom de SON PROPRE contact —
-         ici le +33768316770 appartient à CITY SLICE (Ny Aina Harvel
-         TOANDROHARIJENA, Gérant) ; l'occurrence « - - Manager Villeurbanne -
-         07 68 31 67 70 » des Autres contacts de LE MANS BC ne doit PAS créer
-         « Nassim Haddad (Manager Villeurbanne) » sur ce n° (le repli sur le
-         contact principal d'une autre enseigne disparaît avec). */
-      if (d && d.length >= 9) {
-        var prV = proprioTelV[d.slice(-9)];
-        if (prV && prV.indexOf(ent) === -1) return;
-      }
       var fn = estTelAffiche(fonction) ? "" : String(fonction || "").trim();
-      /* v166 : le repli sur le nom du contact principal ne vaut que pour le
-         PROPRE n° de la société (sa 1re ligne) — jamais pour un n° étranger. */
+      /* v166/v167 : le repli sur le nom du contact principal ne vaut que pour
+         le PROPRE n° de la société (sa 1re ligne) — jamais pour un n° étranger
+         (partagé avec une autre enseigne) : c'est la règle Corentin, un
+         téléphone partagé entre sociétés montre chez chacune le nom de SON
+         PROPRE contact. Ici le +33768316770 appartient à CITY SLICE (Ny Aina
+         Harvel TOANDROHARIJENA, Gérant) ; l'occurrence « - - Manager
+         Villeurbanne - 07 68 31 67 70 » des Autres contacts de LE MANS BC ne
+         doit PAS créer « Nassim Haddad (Manager Villeurbanne) » sur ce n°. */
       var pnV = (d && telSocieteV && d.slice(-9) === telSocieteV.slice(-9)) ? principalNom : "";
-      var entree = { nom: nomContactMieux(nom, email, ent, pnV) + (fn ? " (" + fn + ")" : ""),
+      /* v167 : sur un n° étranger (pas le propre n° de la société), un nom
+         absent/invalide prend la FONCTION comme nom (ex. « Manager
+         Villeurbanne » chez LE MANS BC). La société garde ainsi une entrée sur
+         le n° partagé → plusieurs sociétés retrouvées → le sélecteur 🏢
+         réapparaît. */
+      var nomV = nom;
+      if (!pnV && fn) {
+        var nv0 = String(nom || "").trim();
+        if (nv0.length <= 1 || estTelAffiche(nv0)) nomV = fn;
+      }
+      var entree = { nom: nomContactMieux(nomV, email, ent, pnV) + (fn && nomV !== fn ? " (" + fn + ")" : ""),
         tel: telE164(telBrut), plaque: plaque || "", email: String(email || "").trim() };
       if (!d) { s.vraisContacts.push(entree); return; }
       if (telVus[d]) {
@@ -2336,13 +2350,13 @@ function appliquerVraisClients(liste) {
       pousserContact(nomContact || principalNom || "", "", emailContact || bc.email || "", l.telephone, "");
     });
     (bc.contacts || []).forEach(function(ct){
-      /* v166 : le filtrage d'un n° appartenant à une autre société se fait
-         désormais DANS pousserContact (règle proprioTelV, valable aussi pour
-         les autres lignes miroir du même client — ex. la ligne 33650686050
-         de LE MANS BC qui porte aussi le 07 68 31 67 70 en « Autres
-         contacts »). */
+      /* v167 : plus de filtrage par propriétaire ici — chaque société garde
+         SON PROPRE contact sur un n° partagé (règle Corentin) ; seule la
+         repli sur le nom du contact principal d'une autre enseigne reste
+         bloquée (voir pnV dans pousserContact). */
       pousserContact(ct.nom || "", ct.fonction || "", ct.email || "", ct.tel, "");
     });
+
     });
   });
   CONVS = []; SOCIETES = socs; VRAIES_DONNEES = true;
@@ -2356,7 +2370,6 @@ function appliquerVraisClients(liste) {
    par le webhook /api/whatsapp-webhook et on crée une conversation par numéro
    CONNU du carnet (téléphone d'un vrai contact). Les numéros inconnus sont
    ignorés (pas de fausse fiche). Silencieux si la brique C4 n'est pas encore
-
    configurée (table absente, webhook non branché) — c'est le chargement 🔌
    suivant qui les ramènera. */
 function heureWa(iso) {
@@ -2577,14 +2590,22 @@ function chargerMessagesWhatsApp(base, secret, cb) {
           var cyRio = cycleManuelDe(v.tel, emailParTel(v.tel)) || cycleRioTel(v.tel);   /* v125 : manuel prioritaire ; C8-CYC-1 : repli respond.io */
           var asRio = assignRioTel(v.tel);           /* C12-ASSIGN : assignation respond.io */
           nid++;
+          /* v167 : n° à propriétaire UNIQUE dans le Sheet (ligne mobile d'une
+             seule société) → la conversation est créée CHEZ ce propriétaire,
+             quelle que soit la société dont le contact a servi de point
+             d'entrée (ex. +33768316770 = mobile de CITY SLICE, même si le
+             1er contact matché venait d'AVB 5 ou LE MANS BC). */
+          var prU0 = proprioUniqueTel(d);
+          var entW = (prU0 && socParEnt(prU0)) ? prU0 : s.ent;
           CONVS.push({
-            id: nid, nom: nomConvWa(dernier.nom_profil, v.nom || v.tel), entreprise: s.ent, canal: "WhatsApp",
+            id: nid, nom: nomConvWa(dernier.nom_profil, v.nom || v.tel), entreprise: entW, canal: "WhatsApp",
             cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
             lu: false, wa: true, extrait: String(dernier.texte || ""),
             assigne: asRio || null,
             contact: { tel: v.tel, plaque: v.plaque, email: emailParTel(v.tel) }, fil: fil, comms: []
           });
-          s.convs.push(nid);
+          var sW = socParEnt(entW) || s;
+          sW.convs.push(nid);
           qualifierEntrepriseMulti(CONVS[CONVS.length - 1]);
           creees++;
         });
@@ -3136,6 +3157,7 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
 
           var cite = corps.cite ? formaterMailTxt(corps.cite) : null;
           /* C8-IMP-2 : vrai expéditeur — from_nom stocké/migré côté backend. */
+
           if (m.sens === "sortant") {
             return { qui: "agent", de: m.from_nom || "Service U'mob", t: h.t, txt: txt, canal: "Email", st: "envoye", ts: m.recu_a, suj: suj, cite: cite, html: m.corps_html || null, mid: m.message_id };
           }
@@ -3157,7 +3179,6 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
         nid++;
         CONVS.push({
           id: nid, nom: v.nom, entreprise: s ? s.ent : "", canal: "Email",
-
           cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
           lu: false, extrait: nettoyerMailTxt(dernier.texte),
           assigne: asRio || null,
@@ -3937,6 +3958,7 @@ function envoyerModeleWa(nomModele) {
     journaliserErreurEnvoi(dest, txtAff, (e && e.message) || e);   /* v154 C4-JOURNAL-2 */
     pushNotif("⚠ Envoi du modèle impossible : " + String((e && e.message) || e));
   });
+
 }
 /* Brique C5 : envoi EMAIL réel via l'API (SMTP OVH côté serveur) */function envoyerMessageEmailReel(c, inp, v, mail) {
   if (ENVOI_EN_COURS) return;
@@ -3958,7 +3980,6 @@ function envoyerModeleWa(nomModele) {
   var sig = SIGNATURE.actif ? SIGNATURE : null;
   var texteFinal = sig ? (v + "\n\n-- \n" + signatureTexte(sig)) : v;
   var htmlFinal = sig ? corpsHtmlEmail(v, sig) : null;
-
   fetch(base + "/api/email-send", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-jeton": secret },
@@ -4738,6 +4759,7 @@ function renduListe() {
 }
 
 /* C8-DESIGN-2 : avatar initiales coloré (hash du nom → couleur stable) avec
+
    icône de canal en badge. Réutilise colDe() (palette équipe). */
 function convAvatarHtml(nom, canal, gd) {
   var t = String(nom || "?").trim().split(/\s+/);
@@ -4759,7 +4781,6 @@ function dessinerConv(c, conteneur) {
   var actif = (c.id===SELID) || (SELSENT && c.entreprise===SELSENT);
   d.className = "conv" + (actif ? " on" : "");
   d.innerHTML = convAvatarHtml(nomAff(c), c.canal) +
-
     '<div class="conv-c">' +
     '<div class="conv-l1"><div class="nom">'+nomAff(c)+'</div><div class="heure" title="Heure du dernier message">'+heureDernierMsg(c)+(c.lu ? "" : ' <span class="badge-new" title="1 nouveau message non lu">💬 1</span>')+'</div></div>' +
     (VUE === "entreprise" ? '<div class="sousnom">'+c.contact.tel+'</div>' : '') +
@@ -5539,6 +5560,7 @@ function renduPageCarnet() {
         '<div class="cp-ligne"><span class="lab">Scooters liés</span><span class="val">' + c.contact.plaque + '</span></div>' +
 
         '<div class="cp-ligne"><span class="lab">Cycle actuel</span><span class="val"><span class="cy ' + c.classe + '">' + c.cycle + '</span></span></div>' +
+
       '</div>' +
       (s ?
       '<div class="cp-section"><h3>🏢 Société</h3>' +
@@ -5560,7 +5582,6 @@ function renduPageCarnet() {
   var s2 = socParEnt(CARNET_SEL.ent);
   if (!s2) { CARNET_SEL = null; return renduPageCarnet(); }
   var ent2 = s2.ent;
-
   var nbCt = (function(){
     var tels = {};
     s2.convs.forEach(function(id){ var c = convParId(id); if (c && c.contact && c.contact.tel) tels[String(c.contact.tel).replace(/\D/g, "")] = 1; });
@@ -6185,6 +6206,11 @@ function qualifierEntrepriseMulti(c) {
   if (socs.length > 1) {
     c.socMulti = socs;
     var det = detecterEntrepriseMulti(c, socs);
+    /* v167 : n° à propriétaire unique → l'auto-détection force ce
+       propriétaire (ex. +33768316770 → CITY SLICE) ; le sélecteur 🏢
+       (socMulti) reste disponible pour un choix manuel. */
+    var prU1 = proprioUniqueTel(c.contact.tel);
+    if (prU1 && socs.indexOf(prU1) !== -1) det = prU1;
     if (det && det !== c.entreprise) appliquerEntreprise(c, det, { persister: false });
     else if (!c.entreprise) c.entreprise = socs[0];
   }
@@ -6335,6 +6361,7 @@ function rafraichirTout() {
 function sujetEditer(id) {
   var sp = document.getElementById("cvj-" + id);
   if (!sp) return;
+
   var cur = sujetDetecte(convParId(id));
   sp.innerHTML = '<span class="qui">Sujet :</span>' +
     '<input id="cvj-in-' + id + '" value="' + cur.replace(/"/g, "&quot;") + '" style="flex:1;min-width:130px;border:1px solid #cbd5e1;border-radius:7px;padding:4px 8px;font-size:12px;" onkeydown="if(event.key===\'Enter\'){sujetValider(' + id + ')}" />' +
@@ -6361,7 +6388,6 @@ function ouvrirRattache(id) { RATT_SEL = id; document.getElementById("rattache")
 function fermerRattache() { document.getElementById("rattache").classList.remove("ouvert"); }
 
 function renduRattache() {
-
   var c = convParId(RATT_SEL); if (!c) return;
   document.getElementById("rattache-titre").textContent = "💬 " + c.nom + " · " + sujetDetecte(c);
 
@@ -6651,6 +6677,17 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
              sur tous les postes comme les autres actions équipe. */
           var cE = convParCle(cle);
           var entV = String(d.valeur || "");
+          /* v167 : un n° qui est la ligne mobile d'UNE SEULE société reste
+             rattaché à ce propriétaire : une action « entreprise » pointant
+             vers une autre enseigne est ignorée côté front (la base n'est PAS
+             modifiée). Le sélecteur 🏢 permet toujours un choix manuel. */
+          if (cE && entV) {
+            var prU2 = proprioUniqueTel((cE.contact && cE.contact.tel) || "");
+            if (prU2 && entV !== prU2 &&
+                societesDuContact((cE.contact || {}).tel, (cE.contact || {}).email).indexOf(prU2) !== -1) {
+              entV = "";
+            }
+          }
           if (cE && entV && cE.entreprise !== entV) {
             var avE = cE.entreprise || "";
             if (avE) { var sA = socParEnt(avE); if (sA) sA.convs = sA.convs.filter(function(id){ return id !== cE.id; }); }
@@ -7125,6 +7162,7 @@ function verifierSession() {
   if (!s || !s.jeton) return;
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
   fetch(base + "/api/clients-import?auth=1&jeton=" + encodeURIComponent(s.jeton))
+
     .then(function(r){ return r.json(); })
     .then(function(rep){
       if (!rep.ok) { localStorage.removeItem("umob_session"); majBadgeAuth(); afficherPorte(); }
@@ -7162,7 +7200,6 @@ function fermerPorte() {
   var g2 = document.getElementById("porte-connexion");
   if (g2 && g2.remove) g2.remove();
 }
-
 function afficherPorte() {
   if (PORTE_OUVERTE) return;
   PORTE_OUVERTE = true;
@@ -7361,7 +7398,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V166';
+var VER_FRONT = 'V167';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
