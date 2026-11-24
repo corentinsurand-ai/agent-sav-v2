@@ -2157,6 +2157,29 @@ function nomContactMieux(nom, email, ent, principal) {
 function appliquerVraisClients(liste) {
   if (!CONVS_DEMO) { CONVS_DEMO = CONVS; SOCIETES_DEMO = SOCIETES; }
   var parEnt = {}, socs = [], convs = [], nid = 1, ignoresTest = 0;
+  /* v166 : propriétaire d'un n° de téléphone = la (les) société(s) dont c'est
+     le téléphone de LIGNE (colonne Mobile du Sheet). Un n° listé en
+     « Autres contacts » chez une AUTRE société ne lui appartient PAS : ex. le
+     07 68 31 67 70 est le mobile de CITY SLICE (C2504, gérant Ny Aina Harvel
+     TOANDROHARIJENA) et n'est listé chez LE MANS BC / AVB que comme contact
+     secondaire — il ne doit PAS y créer un contact « Nassim Haddad ». */
+  var proprioTelV = {};
+  liste.forEach(function(row) {
+    var socs0 = (row.brut && Array.isArray(row.brut.societes) && row.brut.societes.length)
+      ? row.brut.societes
+      : [{ client: row.brut && row.brut.client, lignes: row.brut && row.brut.lignes, contact: row.brut && row.brut.contact }];
+    socs0.forEach(function(sc0) {
+      var ent0 = String((sc0.client && sc0.client.nom_client) || row.enseigne || "").trim();
+      ((sc0.lignes || [])).forEach(function(l0) {
+        var d0 = String((l0 && l0.telephone) || "").replace(/\D/g, "");
+        if (d0 && d0.length >= 9) {
+          var k0 = d0.slice(-9);
+          if (!proprioTelV[k0]) proprioTelV[k0] = [];
+          if (ent0 && proprioTelV[k0].indexOf(ent0) === -1) proprioTelV[k0].push(ent0);
+        }
+      });
+    });
+  });
   liste.forEach(function(row) {
     /* v158 : une ligne du miroir = UN téléphone, mais peut regrouper plusieurs
        sociétés (contact partagé entre enseignes) dans brut.societes — on
@@ -2245,7 +2268,9 @@ function appliquerVraisClients(liste) {
         var nc = String(l.contact_principal || "").trim() || [l.prenom, l.nom_contact].filter(String).join(" ");
         if (nc) nomContact = nc + ((l.fonction && !estTelAffiche(l.fonction)) ? " (" + l.fonction + ")" : "");
       }
-      if (!s.contact_sc && nomContact) s.contact_sc = nomContact + " — " + telE164(cl.telephone);
+      /* v166 : le n° affiché avec le contact société est celui de la PROPRE
+         ligne de la société (jamais le n° partagé de la ligne miroir). */
+      if (!s.contact_sc && nomContact) s.contact_sc = nomContact + " — " + telE164((cl.contact && cl.contact.tel) || cl.telephone);
       if (!emailContact && l.email) emailContact = String(l.email).trim();
     });
     /* PAS de conversation créée : les fiches/carnet se remplissent de vrais
@@ -2266,19 +2291,26 @@ function appliquerVraisClients(liste) {
     s.vraisContacts.forEach(function(v){ telVus[String(v.tel || "").replace(/\D/g, "")] = 1; });
     function pousserContact(nom, fonction, email, telBrut, plaque) {
       var d = String(telE164(telBrut || "")).replace(/\D/g, "");
-      /* v165 : le n° PARTAGÉ de la ligne miroir (row.telephone) n'appartient
-         qu'à la société dont c'est le téléphone PRINCIPAL (1re ligne avec un
-         tél. — cl.contact.tel). Toute autre occurrence de ce n° chez CETTE
-         société (ligne scooter avec le mobile du gérant d'une autre enseigne,
-         « Autres contacts ») est ignorée, quel que soit l'appelant — sinon le
-         nom de l'autre enseigne (ex. « Nassim Haddad » de LE MANS BC) était
-         accroché au n° partagé et revenait à chaque rechargement via le
-         renommage v149. */
-      var telPartageV = String(cl.telephone || "").replace(/\D/g, "");
       var telSocieteV = String((cl.contact && cl.contact.tel) || "").replace(/\D/g, "");
-      if (d && telPartageV && telSocieteV && d.slice(-9) === telPartageV.slice(-9) && d.slice(-9) !== telSocieteV.slice(-9)) return;
+      /* v166 : un n° appartenant à une AUTRE société (téléphone de LIGNE d'un
+         autre code client — voir proprioTelV) est ignoré chez CETTE société,
+         quel que soit l'appelant (contact principal de la ligne miroir ou
+         « Autres contacts »). C'est la règle Corentin : un téléphone partagé
+         entre sociétés montre chez chacune le nom de SON PROPRE contact —
+         ici le +33768316770 appartient à CITY SLICE (Ny Aina Harvel
+         TOANDROHARIJENA, Gérant) ; l'occurrence « - - Manager Villeurbanne -
+         07 68 31 67 70 » des Autres contacts de LE MANS BC ne doit PAS créer
+         « Nassim Haddad (Manager Villeurbanne) » sur ce n° (le repli sur le
+         contact principal d'une autre enseigne disparaît avec). */
+      if (d && d.length >= 9) {
+        var prV = proprioTelV[d.slice(-9)];
+        if (prV && prV.indexOf(ent) === -1) return;
+      }
       var fn = estTelAffiche(fonction) ? "" : String(fonction || "").trim();
-      var entree = { nom: nomContactMieux(nom, email, ent, principalNom) + (fn ? " (" + fn + ")" : ""),
+      /* v166 : le repli sur le nom du contact principal ne vaut que pour le
+         PROPRE n° de la société (sa 1re ligne) — jamais pour un n° étranger. */
+      var pnV = (d && telSocieteV && d.slice(-9) === telSocieteV.slice(-9)) ? principalNom : "";
+      var entree = { nom: nomContactMieux(nom, email, ent, pnV) + (fn ? " (" + fn + ")" : ""),
         tel: telE164(telBrut), plaque: plaque || "", email: String(email || "").trim() };
       if (!d) { s.vraisContacts.push(entree); return; }
       if (telVus[d]) {
@@ -2304,17 +2336,11 @@ function appliquerVraisClients(liste) {
       pousserContact(nomContact || principalNom || "", "", emailContact || bc.email || "", l.telephone, "");
     });
     (bc.contacts || []).forEach(function(ct){
-      /* v163/v164 : un contact « Autres contacts » dont le téléphone est le n°
-         PARTAGÉ de la ligne miroir (row.telephone) mais PAS le téléphone
-         principal de CETTE société appartient à une AUTRE enseigne (ex. le
-         07 68 31 67 70 listé chez LE MANS BC / AVB 5 appartient au gérant de
-         CITY SLICE) — on l'ignore ici, sinon son nom (« Harvel HARVEL »,
-         « Nassim Haddad (Manager Villeurbanne) ») écrasait le vrai contact
-         sur le n° partagé et revenait au rechargement. */
-      var telSociete = String((cl.contact && cl.contact.tel) || "").replace(/\D/g, "");
-      var telPartage = String(cl.telephone || "").replace(/\D/g, "");
-      var dCt = String(ct.tel || "").replace(/\D/g, "");
-      if (dCt && telPartage && dCt.slice(-9) === telPartage.slice(-9) && dCt.slice(-9) !== telSociete.slice(-9)) return;
+      /* v166 : le filtrage d'un n° appartenant à une autre société se fait
+         désormais DANS pousserContact (règle proprioTelV, valable aussi pour
+         les autres lignes miroir du même client — ex. la ligne 33650686050
+         de LE MANS BC qui porte aussi le 07 68 31 67 70 en « Autres
+         contacts »). */
       pousserContact(ct.nom || "", ct.fonction || "", ct.email || "", ct.tel, "");
     });
     });
@@ -2330,6 +2356,7 @@ function appliquerVraisClients(liste) {
    par le webhook /api/whatsapp-webhook et on crée une conversation par numéro
    CONNU du carnet (téléphone d'un vrai contact). Les numéros inconnus sont
    ignorés (pas de fausse fiche). Silencieux si la brique C4 n'est pas encore
+
    configurée (table absente, webhook non branché) — c'est le chargement 🔌
    suivant qui les ramènera. */
 function heureWa(iso) {
@@ -2356,7 +2383,6 @@ var RIO_ASSIGNS_TEL = {}, RIO_ASSIGNS_MEL = {};
    (prospects commerciaux) → conversation « Prospect » à part entière. */
 var RIO_PROSPECTS = [], RIO_PROSP_PAR_TEL = {};
 function carnetConnu(d, mel) {
-
   var connu = false;
   SOCIETES.forEach(function(s) { ((s.vraisContacts) || []).forEach(function(v) {
     var dv = String(v.tel || "").replace(/\D/g, "");
@@ -2648,21 +2674,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
          nom actuel est une initiale (R) ou un n° de tel et que le carnet
          connaît un vrai nom pour ce téléphone (Sheet), la conversation
          prend ce nom (ex. R → Radoine BEN DAHMANE, gérant RICA). */
-      var renommes = 0;
-      CONVS.forEach(function(c) {
-        var d = String((c.contact && c.contact.tel) || "").replace(/\D/g, "");
-        if (!d) return;
-        var vNom = "";
-        SOCIETES.forEach(function(s) { (s.vraisContacts || []).forEach(function(vv) {
-          var dv = String(vv.tel || "").replace(/\D/g, "");
-          if (dv && dv.slice(-9) === d.slice(-9) && vv.nom) vNom = vv.nom;
-        }); });
-        if (!vNom) return;
-        var n = String(c.nom || "").trim();
-        /* v151 : le nom du Sheet (vrai nom) est PRIORITAIRE : on renomme
-           quoi qu'il arrive, même si le nom actuel est « (gérant) ». */
-        if (nomProfilVrai(vNom) && n !== vNom) { c.nom = vNom; renommes++; }
-      });
+      var renommes = renommerConvsDepuisSheet();
       if (renommes) { renduListe(); renduFil(); pushLog("✏️ " + renommes + " conversation(s) renommée(s) depuis le Sheet."); }
       if (cb) cb();                                // emails ensuite (fusion multi-canal)
     })
@@ -2726,6 +2738,36 @@ function nomConvWa(nomProfil, repli) {
   if (nomProfilVrai(r)) return r;
   if (nomProfilVrai(p)) return p;
   return r || p;
+}
+/* v166-C47-CONV-SYNC : renommage des conversations depuis le Sheet. Le nom
+   retenu pour un n° partagé entre plusieurs sociétés est d'abord cherché chez
+   la société PROPRE de la conversation (c.entreprise — choix manuel persisté
+   ou société propriétaire du n°) : la conversation rattachée à CITY SLICE
+   sur le +33768316770 prend « Ny Aina Harvel TOANDROHARIJENA (Gérant) », pas
+   le contact d'une autre enseigne. Repli : scan global de toutes les
+   sociétés (dernier match, comportement historique v149). */
+function renommerConvsDepuisSheet() {
+  var renommes = 0;
+  CONVS.forEach(function(c) {
+    var d = String((c.contact && c.contact.tel) || "").replace(/\D/g, "");
+    if (!d) return;
+    var vNom = "";
+    var sOwn = socParEnt(c.entreprise || "");
+    if (sOwn) (sOwn.vraisContacts || []).forEach(function(vv) {
+      var dv = String(vv.tel || "").replace(/\D/g, "");
+      if (dv && dv.slice(-9) === d.slice(-9) && vv.nom) vNom = vv.nom;
+    });
+    if (!vNom) SOCIETES.forEach(function(s) { (s.vraisContacts || []).forEach(function(vv) {
+      var dv = String(vv.tel || "").replace(/\D/g, "");
+      if (dv && dv.slice(-9) === d.slice(-9) && vv.nom) vNom = vv.nom;
+    }); });
+    if (!vNom) return;
+    var n = String(c.nom || "").trim();
+    /* v151 : le nom du Sheet (vrai nom) est PRIORITAIRE : on renomme
+       quoi qu'il arrive, même si le nom actuel est « (gérant) ». */
+    if (nomProfilVrai(vNom) && n !== vNom) { c.nom = vNom; renommes++; }
+  });
+  return renommes;
 }
 /* === Fusion multi-canal : un CONTACT = UNE conversation =================
    Les chargeurs WhatsApp et Email ajoutent leurs messages dans la conversation
@@ -3115,6 +3157,7 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
         nid++;
         CONVS.push({
           id: nid, nom: v.nom, entreprise: s ? s.ent : "", canal: "Email",
+
           cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
           lu: false, extrait: nettoyerMailTxt(dernier.texte),
           assigne: asRio || null,
@@ -3157,7 +3200,6 @@ function majBadgeAuto() {
     ? '🔄 Auto ✓ · maj ' + (h || 'en cours…')
     : (autoActif() ? '🔄 Auto (attend les vraies données)' : '⏸️ Auto arrêt') + (h ? ' · maj ' + h : '');
   b.style.opacity = (VRAIES_DONNEES && autoActif()) ? "1" : ".55";
-
   b.title = act
     ? "Rafraîchissement automatique actif : toutes les " + Math.round(AUTO_MS / 1000) + " s (onglet visible). Clique pour arrêter."
     : "Rafraîchissement automatique inactif. Clique pour activer (nécessite d'être connecté).";
@@ -3916,6 +3958,7 @@ function envoyerModeleWa(nomModele) {
   var sig = SIGNATURE.actif ? SIGNATURE : null;
   var texteFinal = sig ? (v + "\n\n-- \n" + signatureTexte(sig)) : v;
   var htmlFinal = sig ? corpsHtmlEmail(v, sig) : null;
+
   fetch(base + "/api/email-send", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-jeton": secret },
@@ -3958,7 +4001,6 @@ function donneesMaintSoc(s) {
   /* premier site avec pack : droits/restants/contrat en cours/dernier passage */
   var sites = [];
   (s.maintenances || []).forEach(function(m) {
-
     (((m && m.donnees) || {}).sites || []).forEach(function(st) { sites.push(st); });
   });
   var st = sites.filter(function(x) { return x.pack; })[0] || sites[0] || null;
@@ -4717,6 +4759,7 @@ function dessinerConv(c, conteneur) {
   var actif = (c.id===SELID) || (SELSENT && c.entreprise===SELSENT);
   d.className = "conv" + (actif ? " on" : "");
   d.innerHTML = convAvatarHtml(nomAff(c), c.canal) +
+
     '<div class="conv-c">' +
     '<div class="conv-l1"><div class="nom">'+nomAff(c)+'</div><div class="heure" title="Heure du dernier message">'+heureDernierMsg(c)+(c.lu ? "" : ' <span class="badge-new" title="1 nouveau message non lu">💬 1</span>')+'</div></div>' +
     (VUE === "entreprise" ? '<div class="sousnom">'+c.contact.tel+'</div>' : '') +
@@ -4759,7 +4802,6 @@ function renduFil() {
       '<div class="ve-tit">Sélectionne une conversation</div>' +
       '<div class="ve-txt">' + (VRAIES_DONNEES
         ? "Les vrais clients sont chargés — ouvre une conversation dans la liste, ou lance-en une depuis une fiche société (💬 Lancer) ou le carnet d'adresses. Les nouvelles conversations naîtront dès qu'un vrai message arrivera."
-
         : "Ouvre une conversation dans la liste de gauche pour voir le fil complet.") + '</div></div>';
     document.getElementById("commzone").innerHTML = "";
     document.getElementById("rech-fil-nb").textContent = "";
@@ -5518,6 +5560,7 @@ function renduPageCarnet() {
   var s2 = socParEnt(CARNET_SEL.ent);
   if (!s2) { CARNET_SEL = null; return renduPageCarnet(); }
   var ent2 = s2.ent;
+
   var nbCt = (function(){
     var tels = {};
     s2.convs.forEach(function(id){ var c = convParId(id); if (c && c.contact && c.contact.tel) tels[String(c.contact.tel).replace(/\D/g, "")] = 1; });
@@ -5560,7 +5603,6 @@ function renduPageCarnet() {
           html += s2.convs.map(function(id) {
           var c = convParId(id);
           if (!c) return "";
-
           return '<div class="cp-contact" onclick="ouvrirPageContact(' + c.id + ')">' +
             '<span class="avatar" style="background:' + couleur(c.nom) + '">' + initiales(c.nom) + '</span>' +
             '<span class="infos"><span class="n">' + nomDe(c.nom) + ' <span class="t">· ' + fonctionDe(c.nom) + ' · ' + c.contact.tel + '</span></span><br/>' +
@@ -6319,6 +6361,7 @@ function ouvrirRattache(id) { RATT_SEL = id; document.getElementById("rattache")
 function fermerRattache() { document.getElementById("rattache").classList.remove("ouvert"); }
 
 function renduRattache() {
+
   var c = convParId(RATT_SEL); if (!c) return;
   document.getElementById("rattache-titre").textContent = "💬 " + c.nom + " · " + sujetDetecte(c);
 
@@ -6361,7 +6404,6 @@ function ouvrirConnexion() {
   var s = sessionDe();
   if (s) { if (confirm("Déconnecter " + s.utilisateur.nom + " ?")) { seDeconnecter(); } return; }
   document.getElementById("auth-overlay").classList.remove("cache");
-
   document.getElementById("auth-msg").textContent = "";
   setTimeout(function(){ document.getElementById("auth-email").focus(); }, 60);
 }
@@ -6672,6 +6714,12 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
           pushLog("📨 " + n + " action(s) de l" + String.fromCharCode(8217) + "équipe restaurée(s)");
         }
       }
+      /* v166 : l'action « entreprise » rejouée peut changer la société de la
+         conversation → on renomme aussitôt depuis le Sheet de CETTE société
+         (ex. conv rattachée à CITY SLICE → « Ny Aina Harvel TOANDROHARIJENA
+         (Gérant) » sur le n° partagé, pas le contact d'une autre enseigne). */
+      var rnV = renommerConvsDepuisSheet();
+      if (rnV) { renduListe(); renduFil(); pushLog("✏️ " + rnV + " conversation(s) renommée(s) depuis le Sheet."); }
       if (cb) cb();
     })
     .catch(function() { /* brique C15 absente — silencieux */ });
@@ -7114,6 +7162,7 @@ function fermerPorte() {
   var g2 = document.getElementById("porte-connexion");
   if (g2 && g2.remove) g2.remove();
 }
+
 function afficherPorte() {
   if (PORTE_OUVERTE) return;
   PORTE_OUVERTE = true;
@@ -7162,7 +7211,6 @@ function porteConnexion() {
     apresConnexion();
     pushNotif("👤 Connecté : " + rep.utilisateur.nom + " (" + rep.utilisateur.role + ")");
   }).catch(function(e){
-
     if (msg) msg.textContent = "Réseau injoignable : " + e;
     if (btn) { btn.disabled = false; btn.textContent = "Se connecter"; }
   });
@@ -7313,7 +7361,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V165';
+var VER_FRONT = 'V166';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
