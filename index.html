@@ -2291,6 +2291,17 @@ function appliquerVraisClients(liste) {
       pousserContact(nomContact || principalNom || "", "", emailContact || bc.email || "", l.telephone, "");
     });
     (bc.contacts || []).forEach(function(ct){
+      /* v163 : un contact « Autres contacts » sans vrai nom (« - », initiale,
+         n° de tel) ne doit PAS hériter du nom du contact principal de la
+         société quand son téléphone n'est PAS celui de cette société (n°
+         partagé entre enseignes : ex. le 07 68 31 67 70 listé chez LE MANS BC
+         appartient au gérant de CITY SLICE) — sinon « Nassim Haddad (Manager
+         Villeurbanne) » écrasait le vrai nom sur le n° partagé. */
+      var telSociete = String((cl.contact && cl.contact.tel) || "").replace(/\D/g, "");
+      var dCt = String(ct.tel || "").replace(/\D/g, "");
+      var nomPlaceholder = !ct.nom || String(ct.nom).trim().length <= 1 ||
+        (String(ct.nom).replace(/\D/g, "").length >= 9 && /^\+?[\d .-]+$/.test(String(ct.nom)));
+      if (nomPlaceholder && dCt && telSociete && dCt.slice(-9) !== telSociete.slice(-9)) return;
       pousserContact(ct.nom || "", ct.fonction || "", ct.email || "", ct.tel, "");
     });
     });
@@ -7282,7 +7293,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V162';
+var VER_FRONT = 'V163';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
