@@ -754,7 +754,6 @@
   /* --- conversations : ligne avatar + contenu --- */
   .conv { display: flex; align-items: flex-start; gap: 11px; padding: 12px 14px 12px 12px; margin: 0 6px; border-radius: 12px; transition: background .13s, box-shadow .13s; }
   .conv + .conv { border-top: none; }
-
   .conv:hover { background: #F1F6FC; box-shadow: 0 1px 4px rgba(15,35,70,.05); }
 
 
@@ -1088,6 +1087,7 @@
       <div class="chip" data-fx="Annulée sans réponse" onclick="filtre('cycle','Annulée sans réponse',this)"><span class="cy annulee">Annulée sans réponse</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Annulée par le client" onclick="filtre('cycle','Annulée par le client',this)"><span class="cy annulee">Annulée par le client</span> <span class="n">0</span></div>
       <div class="chip" data-fx="DE Commerciales" onclick="filtre('cycle','DE Commerciales',this)"><span class="cy qualifier">DE Commerciales</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="DE Commerciales traitées" onclick="filtre('cycle','DE Commerciales traitées',this)"><span class="cy traitee">DE Commerciales traitées</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Bloquée Impayé" onclick="filtre('cycle','Bloquée Impayé',this)"><span class="cy impaye">Bloquée Impayé</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Attente Paiement ou pré-auto CB" onclick="filtre('cycle','Attente Paiement ou pré-auto CB',this)"><span class="cy attente">Attente Paiement</span> <span class="n">0</span></div>
       </div>
@@ -1555,7 +1555,6 @@ var SOCIETES = [
       {"plaque": "GT-511-DN", "produit": "COMPACT PRO CHASSIS NOIR", "contrat": "Modèle Zen + 48 — CO01490, 28/12/2023 → 30/01/2028"},
       {"plaque": "HM-129-KS", "produit": "DAILY PRO CHASSIS BLANC", "contrat": "Modèle Zen + 50 — CO02249, 26/08/2026 → 25/10/2030"},
       {"plaque": "HM-116-KS", "produit": "DAILY PRO CHASSIS BLANC", "contrat": "Modèle Zen + 50 — CO02249, 26/08/2026 → 25/10/2030"}
-
     ], "convs": [8]},
     {"ent": "BIARRITZ PIZZA", "siren": "482224573", "siege": "65 Avenue de Verdun, 64200 Biarritz", "livraison": "Même adresse", "contact_sc": "Thomas DEVEAUX (Gérant) — 06 71 97 11 44", "risque": "A risque", "classeR": "risque", "scooters": [
       {"plaque": "HE-739-GP", "produit": "DAILY PRO CHASSIS BLANC", "contrat": "Modèle Confort + 48 — CO01995, 01/07/2025 → 30/08/2029"},
@@ -2356,7 +2355,6 @@ function appliquerVraisClients(liste) {
          bloquée (voir pnV dans pousserContact). */
       pousserContact(ct.nom || "", ct.fonction || "", ct.email || "", ct.tel, "");
     });
-
     });
   });
   CONVS = []; SOCIETES = socs; VRAIES_DONNEES = true;
@@ -3157,7 +3155,6 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
 
           var cite = corps.cite ? formaterMailTxt(corps.cite) : null;
           /* C8-IMP-2 : vrai expéditeur — from_nom stocké/migré côté backend. */
-
           if (m.sens === "sortant") {
             return { qui: "agent", de: m.from_nom || "Service U'mob", t: h.t, txt: txt, canal: "Email", st: "envoye", ts: m.recu_a, suj: suj, cite: cite, html: m.corps_html || null, mid: m.message_id };
           }
@@ -3958,7 +3955,6 @@ function envoyerModeleWa(nomModele) {
     journaliserErreurEnvoi(dest, txtAff, (e && e.message) || e);   /* v154 C4-JOURNAL-2 */
     pushNotif("⚠ Envoi du modèle impossible : " + String((e && e.message) || e));
   });
-
 }
 /* Brique C5 : envoi EMAIL réel via l'API (SMTP OVH côté serveur) */function envoyerMessageEmailReel(c, inp, v, mail) {
   if (ENVOI_EN_COURS) return;
@@ -4561,14 +4557,14 @@ function basculeFiltreSec(id) {
 }
 
 /* ===== « Mes conversations par cycle » : uniquement les convs assignées à MOI ===== */
-var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Attente client","Attente interne","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
+var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Attente client","Attente interne","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","DE Commerciales traitées","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
 var MESCY_ON = null;
 var CLASSE_CYCLE = {
   "Nouvelle Demande": "nouvelle", "A qualifier": "qualifier", "A créer dans Praxedo": "praxedo",
   "En cours de réalisation": "encours", "Traitée": "traitee", "Attente client": "attente",
   "Attente interne": "attente",
   "Annulée sans réponse": "annulee", "Annulée par le client": "annulee",
-  "DE Commerciales": "qualifier", "Bloquée Impayé": "impaye", "Attente Paiement ou pré-auto CB": "attente"
+  "DE Commerciales": "qualifier", "DE Commerciales traitées": "traitee", "Bloquée Impayé": "impaye", "Attente Paiement ou pré-auto CB": "attente"
 };
 function classeCycle(cy) { return CLASSE_CYCLE[cy] || null; }
 function renduMesCycles() {
@@ -4759,7 +4755,6 @@ function renduListe() {
 }
 
 /* C8-DESIGN-2 : avatar initiales coloré (hash du nom → couleur stable) avec
-
    icône de canal en badge. Réutilise colDe() (palette équipe). */
 function convAvatarHtml(nom, canal, gd) {
   var t = String(nom || "?").trim().split(/\s+/);
@@ -5560,7 +5555,6 @@ function renduPageCarnet() {
         '<div class="cp-ligne"><span class="lab">Scooters liés</span><span class="val">' + c.contact.plaque + '</span></div>' +
 
         '<div class="cp-ligne"><span class="lab">Cycle actuel</span><span class="val"><span class="cy ' + c.classe + '">' + c.cycle + '</span></span></div>' +
-
       '</div>' +
       (s ?
       '<div class="cp-section"><h3>🏢 Société</h3>' +
@@ -6361,7 +6355,6 @@ function rafraichirTout() {
 function sujetEditer(id) {
   var sp = document.getElementById("cvj-" + id);
   if (!sp) return;
-
   var cur = sujetDetecte(convParId(id));
   sp.innerHTML = '<span class="qui">Sujet :</span>' +
     '<input id="cvj-in-' + id + '" value="' + cur.replace(/"/g, "&quot;") + '" style="flex:1;min-width:130px;border:1px solid #cbd5e1;border-radius:7px;padding:4px 8px;font-size:12px;" onkeydown="if(event.key===\'Enter\'){sujetValider(' + id + ')}" />' +
@@ -7162,7 +7155,6 @@ function verifierSession() {
   if (!s || !s.jeton) return;
   var base = localStorage.getItem("umob_api_base") || "https://agent-sav-v2.vercel.app";
   fetch(base + "/api/clients-import?auth=1&jeton=" + encodeURIComponent(s.jeton))
-
     .then(function(r){ return r.json(); })
     .then(function(rep){
       if (!rep.ok) { localStorage.removeItem("umob_session"); majBadgeAuth(); afficherPorte(); }
@@ -7398,7 +7390,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V167';
+var VER_FRONT = 'V168';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
