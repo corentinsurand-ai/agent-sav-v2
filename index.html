@@ -89,6 +89,10 @@
   .f-sec h3:hover { color: #0e5aa7; }
   .f-sec h3 .fs-f { display: inline-block; width: 12px; text-align: center; color: #0e5aa7; font-size: 9px; }
   .f-sec.reduit .f-sec-chips { display: none; }
+  /* V174 : sous-cycles repliables (DE Commerciales > Auto-entrepreneur / Traitées) */
+  #fsec-cycles.repli-de .sous-de { display: none; }
+  .fleche { cursor: pointer; font-size: 10px; color: var(--grey); padding: 0 2px; user-select: none; }
+  .fleche:hover { color: var(--lime); }
   .f-sec.reduit h3 { margin-bottom: 4px; }
   .wa::before { content: "💬"; } .mail::before { content: "✉️"; }
 
@@ -1086,9 +1090,9 @@
       <div class="chip" data-fx="Attente interne" onclick="filtre('cycle','Attente interne',this)"><span class="cy attente">Attente interne</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Annulée sans réponse" onclick="filtre('cycle','Annulée sans réponse',this)"><span class="cy annulee">Annulée sans réponse</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Annulée par le client" onclick="filtre('cycle','Annulée par le client',this)"><span class="cy annulee">Annulée par le client</span> <span class="n">0</span></div>
-      <div class="chip" data-fx="DE Commerciales" onclick="filtre('cycle','DE Commerciales',this)"><span class="cy qualifier">DE Commerciales</span> <span class="n">0</span></div>
-      <div class="chip" data-fx="Auto-entrepreneur" onclick="filtre('cycle','Auto-entrepreneur',this)" style="padding-left:30px"><span class="cy qualifier">└ Auto-entrepreneur</span> <span class="n">0</span></div>
-      <div class="chip" data-fx="DE Commerciales traitées" onclick="filtre('cycle','DE Commerciales traitées',this)" style="padding-left:30px"><span class="cy traitee">└ Traitées</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="DE Commerciales" onclick="filtre('cycle','DE Commerciales',this)"><span class="cy qualifier">DE Commerciales</span> <span class="fleche" id="fleche-de" title="Cacher/afficher les sous-cycles" onclick="event.stopPropagation(); basculeSousCycles('de',this)">▾</span> <span class="n">0</span></div>
+      <div class="chip sous-de" data-fx="Auto-entrepreneur" onclick="filtre('cycle','Auto-entrepreneur',this)" style="padding-left:30px"><span class="cy qualifier">└ Auto-entrepreneur</span> <span class="n">0</span></div>
+      <div class="chip sous-de" data-fx="DE Commerciales traitées" onclick="filtre('cycle','DE Commerciales traitées',this)" style="padding-left:30px"><span class="cy traitee">└ Traitées</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Bloquée Impayé" onclick="filtre('cycle','Bloquée Impayé',this)"><span class="cy impaye">Bloquée Impayé</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Attente Paiement ou pré-auto CB" onclick="filtre('cycle','Attente Paiement ou pré-auto CB',this)"><span class="cy attente">Attente Paiement</span> <span class="n">0</span></div>
       </div>
@@ -4564,6 +4568,24 @@ function basculeFiltreSec(id) {
   var f = el.querySelector(".fs-f");
   if (f) f.textContent = el.classList.contains("reduit") ? "▸" : "▾";
 }
+/* V174 : replier/déplier les sous-cycles d'un groupe (ex. DE Commerciales) */
+function basculeSousCycles(g, el) {
+  var sec = document.getElementById("fsec-cycles");
+  if (!sec) return;
+  sec.classList.toggle("repli-" + g);
+  if (el) el.textContent = sec.classList.contains("repli-" + g) ? "▸" : "▾";
+  try { localStorage.setItem("umob_sous_" + g, sec.classList.contains("repli-" + g) ? "1" : "0"); } catch (e) {}
+}
+function restaurerSousCycles() {
+  try {
+    var sec = document.getElementById("fsec-cycles");
+    if (sec && localStorage.getItem("umob_sous_de") === "1") {
+      sec.classList.add("repli-de");
+      var f = document.getElementById("fleche-de");
+      if (f) f.textContent = "▸";
+    }
+  } catch (e) {}
+}
 
 /* ===== « Mes conversations par cycle » : uniquement les convs assignées à MOI ===== */
 var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Attente client","Attente interne","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","Auto-entrepreneur","DE Commerciales traitées","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
@@ -7406,12 +7428,12 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V173 · Koenig · sous-cycles';
+var VER_FRONT = 'V174 · Koenig · sous-cycles repliables';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
 if (!sessionDe()) afficherPorte();   /* v32 : sans session → porte de connexion */
-renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); majMobile();
+renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); majMobile(); restaurerSousCycles();
 </script>
 </body>
 </html>
