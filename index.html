@@ -6620,7 +6620,7 @@ function persisterAction(type, cle, valeur, detail) {
 }
 /* rejeu des actions au chargement — silencieux si la brique est absente */
 function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" pour le refresh temps réel */
-  fetch(base + "/api/clients-import?jeton=" + encodeURIComponent(jeton) + "&actions=1")
+  fetch(base + "/api/clients-import?jeton=" + encodeURIComponent(jeton) + "&actions=1&limite=5000")
     .then(function(r) { return r.json(); })
     .then(function(rep) {
       if (!rep || rep.ok !== true || !Array.isArray(rep.actions)) return;
@@ -7505,7 +7505,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V184 · Koenig · envoi modèle sans non-lu';
+var VER_FRONT = 'V185 · Koenig · actions 5000';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
