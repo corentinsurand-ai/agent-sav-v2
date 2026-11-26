@@ -53,7 +53,7 @@
 // ni enseigne) ; 401 secret invalide ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C15-ACT-3';
+var VERSION = 'C15-ACT-4';
 var SCHEMA = 'agent_sav';
 
 var clients = require('../lib/clients.js');
@@ -598,10 +598,14 @@ module.exports = async function handler(req, res) {
           // max-rows=1000 par requête, donc pagination par offset jusqu'à
           // épuisement de la table (comme liste=1). Le parametre limite ne
           // borne PLUS cette table : les actions ne peuvent plus etre coupees.
+          // v187 : parametres de diagnostic — type=lu (filtre) et ordre=desc
+          // (les plus recentes d'abord) pour pouvoir inspecter les actions.
+          var filtreType = String(paramDe(req, 'type') || '').trim();
+          var ordreDesc = paramDe(req, 'ordre') === 'desc';
           var lignesC = [];
           while (true) {
             var partC = await supabaseGet('choix_equipe',
-              'select=horodatage,cle,type,valeur,detail,auteur&order=horodatage.asc&limit=1000&offset=' + lignesC.length);
+              'select=horodatage,cle,type,valeur,detail,auteur&order=horodatage.' + (ordreDesc ? 'desc' : 'asc') + '&limit=1000&offset=' + lignesC.length + (filtreType ? '&type=eq.' + encodeURIComponent(filtreType) : ''));
             if (!Array.isArray(partC) || partC.length === 0) break;
             lignesC = lignesC.concat(partC);
             if (partC.length < 1000) break;
@@ -617,7 +621,8 @@ module.exports = async function handler(req, res) {
           });
         } catch (eC) { vuChoix = false; }
         // v123/v125 : journal (paginé) — historique + repli si table absente
-        var limitePage = 1000, maxPages = Math.max(1, Math.ceil(Math.min(limiteA, 5000) / limitePage));
+        var filtreType0 = String(paramDe(req, 'type') || '').trim();
+        var limitePage = 1000, maxPages = filtreType0 ? 0 : Math.max(1, Math.ceil(Math.min(limiteA, 5000) / limitePage));
         for (var pageA = 0; pageA < maxPages; pageA++) {
           var part = await supabaseGet('journal',
             'select=horodatage,contact_id,texte,detail&etape=eq.action_plateforme&order=horodatage.desc&limit=' + limitePage + '&offset=' + (pageA * limitePage));
