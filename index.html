@@ -1085,6 +1085,7 @@
       <div class="chip" data-fx="A qualifier" onclick="filtre('cycle','A qualifier',this)"><span class="cy qualifier">A qualifier</span> <span class="n">0</span></div>
       <div class="chip" data-fx="A créer dans Praxedo" onclick="filtre('cycle','A créer dans Praxedo',this)"><span class="cy praxedo">A créer dans Praxedo</span> <span class="n">0</span></div>
       <div class="chip" data-fx="En cours de réalisation" onclick="filtre('cycle','En cours de réalisation',this)"><span class="cy encours">En cours de réalisation</span> <span class="n">0</span></div>
+      <div class="chip" data-fx="Maintenance proposée" onclick="filtre('cycle','Maintenance proposée',this)"><span class="cy attente">Maintenance proposée</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Traitée" onclick="filtre('cycle','Traitée',this)"><span class="cy traitee">Traitée</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Attente client" onclick="filtre('cycle','Attente client',this)"><span class="cy attente">Attente client</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Attente interne" onclick="filtre('cycle','Attente interne',this)"><span class="cy attente">Attente interne</span> <span class="n">0</span></div>
@@ -4596,7 +4597,7 @@ function restaurerSousCycles() {
 }
 
 /* ===== « Mes conversations par cycle » : uniquement les convs assignées à MOI ===== */
-var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Attente client","Attente interne","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","DE Commerciales en cours","Auto-entrepreneur","DE Commerciales traitées","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
+var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Maintenance proposée","Attente client","Attente interne","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","DE Commerciales en cours","Auto-entrepreneur","DE Commerciales traitées","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
 var MESCY_ON = null;
 /* V172 · SOUS-CYCLES : arborescence des cycles — un sous-cycle a un parent,
    filtrer sur le parent inclut tous ses enfants. */
@@ -4608,7 +4609,7 @@ function cycleMatch(fx, c) { return fx === c || (ENFANTS_CYCLE[fx] !== undefined
 function cycleAuto(cy) { return cy === "DE Commerciales" ? "DE Commerciales en cours" : (cy || "Nouvelle Demande"); }
 var CLASSE_CYCLE = {
   "Nouvelle Demande": "nouvelle", "A qualifier": "qualifier", "A créer dans Praxedo": "praxedo",
-  "En cours de réalisation": "encours", "Traitée": "traitee", "Attente client": "attente",
+  "En cours de réalisation": "encours", "Maintenance proposée": "attente", "Traitée": "traitee", "Attente client": "attente",
   "Attente interne": "attente",
   "Annulée sans réponse": "annulee", "Annulée par le client": "annulee",
   "DE Commerciales": "qualifier", "Auto-entrepreneur": "qualifier", "DE Commerciales en cours": "encours", "DE Commerciales traitées": "traitee", "Bloquée Impayé": "impaye", "Attente Paiement ou pré-auto CB": "attente"
@@ -7439,7 +7440,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V178 · Koenig · brouillon comm';
+var VER_FRONT = 'V179 · Koenig · maintenance proposée';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
