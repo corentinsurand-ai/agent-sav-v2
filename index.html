@@ -4836,7 +4836,8 @@ function apercuConv(c, ev) {
   t.id = "apercu-msg";
   t.className = "apercu-msg";
   if (m) {
-    t.innerHTML = '<div class="ap-t">Dernier message — ' + escTxt(auteurMsg(m)) + ' · ' + escTxt(m.t) + '</div>' + escTxt(String(m.txt).slice(0, 400));
+    var auteur = String(auteurMsg(m)).replace(/<[^>]*>/g, "").trim();   /* V181 : auteur sans HTML (pas d'avatar ni balises brutes) */
+    t.innerHTML = '<div class="ap-t">Dernier message — ' + escTxt(auteur) + ' · ' + escTxt(m.t) + '</div>' + escTxt(String(m.txt).slice(0, 400));
   } else {
     t.innerHTML = '<div class="ap-t">' + escTxt(nomAff(c)) + '</div>' + escTxt(extraitAff(c).slice(0, 400) || "(aucun message)");
   }
@@ -7478,7 +7479,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V180 · Koenig · aperçu survol';
+var VER_FRONT = 'V181 · Koenig · aperçu sans HTML';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
