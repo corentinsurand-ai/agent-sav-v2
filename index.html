@@ -6577,7 +6577,14 @@ function actIndex(cle) { return (ACT_BAS[cle] = ACT_BAS[cle] || { commentaires: 
    ⚠ signale juste qu'elle ne sera PAS visible sur les autres appareils. */
 function persisterAction(type, cle, valeur, detail) {
   var b = baseEtJeton();
-  if (!VRAIES_DONNEES || !b.jeton || !cle) return;   /* rien en mode démo / hors session */
+  if (!VRAIES_DONNEES || !cle) return;   /* rien en mode démo */
+  if (!b.jeton) {
+    /* V182 : hors session, le changement était perdu SILENCIEUSEMENT au
+       rechargement → avertir clairement au lieu de laisser croire que c'est
+       enregistré pour l'équipe. */
+    pushNotif("⚠ Hors session : ce changement n'est PAS enregistré pour l'équipe et sera perdu au rechargement. Connecte-toi (👤) pour le rendre permanent.");
+    return;
+  }
   fetch(String(b.base).replace(/\/+$/, "") + "/api/clients-import?jeton=" + encodeURIComponent(b.jeton), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -7479,7 +7486,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V181 · Koenig · aperçu sans HTML';
+var VER_FRONT = 'V182 · Koenig · avertissement hors session';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
