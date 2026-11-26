@@ -6579,10 +6579,8 @@ function persisterAction(type, cle, valeur, detail) {
   var b = baseEtJeton();
   if (!VRAIES_DONNEES || !cle) return;   /* rien en mode démo */
   if (!b.jeton) {
-    /* V182 : hors session, le changement était perdu SILENCIEUSEMENT au
-       rechargement → avertir clairement au lieu de laisser croire que c'est
-       enregistré pour l'équipe. */
-    pushNotif("⚠ Hors session : ce changement n'est PAS enregistré pour l'équipe et sera perdu au rechargement. Connecte-toi (👤) pour le rendre permanent.");
+    /* V182 : hors session → porte de connexion directe (plus de perte silencieuse). */
+    afficherPorte();
     return;
   }
   fetch(String(b.base).replace(/\/+$/, "") + "/api/clients-import?jeton=" + encodeURIComponent(b.jeton), {
@@ -6592,8 +6590,19 @@ function persisterAction(type, cle, valeur, detail) {
   })
     .then(function(r) { return r.json(); })
     .then(function(rep) {
-      if (!rep || rep.ok !== true)
-        pushNotif("⚠ Action non enregistrée pour l" + String.fromCharCode(8217) + "équipe (" + ((rep && rep.erreur) || "persistance indisponible") + ") — visible seulement sur cet appareil.");
+      if (!rep || rep.ok !== true) {
+        var err = String((rep && rep.erreur) || "");
+        /* V183 : jeton mort/expiré EN COURS DE SESSION (onglet ouvert > 12 h) :
+           on ne laisse plus croire que c'est enregistré — on vide la session et
+           on renvoie immédiatement à la page de connexion. */
+        if (/jeton/i.test(err) || /secret/i.test(err)) {
+          try { localStorage.removeItem("umob_session"); } catch (e) {}
+          majBadgeAuth();
+          afficherPorte();
+          return;
+        }
+        pushNotif("⚠ Action non enregistrée pour l" + String.fromCharCode(8217) + "équipe (" + (err || "persistance indisponible") + ") — visible seulement sur cet appareil.");
+      }
     })
     .catch(function() {
       pushNotif("⚠ Action non enregistrée pour l" + String.fromCharCode(8217) + "équipe (réseau) — visible seulement sur cet appareil.");
@@ -7486,7 +7495,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V182 · Koenig · avertissement hors session';
+var VER_FRONT = 'V183 · Koenig · porte auto si session morte';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
