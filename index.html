@@ -93,6 +93,9 @@
   #fsec-cycles.repli-de .sous-de { display: none; }
   .fleche { cursor: pointer; font-size: 10px; color: var(--grey); padding: 0 2px; user-select: none; }
   .fleche:hover { color: var(--lime); }
+  /* V180 : aperçu flottant du dernier message */
+  .apercu-msg { position: fixed; z-index: 9998; max-width: 360px; background: #16202c; color: #eef2f7; font-size: 12px; line-height: 1.45; padding: 10px 12px; border-radius: 10px; box-shadow: 0 10px 30px rgba(5,15,30,.4); pointer-events: none; white-space: pre-wrap; word-break: break-word; border: 1px solid rgba(159,214,255,.25); }
+  .apercu-msg .ap-t { font-weight: 700; font-size: 11px; color: #9fd6ff; margin-bottom: 5px; }
   .f-sec.reduit h3 { margin-bottom: 4px; }
   .wa::before { content: "💬"; } .mail::before { content: "✉️"; }
 
@@ -4820,11 +4823,46 @@ function extraitAff(c) {
   if (mm) { var mo = MODELES_WA.filter(function(x){ return x.nom === mm[1]; })[0]; if (mo) t = "🗨 " + mo.txt; }
   return t;
 }
+/* ===== V180 : aperçu flottant du dernier message au survol d'une conversation ===== */
+function dernierMsgConv(c) {
+  var f = c.fil || [];
+  for (var i = f.length - 1; i >= 0; i--) { if (f[i] && f[i].txt) return f[i]; }
+  return null;
+}
+function apercuConv(c, ev) {
+  fermerApercu();
+  var m = dernierMsgConv(c);
+  var t = document.createElement("div");
+  t.id = "apercu-msg";
+  t.className = "apercu-msg";
+  if (m) {
+    t.innerHTML = '<div class="ap-t">Dernier message — ' + escTxt(auteurMsg(m)) + ' · ' + escTxt(m.t) + '</div>' + escTxt(String(m.txt).slice(0, 400));
+  } else {
+    t.innerHTML = '<div class="ap-t">' + escTxt(nomAff(c)) + '</div>' + escTxt(extraitAff(c).slice(0, 400) || "(aucun message)");
+  }
+  document.body.appendChild(t);
+  deplacerApercu(ev);
+}
+function deplacerApercu(ev) {
+  var t = document.getElementById("apercu-msg");
+  if (!t) return;
+  var x = (ev.clientX || 0) + 14, y = (ev.clientY || 0) + 16;
+  var r = t.getBoundingClientRect();
+  if (x + r.width > (window.innerWidth || 1200) - 8) x = (window.innerWidth || 1200) - r.width - 8;
+  if (y + r.height > (window.innerHeight || 800) - 8) y = (window.innerHeight || 800) - r.height - 8;
+  t.style.left = x + "px";
+  t.style.top = y + "px";
+}
+function fermerApercu() { var t = document.getElementById("apercu-msg"); if (t) t.parentNode.removeChild(t); }
 function dessinerConv(c, conteneur) {
   var el = conteneur || document.getElementById("convs");
   var d = document.createElement("div");
   var actif = (c.id===SELID) || (SELSENT && c.entreprise===SELSENT);
   d.className = "conv" + (actif ? " on" : "");
+  /* V180 : aperçu du dernier message au survol, sans cliquer */
+  d.onmouseenter = function(ev){ apercuConv(c, ev); };
+  d.onmousemove = function(ev){ deplacerApercu(ev); };
+  d.onmouseleave = fermerApercu;
   d.innerHTML = convAvatarHtml(nomAff(c), c.canal) +
     '<div class="conv-c">' +
     '<div class="conv-l1"><div class="nom">'+nomAff(c)+'</div><div class="heure" title="Heure du dernier message">'+heureDernierMsg(c)+(c.lu ? "" : ' <span class="badge-new" title="1 nouveau message non lu">💬 1</span>')+'</div></div>' +
@@ -7440,7 +7478,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V179 · Koenig · maintenance proposée';
+var VER_FRONT = 'V180 · Koenig · aperçu survol';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
