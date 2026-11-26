@@ -1091,8 +1091,8 @@
       <div class="chip" data-fx="Annulée sans réponse" onclick="filtre('cycle','Annulée sans réponse',this)"><span class="cy annulee">Annulée sans réponse</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Annulée par le client" onclick="filtre('cycle','Annulée par le client',this)"><span class="cy annulee">Annulée par le client</span> <span class="n">0</span></div>
       <div class="chip" data-fx="DE Commerciales" onclick="filtre('cycle','DE Commerciales',this)"><span class="cy qualifier">DE Commerciales</span> <span class="fleche" id="fleche-de" title="Cacher/afficher les sous-cycles" onclick="event.stopPropagation(); basculeSousCycles('de',this)">▾</span> <span class="n">0</span></div>
-      <div class="chip sous-de" data-fx="Auto-entrepreneur" onclick="filtre('cycle','Auto-entrepreneur',this)" style="padding-left:30px"><span class="cy qualifier">└ Auto-entrepreneur</span> <span class="n">0</span></div>
       <div class="chip sous-de" data-fx="DE Commerciales en cours" onclick="filtre('cycle','DE Commerciales en cours',this)" style="padding-left:30px"><span class="cy encours">└ En cours</span> <span class="n">0</span></div>
+      <div class="chip sous-de" data-fx="Auto-entrepreneur" onclick="filtre('cycle','Auto-entrepreneur',this)" style="padding-left:30px"><span class="cy qualifier">└ Auto-entrepreneur</span> <span class="n">0</span></div>
       <div class="chip sous-de" data-fx="DE Commerciales traitées" onclick="filtre('cycle','DE Commerciales traitées',this)" style="padding-left:30px"><span class="cy traitee">└ Traitées</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Bloquée Impayé" onclick="filtre('cycle','Bloquée Impayé',this)"><span class="cy impaye">Bloquée Impayé</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Attente Paiement ou pré-auto CB" onclick="filtre('cycle','Attente Paiement ou pré-auto CB',this)"><span class="cy attente">Attente Paiement</span> <span class="n">0</span></div>
@@ -2505,7 +2505,7 @@ function creerConvsProspects(parWa) {
     nid++;
     CONVS.push({
       id: nid, nom: p.nom || p.tel, entreprise: ent, canal: "WhatsApp",
-      cycle: cy || "Nouvelle Demande", classe: classeCycle(cy) || "nouvelle", tags: [],
+      cycle: cycleAuto(cy), classe: classeCycle(cycleAuto(cy)) || "nouvelle", tags: [],
       heure: "—", delai: "", lu: fil.length === 0, wa: true,
       extrait: dernier ? String(dernier.txt || "") : "Prospect respond.io — pas encore de message WhatsApp",
       assigne: p.assigne || null,
@@ -2606,7 +2606,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
           var entW = (prU0 && socParEnt(prU0)) ? prU0 : s.ent;
           CONVS.push({
             id: nid, nom: nomConvWa(dernier.nom_profil, v.nom || v.tel), entreprise: entW, canal: "WhatsApp",
-            cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
+            cycle: cycleAuto(cyRio), classe: classeCycle(cycleAuto(cyRio)) || "nouvelle", tags: [], heure: "—", delai: "",
             lu: false, wa: true, extrait: String(dernier.texte || ""),
             assigne: asRio || null,
             contact: { tel: v.tel, plaque: v.plaque, email: emailParTel(v.tel) }, fil: fil, comms: []
@@ -2649,7 +2649,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
         var asRio = assignRioTel(d);                /* C12-ASSIGN : assignation respond.io */
         nid++;
         CONVS.push({
-          cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
+          cycle: cycleAuto(cyRio), classe: classeCycle(cycleAuto(cyRio)) || "nouvelle", tags: [], heure: "—", delai: "",
           id: nid, nom: nomConvWa(dernier.nom_profil, t.nom), entreprise: inconnu ? "" : t.ent, canal: "WhatsApp",
 
 
@@ -3185,7 +3185,7 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
         nid++;
         CONVS.push({
           id: nid, nom: v.nom, entreprise: s ? s.ent : "", canal: "Email",
-          cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [], heure: "—", delai: "",
+          cycle: cycleAuto(cyRio), classe: classeCycle(cycleAuto(cyRio)) || "nouvelle", tags: [], heure: "—", delai: "",
           lu: false, extrait: nettoyerMailTxt(dernier.texte),
           assigne: asRio || null,
           contact: { tel: v.tel, plaque: v.plaque, email: addr }, fil: fil, comms: []
@@ -3320,7 +3320,7 @@ function lancerConvVrai(ent, i) {
   var asRio = assignRioTel(v.tel) || assignRioMel(v.email); /* C12-ASSIGN */
   CONVS.push({
     id: id, nom: v.nom, entreprise: ent, canal: "WhatsApp",
-    cycle: cyRio || "Nouvelle Demande", classe: classeCycle(cyRio) || "nouvelle", tags: [],
+    cycle: cycleAuto(cyRio), classe: classeCycle(cycleAuto(cyRio)) || "nouvelle", tags: [],
     heure: "—", delai: "", lu: true, assigne: asRio || null,
     extrait: "Conversation lancée par l'équipe U'mob (vraie fiche client)",
     contact: { tel: v.tel, plaque: v.plaque, email: v.email || "" }, fil: [], comms: []
@@ -4589,13 +4589,16 @@ function restaurerSousCycles() {
 }
 
 /* ===== « Mes conversations par cycle » : uniquement les convs assignées à MOI ===== */
-var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Attente client","Attente interne","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","Auto-entrepreneur","DE Commerciales en cours","DE Commerciales traitées","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
+var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Attente client","Attente interne","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","DE Commerciales en cours","Auto-entrepreneur","DE Commerciales traitées","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
 var MESCY_ON = null;
 /* V172 · SOUS-CYCLES : arborescence des cycles — un sous-cycle a un parent,
    filtrer sur le parent inclut tous ses enfants. */
 var PARENT_CYCLE = { "Auto-entrepreneur": "DE Commerciales", "DE Commerciales en cours": "DE Commerciales", "DE Commerciales traitées": "DE Commerciales" };
-var ENFANTS_CYCLE = { "DE Commerciales": ["Auto-entrepreneur", "DE Commerciales en cours", "DE Commerciales traitées"] };
+var ENFANTS_CYCLE = { "DE Commerciales": ["DE Commerciales en cours", "Auto-entrepreneur", "DE Commerciales traitées"] };
 function cycleMatch(fx, c) { return fx === c || (ENFANTS_CYCLE[fx] !== undefined && ENFANTS_CYCLE[fx].indexOf(c) >= 0); }   /* V176 : le parent inclut ses sous-cycles */
+/* V177 : toute demande commerciale (cycle « DE Commerciales ») tombe directement
+   dans le sous-dossier « DE Commerciales en cours » à l'arrivée d'un nouveau message. */
+function cycleAuto(cy) { return cy === "DE Commerciales" ? "DE Commerciales en cours" : (cy || "Nouvelle Demande"); }
 var CLASSE_CYCLE = {
   "Nouvelle Demande": "nouvelle", "A qualifier": "qualifier", "A créer dans Praxedo": "praxedo",
   "En cours de réalisation": "encours", "Traitée": "traitee", "Attente client": "attente",
@@ -7429,7 +7432,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V176 · Koenig · 3 sous-cycles';
+var VER_FRONT = 'V177 · Koenig · DE auto en cours';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
