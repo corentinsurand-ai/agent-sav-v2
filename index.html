@@ -2510,7 +2510,7 @@ function creerConvsProspects(parWa) {
     CONVS.push({
       id: nid, nom: p.nom || p.tel, entreprise: ent, canal: "WhatsApp",
       cycle: cycleAuto(cy), classe: classeCycle(cycleAuto(cy)) || "nouvelle", tags: [],
-      heure: "—", delai: "", lu: fil.length === 0, wa: true,
+      heure: "—", delai: "", lu: luInitDe(fil), wa: true,
       extrait: dernier ? String(dernier.txt || "") : "Prospect respond.io — pas encore de message WhatsApp",
       assigne: p.assigne || null,
       contact: { tel: "+" + p.tel, plaque: "", email: p.email || "" }, fil: fil, comms: []
@@ -2611,7 +2611,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
           CONVS.push({
             id: nid, nom: nomConvWa(dernier.nom_profil, v.nom || v.tel), entreprise: entW, canal: "WhatsApp",
             cycle: cycleAuto(cyRio), classe: classeCycle(cycleAuto(cyRio)) || "nouvelle", tags: [], heure: "—", delai: "",
-            lu: false, wa: true, extrait: String(dernier.texte || ""),
+            lu: luInitDe(fil), wa: true, extrait: String(dernier.texte || ""),
             assigne: asRio || null,
             contact: { tel: v.tel, plaque: v.plaque, email: emailParTel(v.tel) }, fil: fil, comms: []
           });
@@ -2657,7 +2657,7 @@ function chargerMessagesWhatsApp(base, secret, cb) {
           id: nid, nom: nomConvWa(dernier.nom_profil, t.nom), entreprise: inconnu ? "" : t.ent, canal: "WhatsApp",
 
 
-          lu: false, wa: true, extrait: String(dernier.texte || ""),
+          lu: luInitDe(fil), wa: true, extrait: String(dernier.texte || ""),
           assigne: asRio || null,
           contact: { tel: "+" + d, plaque: t.plaque, email: emailParTel("+" + d) }, fil: fil, comms: []
         });
@@ -3190,7 +3190,7 @@ function chargerEmails(base, secret, cb) {   /* C15-ACT : cb pour enchaîner le 
         CONVS.push({
           id: nid, nom: v.nom, entreprise: s ? s.ent : "", canal: "Email",
           cycle: cycleAuto(cyRio), classe: classeCycle(cycleAuto(cyRio)) || "nouvelle", tags: [], heure: "—", delai: "",
-          lu: false, extrait: nettoyerMailTxt(dernier.texte),
+          lu: luInitDe(fil), extrait: nettoyerMailTxt(dernier.texte),
           assigne: asRio || null,
           contact: { tel: v.tel, plaque: v.plaque, email: addr }, fil: fil, comms: []
         });
@@ -4600,6 +4600,16 @@ function restaurerSousCycles() {
 }
 
 /* ===== « Mes conversations par cycle » : uniquement les convs assignées à MOI ===== */
+/* V184 : à la CRÉATION d'une conversation, elle naît LUE si le dernier message
+   est un envoi de l'équipe (agent/collab) — sinon l'envoi d'un modèle WA à un
+   nouveau contact créait une conversation non lue (badge 💬) par notre propre
+   message. Un vrai message client la laisse non lue. */
+function luInitDe(fil) {
+  var f = fil || [];
+  if (!f.length) return true;
+  var d = f[f.length - 1];
+  return d && d.qui !== "client";
+}
 var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Maintenance proposée","Attente client","Attente interne","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","DE Commerciales en cours","Auto-entrepreneur","DE Commerciales traitées","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
 var MESCY_ON = null;
 /* V172 · SOUS-CYCLES : arborescence des cycles — un sous-cycle a un parent,
@@ -7495,7 +7505,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V183 · Koenig · porte auto si session morte';
+var VER_FRONT = 'V184 · Koenig · envoi modèle sans non-lu';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
