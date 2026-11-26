@@ -53,7 +53,7 @@
 // ni enseigne) ; 401 secret invalide ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C15-ACT-2';
+var VERSION = 'C15-ACT-3';
 var SCHEMA = 'agent_sav';
 
 var clients = require('../lib/clients.js');
@@ -594,8 +594,18 @@ module.exports = async function handler(req, res) {
         var actionsLues = [];
         var vuChoix = false;
         try {
-          var lignesC = await supabaseGet('choix_equipe',
-            'select=horodatage,cle,type,valeur,detail,auteur&order=horodatage.asc&limit=' + limiteA);
+          // v186 : lecture de choix_equipe SANS PLAFOND — PostgREST limite à
+          // max-rows=1000 par requête, donc pagination par offset jusqu'à
+          // épuisement de la table (comme liste=1). Le parametre limite ne
+          // borne PLUS cette table : les actions ne peuvent plus etre coupees.
+          var lignesC = [];
+          while (true) {
+            var partC = await supabaseGet('choix_equipe',
+              'select=horodatage,cle,type,valeur,detail,auteur&order=horodatage.asc&limit=1000&offset=' + lignesC.length);
+            if (!Array.isArray(partC) || partC.length === 0) break;
+            lignesC = lignesC.concat(partC);
+            if (partC.length < 1000) break;
+          }
           vuChoix = true;
           (lignesC || []).forEach(function(l) {
             actionsLues.push({
