@@ -6,7 +6,7 @@
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>U'mob — Plateforme SAV</title>
+<title>Koenig — Le SAV qui résiste</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
@@ -1026,11 +1026,11 @@
 </head>
 <body>
 
-<div class="proto">🟢 Plateforme SAV U'mob — données réelles · WhatsApp &amp; Email · envois directs · rafraîchissement auto 60 s · <b>Ctrl/⌘+K</b> pour rechercher</div>
+<div class="proto">🟢 Koenig — Le SAV qui résiste — données réelles · WhatsApp &amp; Email · envois directs · rafraîchissement auto 60 s · <b>Ctrl/⌘+K</b> pour rechercher</div>
 
 <header class="topbar">
   <div class="logo" style="display:flex;align-items:center;gap:9px;">
-    <span style="font-weight:800;">U'mob</span>
+    <span style="font-weight:800;">Koenig</span> <span style="font-weight:600;opacity:.85;font-size:12px;">— Le SAV qui résiste</span>
   </div>
   <div class="crumb">Boîte de réception</div>
   <!-- C14-MOBILE : navigation volets sur mobile (masqués sur desktop) -->
@@ -1361,7 +1361,7 @@
 <!-- ===== C6-AUTH : overlay de connexion équipe ===== -->
 <div id="auth-overlay" class="cache" onclick="if(event.target===this)fermerConnexion();">
   <div id="auth-carte">
-    <div id="auth-tete"><h3>👤 Connexion équipe</h3><p>Compte U'mob (agent_sav.utilisateurs) — le jeton reste 12 h.</p></div>
+    <div id="auth-tete"><h3>⚔️ Koenig — Le SAV qui résiste</h3><p>Connexion équipe U'mob (agent_sav.utilisateurs) — le jeton reste 12 h.</p></div>
     <div id="auth-corps">
       <label>Email pro</label>
       <input id="auth-email" type="email" placeholder="prenom.nom@umob.fr" autocomplete="username" />
@@ -7206,7 +7206,7 @@ function afficherPorte() {
   g.innerHTML = '<div style="background:#fff;border-radius:20px;padding:0;max-width:400px;width:calc(100% - 48px);box-shadow:0 30px 80px rgba(0,20,50,.45);overflow:hidden;">'
     + '<div style="background:linear-gradient(135deg,#1273d1 0%,#0e5aa7 55%,#0a3f77 100%);padding:26px 34px;text-align:center;">'
     + '<svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 2px 4px rgba(0,20,50,.35));"><circle cx="5.5" cy="17.5" r="3"/><circle cx="18.5" cy="17.5" r="3"/><path d="M8.5 17.5h7l-1.5-4.5H9.5L8.5 17.5z"/><path d="M11 13L9 7.5h-2.5"/><path d="M12.5 7.5H15l2.5 6"/><path d="M15.5 9.5l2 .5"/></svg>'
-    + '<div style="font-weight:800;font-size:20px;color:#fff;letter-spacing:.3px;margin-top:8px;">Plateforme SAV U&#39;mob</div>'
+    + '<div style="font-weight:800;font-size:20px;color:#fff;letter-spacing:.3px;margin-top:8px;">Koenig — Le SAV qui résiste</div>'
     + '<div style="font-size:12.5px;color:#cfe3f8;margin-top:4px;">Service technique — scooters électriques</div>'
 
     + '</div>'
@@ -7394,7 +7394,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V169';
+var VER_FRONT = 'V171 · Koenig';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
