@@ -1870,7 +1870,10 @@ function ouvrirMenuCycles(ev, id) {
   m.innerHTML = '<div style="padding:6px 10px;font-size:10px;font-weight:700;color:#7A8079;text-transform:uppercase;letter-spacing:.4px;">Changer le cycle</div>' +
     CYCLES_LISTE.filter(function(cy){ return cy !== "tous"; }).map(function(cy){
       var cl = classeCycle(cy) || "traitee";
-      return '<button onclick="changerCycle(' + id + ',\'' + cy.replace(/'/g, "\\'") + '\'); fermerMenuCycles();"><span class="cy ' + cl + '">' + cy + '</span></button>';
+      var sous = PARENT_CYCLE[cy] ? ' style="padding-left:24px"' : '';   /* V172 sous-cycles indentés */
+      var puce = PARENT_CYCLE[cy] ? '└ ' : '';
+      var lbl = (cy === "DE Commerciales traitées") ? "Traitées" : cy;
+      return '<button' + sous + ' onclick="changerCycle(' + id + ',\'' + cy.replace(/'/g, "\\'") + '\'); fermerMenuCycles();"><span class="cy ' + cl + '">' + puce + lbl + '</span></button>';
     }).join("");
   m.style.left = Math.min(ev.clientX, (window.innerWidth || 1200) - 240) + "px";
   m.style.top = Math.min(ev.clientY, (window.innerHeight || 800) - 360) + "px";
@@ -4200,7 +4203,8 @@ function envoyerProposition(idx, canal) {
 }
 function optionsCycle(cur) {
   return CYCLES_LISTE.filter(function(cy){ return cy !== "tous"; }).map(function(cy){
-    return '<option value="' + cy + '"' + (cur === cy ? " selected" : "") + '>' + cy + '</option>';
+    var lbl = PARENT_CYCLE[cy] ? "└ " + ((cy === "DE Commerciales traitées") ? "Traitées" : cy) : cy;  /* V172 */
+    return '<option value="' + cy + '"' + (cur === cy ? " selected" : "") + '>' + lbl + '</option>';
   }).join("");
 }
 function changerCycle(id, val) {
@@ -7402,7 +7406,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V172 · Koenig · sous-cycles';
+var VER_FRONT = 'V173 · Koenig · sous-cycles';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
