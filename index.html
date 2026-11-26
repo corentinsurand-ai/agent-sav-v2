@@ -4606,9 +4606,16 @@ function restaurerSousCycles() {
    message. Un vrai message client la laisse non lue. */
 function luInitDe(fil) {
   var f = fil || [];
-  if (!f.length) return true;
-  var d = f[f.length - 1];
-  return d && d.qui !== "client";
+  if (!f.length) return true;   /* rien à lire → lue */
+  /* V186 : retour du non-lu à la naissance dès qu'un message CLIENT existe.
+     V184 naissait lue dès que le dernier message était sortant — or dans le
+     SAV l'équipe envoie presque toujours le dernier message, donc TOUTES
+     les conversations renaissaient « lues » au rechargement et le badge
+     💬 non-lus se vidait. Désormais : message client ⇒ naît NON LUE, et la
+     vraie lecture (stockage local + actions « lu »/« vu » partagées) est
+     réappliquée ensuite par majLusDepuisStockage / fusionnerFil. */
+  for (var i = 0; i < f.length; i++) if (f[i] && f[i].qui === "client") return false;
+  return true;   /* aucun message client : notre propre envoi (modèle WA vers un nouveau contact) → lue */
 }
 var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Maintenance proposée","Attente client","Attente interne","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","DE Commerciales en cours","Auto-entrepreneur","DE Commerciales traitées","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
 var MESCY_ON = null;
@@ -7505,7 +7512,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V185 · Koenig · actions 5000';
+var VER_FRONT = 'V186 · Koenig · non-lu corrigé';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
@@ -7514,6 +7521,7 @@ renduListe(); renduFil(); renduMesCycles(); initVolets(); majBadgeNouveaux(); ma
 </script>
 </body>
 </html>
+
 
 
 
