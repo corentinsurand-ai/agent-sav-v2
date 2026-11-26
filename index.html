@@ -3380,7 +3380,11 @@ var MODELES_WA = [
   { nom: "suite_demande_sav", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
     txt: "Bonjour, c'est le service technique U'mob. Suite à votre demande SAV, pouvez vous nous la préciser ici." },
   { nom: "reprise_apres_formulaire", categorie: "Utilitaire", langue: "fr", statut: "Actif", variables: false,
-    txt: "Bonjour,\nNous avons bien reçu votre demande SAV via notre formulaire. Seriez-vous disponible pour nous préciser votre besoin ?\nL'équipe technique U'mob" }
+    txt: "Bonjour,\nNous avons bien reçu votre demande SAV via notre formulaire. Seriez-vous disponible pour nous préciser votre besoin ?\nL'équipe technique U'mob" },
+  /* ===== 26/11/2026 : nouveau modèle créé sur Meta (WABA U'MOB 2248957382341565,
+     ID 182572795362357, statut Actif) — ajouté à la plateforme. ===== */
+  { nom: "proposition_renouvellement", categorie: "Marketing", langue: "fr", statut: "Actif", variables: false,
+    txt: "Bonjour, votre flotte de scooters U'mob peut être renouvelée ! Souhaitez-vous être rappelé(e) pour en discuter ?" }
 ];
 /* ===== C7-PROP-1 : proposition de maintenance automatique ================
    ⚠ MODÈLE WHATSAPP APPROUVÉ OBLIGATOIRE : un message proactif (hors fenêtre
@@ -7390,7 +7394,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V168';
+var VER_FRONT = 'V169';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
