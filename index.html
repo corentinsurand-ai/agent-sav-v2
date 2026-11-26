@@ -4594,7 +4594,7 @@ var MESCY_ON = null;
    filtrer sur le parent inclut tous ses enfants. */
 var PARENT_CYCLE = { "Auto-entrepreneur": "DE Commerciales", "DE Commerciales traitées": "DE Commerciales" };
 var ENFANTS_CYCLE = { "DE Commerciales": ["Auto-entrepreneur", "DE Commerciales traitées"] };
-function cycleMatch(fx, c) { return fx === c || (ENFANTS_CYCLE[fx] !== undefined && ENFANTS_CYCLE[fx].indexOf(c) >= 0); }
+function cycleMatch(fx, c) { return fx === c; }   /* V175 : un parent n'inclut PAS ses sous-cycles */
 var CLASSE_CYCLE = {
   "Nouvelle Demande": "nouvelle", "A qualifier": "qualifier", "A créer dans Praxedo": "praxedo",
   "En cours de réalisation": "encours", "Traitée": "traitee", "Attente client": "attente",
@@ -7428,7 +7428,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V174 · Koenig · sous-cycles repliables';
+var VER_FRONT = 'V175 · Koenig · parent sans sous-cycles';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
