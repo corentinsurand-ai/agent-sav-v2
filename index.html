@@ -1092,6 +1092,7 @@
       <div class="chip" data-fx="Annulée par le client" onclick="filtre('cycle','Annulée par le client',this)"><span class="cy annulee">Annulée par le client</span> <span class="n">0</span></div>
       <div class="chip" data-fx="DE Commerciales" onclick="filtre('cycle','DE Commerciales',this)"><span class="cy qualifier">DE Commerciales</span> <span class="fleche" id="fleche-de" title="Cacher/afficher les sous-cycles" onclick="event.stopPropagation(); basculeSousCycles('de',this)">▾</span> <span class="n">0</span></div>
       <div class="chip sous-de" data-fx="Auto-entrepreneur" onclick="filtre('cycle','Auto-entrepreneur',this)" style="padding-left:30px"><span class="cy qualifier">└ Auto-entrepreneur</span> <span class="n">0</span></div>
+      <div class="chip sous-de" data-fx="DE Commerciales en cours" onclick="filtre('cycle','DE Commerciales en cours',this)" style="padding-left:30px"><span class="cy encours">└ En cours</span> <span class="n">0</span></div>
       <div class="chip sous-de" data-fx="DE Commerciales traitées" onclick="filtre('cycle','DE Commerciales traitées',this)" style="padding-left:30px"><span class="cy traitee">└ Traitées</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Bloquée Impayé" onclick="filtre('cycle','Bloquée Impayé',this)"><span class="cy impaye">Bloquée Impayé</span> <span class="n">0</span></div>
       <div class="chip" data-fx="Attente Paiement ou pré-auto CB" onclick="filtre('cycle','Attente Paiement ou pré-auto CB',this)"><span class="cy attente">Attente Paiement</span> <span class="n">0</span></div>
@@ -1876,7 +1877,7 @@ function ouvrirMenuCycles(ev, id) {
       var cl = classeCycle(cy) || "traitee";
       var sous = PARENT_CYCLE[cy] ? ' style="padding-left:24px"' : '';   /* V172 sous-cycles indentés */
       var puce = PARENT_CYCLE[cy] ? '└ ' : '';
-      var lbl = (cy === "DE Commerciales traitées") ? "Traitées" : cy;
+      var lbl = (cy === "DE Commerciales traitées") ? "Traitées" : (cy === "DE Commerciales en cours" ? "En cours" : cy);
       return '<button' + sous + ' onclick="changerCycle(' + id + ',\'' + cy.replace(/'/g, "\\'") + '\'); fermerMenuCycles();"><span class="cy ' + cl + '">' + puce + lbl + '</span></button>';
     }).join("");
   m.style.left = Math.min(ev.clientX, (window.innerWidth || 1200) - 240) + "px";
@@ -4207,7 +4208,7 @@ function envoyerProposition(idx, canal) {
 }
 function optionsCycle(cur) {
   return CYCLES_LISTE.filter(function(cy){ return cy !== "tous"; }).map(function(cy){
-    var lbl = PARENT_CYCLE[cy] ? "└ " + ((cy === "DE Commerciales traitées") ? "Traitées" : cy) : cy;  /* V172 */
+    var lbl = PARENT_CYCLE[cy] ? "└ " + ((cy === "DE Commerciales traitées") ? "Traitées" : (cy === "DE Commerciales en cours" ? "En cours" : cy)) : cy;  /* V176 */
     return '<option value="' + cy + '"' + (cur === cy ? " selected" : "") + '>' + lbl + '</option>';
   }).join("");
 }
@@ -4588,19 +4589,19 @@ function restaurerSousCycles() {
 }
 
 /* ===== « Mes conversations par cycle » : uniquement les convs assignées à MOI ===== */
-var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Attente client","Attente interne","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","Auto-entrepreneur","DE Commerciales traitées","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
+var CYCLES_LISTE = ["tous","Nouvelle Demande","A qualifier","A créer dans Praxedo","En cours de réalisation","Attente client","Attente interne","Traitée","Annulée sans réponse","Annulée par le client","DE Commerciales","Auto-entrepreneur","DE Commerciales en cours","DE Commerciales traitées","Bloquée Impayé","Attente Paiement ou pré-auto CB"];
 var MESCY_ON = null;
 /* V172 · SOUS-CYCLES : arborescence des cycles — un sous-cycle a un parent,
    filtrer sur le parent inclut tous ses enfants. */
-var PARENT_CYCLE = { "Auto-entrepreneur": "DE Commerciales", "DE Commerciales traitées": "DE Commerciales" };
-var ENFANTS_CYCLE = { "DE Commerciales": ["Auto-entrepreneur", "DE Commerciales traitées"] };
-function cycleMatch(fx, c) { return fx === c; }   /* V175 : un parent n'inclut PAS ses sous-cycles */
+var PARENT_CYCLE = { "Auto-entrepreneur": "DE Commerciales", "DE Commerciales en cours": "DE Commerciales", "DE Commerciales traitées": "DE Commerciales" };
+var ENFANTS_CYCLE = { "DE Commerciales": ["Auto-entrepreneur", "DE Commerciales en cours", "DE Commerciales traitées"] };
+function cycleMatch(fx, c) { return fx === c || (ENFANTS_CYCLE[fx] !== undefined && ENFANTS_CYCLE[fx].indexOf(c) >= 0); }   /* V176 : le parent inclut ses sous-cycles */
 var CLASSE_CYCLE = {
   "Nouvelle Demande": "nouvelle", "A qualifier": "qualifier", "A créer dans Praxedo": "praxedo",
   "En cours de réalisation": "encours", "Traitée": "traitee", "Attente client": "attente",
   "Attente interne": "attente",
   "Annulée sans réponse": "annulee", "Annulée par le client": "annulee",
-  "DE Commerciales": "qualifier", "Auto-entrepreneur": "qualifier", "DE Commerciales traitées": "traitee", "Bloquée Impayé": "impaye", "Attente Paiement ou pré-auto CB": "attente"
+  "DE Commerciales": "qualifier", "Auto-entrepreneur": "qualifier", "DE Commerciales en cours": "encours", "DE Commerciales traitées": "traitee", "Bloquée Impayé": "impaye", "Attente Paiement ou pré-auto CB": "attente"
 };
 function classeCycle(cy) { return CLASSE_CYCLE[cy] || null; }
 function renduMesCycles() {
@@ -7428,7 +7429,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V175 · Koenig · parent sans sous-cycles';
+var VER_FRONT = 'V176 · Koenig · 3 sous-cycles';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
