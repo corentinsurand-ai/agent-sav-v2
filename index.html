@@ -5390,7 +5390,12 @@ function voirConvCarnet(id) {
 
 }
 function lancerConversation() {
-  alert("Brique C2 : l'envoi de messages arrivera derrière un drapeau. En C1, le carnet reste en lecture.");
+  /* V188 : ce bouton restait un stub de démo (alerte « Brique C2 ») depuis
+     la phase C1 — il ouvrait RIEN, donc impossible d'écrire depuis le
+     carnet. Il ouvre désormais la conversation réelle du contact, comme
+     le bouton « Ouvrir la conversation », et referme le carnet. */
+  if (!CARNET_SEL || CARNET_SEL.type !== "contact") { alert("Ouvre d'abord la fiche d'un contact dans le carnet."); return; }
+  voirConvCarnet(CARNET_SEL.id);
 }
 function appelerContact(cid) {
   var c = convParId(cid);
@@ -7503,7 +7508,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V187 · Koenig · non lu personnel';
+var VER_FRONT = 'V188 · Koenig · carnet corrigé';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
