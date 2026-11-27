@@ -2865,8 +2865,9 @@ function marquerNonLecture(c) {
   N[cleConvDe(c)] = Date.now();
   try { localStorage.setItem("umob_nonlus", JSON.stringify(N)); } catch (e) {}
   c.lu = false;
-  /* v155 : rejoué aussi sur les autres postes (action "non_lu" partagée). */
-  persisterAction("non_lu", cleConv(c), new Date().toISOString(), null);
+  /* V187 : le « non lu » est PUREMENT PERSONNEL — plus d'action partagée
+     « non_lu » (le flag d'un collègue ne touchait que la conv visible
+     chez les autres et primait même leurs lectures anciennes). */
 }
 /* ===== C37-TOUT-NON-LU : bouton « 🙈 Tout non lu » =======================
    Pose un horodatage local umob_tout_non_lu : toute lecture (locale umob_lus
@@ -6714,21 +6715,11 @@ function chargerActions(base, jeton, cb, mode) {  /* C18-RT : cb + mode "auto" p
             }
           }
         } else if (typ === "non_lu") {
-          /* v155 : action "non_lu" persistée — elle prime toute lecture
-             antérieure (même partagée) : la conv repasse non lue partout. */
-          var tsNl = h ? new Date(h).getTime() : 0;
-          if (tsNl && (!ix.non_lu_a || ix.non_lu_a < tsNl)) {
-            ix.non_lu_a = tsNl;
-            var cNl = convParCle(cle);
-            if (cNl) {
-              var derNl = null;
-              for (var ciNl = (cNl.fil || []).length - 1; ciNl >= 0; ciNl--) {
-                if (cNl.fil[ciNl] && cNl.fil[ciNl].qui === "client") { derNl = cNl.fil[ciNl]; break; }
-              }
-              var tsDerNl = (derNl && derNl.ts) ? new Date(derNl.ts).getTime() : 0;
-              if (tsNl >= tsDerNl && cNl.lu) { cNl.lu = false; nVu++; }
-            }
-          }
+          /* V187 : le « non lu » est devenu PUREMENT PERSONNEL — l'action
+             partagée « non_lu » n'est plus rejouée : le « non lu » d'un
+             collègue ne force plus la conv en non lu chez les autres.
+             (Les 8 anciennes actions non_lu de l'équipe restent en base
+             mais sont désormais sans effet.) */
         } else if (typ === "notif") {
           /* C25-NOTIF-EQUIPE : notif persistée (@mention / assignation).
              Ne notifie que si je suis le destinataire et que l'action n'a pas
@@ -7512,7 +7503,7 @@ function notifierSysteme(convs) {
    ex. superviseur sur son propre n°) n'est plus écrasé par le contact
    principal de la société accroché au mauvais téléphone, et le nom de ligne
    vient de la colonne « Contact principal » du Sheet. */
-var VER_FRONT = 'V186 · Koenig · non-lu corrigé';
+var VER_FRONT = 'V187 · Koenig · non lu personnel';
 try { var bv = document.getElementById('badge-ver'); if (bv) bv.textContent = VER_FRONT; } catch (e) {}
 majEquipe(); majSaisieC2();
 majBadgeAuth(); majBadgeAuto(); verifierSession();
