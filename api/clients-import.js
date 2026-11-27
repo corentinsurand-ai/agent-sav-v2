@@ -53,7 +53,7 @@
 // ni enseigne) ; 401 secret invalide ; 405 méthode ; 500 config/Supabase.
 // ============================================================================
 
-var VERSION = 'C15-ACT-5';
+var VERSION = 'C15-ACT-6';
 var SCHEMA = 'agent_sav';
 
 var clients = require('../lib/clients.js');
@@ -641,7 +641,8 @@ module.exports = async function handler(req, res) {
         });
         dedup.sort(function(a, b) {
           var ha = String(a.horodatage || ''), hb = String(b.horodatage || '');
-          return ha < hb ? -1 : (ha > hb ? 1 : 0);
+          var cmp = ha < hb ? -1 : (ha > hb ? 1 : 0);
+          return ordreDesc ? -cmp : cmp;   /* v187c : ordre=desc respecte aussi dans la réponse */
         });
         actionsLues = dedup;
         return res.status(200).json({
